@@ -10,4 +10,6 @@ public class BookingUpdateRequest {
     private BookingStatus status;
     @Schema(description = "Lý do hủy (nếu có)", example = "Khách không đến")
     private String cancelReason;
+    @Schema(description = "Số phòng gán cho khách khi Check-in", example = "205")
+    private String roomNumber;
 }

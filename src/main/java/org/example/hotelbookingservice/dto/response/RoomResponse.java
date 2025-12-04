@@ -19,7 +19,6 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class RoomResponse {
     private Integer id;
-    private Integer roomNumber;
     private RoomType type;
     private BigDecimal price;
     private Integer capacity;

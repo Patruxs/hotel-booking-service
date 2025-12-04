@@ -10,6 +10,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -17,10 +18,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-@Configuration
+@Component
 @RequiredArgsConstructor
 @Slf4j// Tự động inject RoleRepository
-public class DataSeeder {
+public class DataSeeder implements CommandLineRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
@@ -32,64 +33,59 @@ public class DataSeeder {
     private final RoomRepository roomRepository;
     private final RoomamenityRepository roomamenityRepository;
 
-    @Bean
-    @Transactional
-    public CommandLineRunner initData() {
-        return args -> {
-            // 1. Kiểm tra và tạo Role CUSTOMER
-            // Dùng findByName để kiểm tra xem role "CUSTOMER" đã có chưa
-            if (roleRepository.findByName("CUSTOMER").isEmpty()) {
-                Role customerRole = new Role();
-                customerRole.setId(1); // Giống như file Role.java của bạn, id không tự tăng
-                customerRole.setName("CUSTOMER");
-                roleRepository.save(customerRole);
-            }
+    @Override
+    @Transactional // Transaction sẽ hoạt động chính xác ở đây
+    public void run(String... args) throws Exception {
+        // 1. Kiểm tra và tạo Role CUSTOMER
+        if (roleRepository.findByName("CUSTOMER").isEmpty()) {
+            Role customerRole = new Role();
+            customerRole.setId(1);
+            customerRole.setName("CUSTOMER");
+            roleRepository.save(customerRole);
+        }
 
-            // 2. Kiểm tra và tạo Role ADMIN
-            // Dùng findByName để kiểm tra xem role "ADMIN" đã có chưa
-            if (roleRepository.findByName("ADMIN").isEmpty()) {
-                Role adminRole = new Role();
-                adminRole.setId(2);
-                adminRole.setName("ADMIN");
-                roleRepository.save(adminRole);
-            }
+        // 2. Kiểm tra và tạo Role ADMIN
+        if (roleRepository.findByName("ADMIN").isEmpty()) {
+            Role adminRole = new Role();
+            adminRole.setId(2);
+            adminRole.setName("ADMIN");
+            roleRepository.save(adminRole);
+        }
 
+        Role customerRole = createRoleIfNotFound("CUSTOMER", 1);
+        Role adminRole = createRoleIfNotFound("ADMIN", 2);
 
-            Role customerRole = createRoleIfNotFound("CUSTOMER", 1);
-            Role adminRole = createRoleIfNotFound("ADMIN", 2);
+        // 2. Create Default Accounts
+        createAccountIfNotFound(
+                "admin@gmail.com",
+                "Admin User",
+                "1234567890",
+                "admin123",
+                adminRole
+        );
 
-            // 2. Create Default Accounts
-            createAccountIfNotFound(
-                    "admin@gmail.com",
-                    "Admin User",
-                    "1234567890",
-                    "admin123",
-                    adminRole
-            );
+        createAccountIfNotFound(
+                "customer@gmail.com",
+                "Customer User",
+                "0987654321",
+                "customer123",
+                customerRole
+        );
 
-            createAccountIfNotFound(
-                    "customer@gmail.com",
-                    "Customer User",
-                    "0987654321",
-                    "customer123",
-                    customerRole
-            );
+        //Create hotel for admin
+        createHotelForAdminIfNotFound("admin@gmail.com");
 
-            //Create hotel for admin
-            createHotelForAdminIfNotFound("admin@gmail.com");
+        List<Amenity> hotelAmenities = createHotelAmenities();
+        List<Amenity> roomAmenities = createRoomAmenities();
 
-            List<Amenity> hotelAmenities = createHotelAmenities();
-            List<Amenity> roomAmenities = createRoomAmenities();
-
-            assignAmenitiesToHotel("Luxury Hotel", hotelAmenities);
-            createRoomAndAssignAmenities("Luxury Hotel", roomAmenities);
-
-
-        };
-
+        assignAmenitiesToHotel("Luxury Hotel", hotelAmenities);
+        createRoomAndAssignAmenities("Luxury Hotel", roomAmenities);
     }
 
+    // --- Các hàm helper giữ nguyên như cũ ---
+
     private List<Amenity> createRoomAmenities() {
+        // ... (Giữ nguyên code của bạn)
         List<Amenity> list = new ArrayList<>();
         String[] names = {"Air Conditioning", "Flat-screen TV", "Minibar", "Balcony", "Private Bathroom", "Hairdryer", "Coffee Machine"};
 
@@ -97,7 +93,7 @@ public class DataSeeder {
             Amenity amenity = amenityRepository.findByName(name).orElseGet(() -> {
                 Amenity newAmenity = new Amenity();
                 newAmenity.setName(name);
-                newAmenity.setType("Room Feature"); // Loại tiện ích phòng
+                newAmenity.setType("Room Feature");
                 return amenityRepository.save(newAmenity);
             });
             list.add(amenity);
@@ -126,20 +122,20 @@ public class DataSeeder {
                 .filter(h -> h.getName().equals(hotelName))
                 .findFirst()
                 .ifPresent(hotel -> {
-                    if (roomRepository.findAvailableRoomsByHotelId(hotel.getId(), LocalDate.now(), LocalDate.now().plusDays(1)).isEmpty()) {
-                        Room room1 = createRoom(hotel, 101, "Deluxe Single Room", RoomType.SINGLE, new BigDecimal("500000"), 1);
+                    // Lỗi xảy ra ở đây: hotel.getRooms() cần transaction để fetch dữ liệu
+                    if (hotel.getRooms().isEmpty()) {
+                        Room room1 = createRoom(hotel, "Deluxe Single Room", RoomType.SINGLE, new BigDecimal("500000"), 1);
                         linkAmenitiesToRoom(room1, amenities);
 
-                        Room room2 = createRoom(hotel, 102, "Premier Double Room", RoomType.DOUBLE, new BigDecimal("800000"), 2);
+                        Room room2 = createRoom(hotel, "Premier Double Room", RoomType.DOUBLE, new BigDecimal("800000"), 2);
                         linkAmenitiesToRoom(room2, amenities);
 
-                        log.info("Created default rooms and assigned amenities for hotel '{}'", hotelName);
+                        log.info("Created default rooms...");
                     }
                 });
     }
 
     private void assignAmenitiesToHotel(String hotelName, List<Amenity> amenities) {
-
         hotelRepository.findAll().stream()
                 .filter(h -> h.getName().equals(hotelName))
                 .findFirst()
@@ -161,24 +157,18 @@ public class DataSeeder {
                 });
     }
 
-    private Room createRoom(Hotel hotel, Integer number, String name, RoomType type, BigDecimal price, Integer capacity) {
-        if (roomRepository.existsByRoomNumberAndHotelId(number, hotel.getId())) {
-            return null;
-        }
-
+    private Room createRoom(Hotel hotel, String name, RoomType type, BigDecimal price, Integer capacity) {
         Room room = new Room();
-        room.setRoomNumber(number);
         room.setName(name);
         room.setType(type);
         room.setPrice(price);
         room.setCapacity(capacity);
-        room.setAmount(1);
+        room.setAmount(5);
         room.setDescription("A beautiful room with city view.");
         room.setHotel(hotel);
 
         return roomRepository.save(room);
     }
-
 
     private void linkAmenitiesToRoom(Room room, List<Amenity> amenities) {
         if (room == null) return;
@@ -199,22 +189,19 @@ public class DataSeeder {
     }
 
     private void createAccountIfNotFound(String email, String fullName, String phone, String password, Role role) {
-        // Check if user already exists
         if (userRepository.findByEmail(email).isEmpty()) {
-            // 1. Create and save the User
             User user = User.builder()
                     .fullName(fullName)
                     .email(email)
                     .password(passwordEncoder.encode(password))
                     .phone(phone)
-                    .dob(LocalDate.now().minusYears(25)) // Example DOB
+                    .dob(LocalDate.now().minusYears(25))
                     .activate(Boolean.TRUE)
-                    .userRoles(new LinkedHashSet<>()) // Initialize the set
+                    .userRoles(new LinkedHashSet<>())
                     .build();
 
             User savedUser = userRepository.save(user);
 
-            // 2. Create the User-Role link
             UserroleId userroleId = new UserroleId();
             userroleId.setUserId(savedUser.getId());
             userroleId.setRoleId(role.getId());
@@ -239,7 +226,6 @@ public class DataSeeder {
             return roleRepository.save(newRole);
         });
     }
-
 
     private void createHotelForAdminIfNotFound(String adminEmail) {
         userRepository.findByEmail(adminEmail).ifPresent(admin -> {

@@ -16,9 +16,6 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoomUpdateRequest {
-    @NotNull(message = "Room number is required")
-    @Min(value = 1, message = "Room number must be greater than 0")
-    private Integer roomNumber;
 
     @NotNull(message = "Room type is required")
     private RoomType type;

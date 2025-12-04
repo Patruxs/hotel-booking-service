@@ -53,6 +53,5 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
             @Param("checkOutDate") LocalDate checkOutDate
     );
 
-    boolean existsByRoomNumberAndHotelId(Integer roomNumber, Integer hotelId);
 
 }

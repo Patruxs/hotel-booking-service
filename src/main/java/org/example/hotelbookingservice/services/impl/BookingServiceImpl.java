@@ -141,6 +141,18 @@ public class BookingServiceImpl implements IBookingService {
             existingBooking.setCancelReason(bookingRequest.getCancelReason());
         }
 
+        // Logic check duplicate room
+        if (bookingRequest.getRoomNumber() != null && !bookingRequest.getRoomNumber().isBlank()) {
+            boolean isOccupied = bookingRepository.isRoomOccupied(
+                    bookingRequest.getRoomNumber(),
+                    bookingId
+            );
+            if (isOccupied) {
+                throw new AppException(ErrorCode.ROOM_NUMBER_OCCUPIED);
+            }
+            existingBooking.setRoomNumber(bookingRequest.getRoomNumber());
+        }
+
         Booking savedBooking = bookingRepository.save(existingBooking);
         return bookingMapper.toBookingResponse(savedBooking);
     }

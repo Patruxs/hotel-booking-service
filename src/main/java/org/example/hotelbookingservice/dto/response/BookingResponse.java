@@ -39,6 +39,8 @@ public class BookingResponse {
     @Schema(description = "Mã tham chiếu đặt phòng (Dùng để tra cứu)", example = "X82L9A")
     private String bookingReference;
 
+    private String roomNumber;
+
     private String customerName;
     private String customerEmail;
     private String customerPhone;

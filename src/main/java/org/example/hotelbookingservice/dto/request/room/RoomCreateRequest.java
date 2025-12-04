@@ -24,10 +24,6 @@ public class RoomCreateRequest {
     @Schema(description = "ID của khách sạn muốn thêm phòng", example = "1")
     private Integer hotelId;
 
-    @NotNull(message = "Room number is required")
-    @Min(value = 1, message = "Room number must be greater than 0")
-    @Schema(description = "Số phòng", example = "101")
-    private Integer roomNumber;
 
     @NotNull(message = "Room type is required")
     @Schema(description = "Loại phòng", example = "SINGLE")

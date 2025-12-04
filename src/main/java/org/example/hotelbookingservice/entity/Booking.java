@@ -43,6 +43,10 @@ public class Booking {
     @Column(name = "customerName", nullable = false)
     private String customerName;
 
+    @Size(max = 10)
+    @Column(name = "room_number")
+    private String roomNumber;
+
     @Size(max = 255)
     @Column(name = "cancelReason")
     private String cancelReason;

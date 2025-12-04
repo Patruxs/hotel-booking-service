@@ -63,11 +63,6 @@ public class RoomServiceImpl implements IRoomService {
                 .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
 
-        if (roomRepository.existsByRoomNumberAndHotelId(
-                roomCreateRequest.getRoomNumber(),
-                roomCreateRequest.getHotelId())) {
-            throw new AppException(ErrorCode.ROOM_ALREADY_EXISTS);
-        }
         //Map DTO to Entity
         Room roomToSave = roomMapper.toRoom(roomCreateRequest);
 

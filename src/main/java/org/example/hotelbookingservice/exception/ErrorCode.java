@@ -43,6 +43,7 @@ public enum ErrorCode {
     HOTEL_ALREADY_EXISTS(10024, "Hotel already exists", HttpStatus.BAD_REQUEST),
     AMENITY_EXISTED(10020, "Amenity already exists", HttpStatus.BAD_REQUEST),
     NOT_FOUND_AMENITY(10025,"Amenity Id not exists", HttpStatus.BAD_REQUEST),
+    ROOM_NUMBER_OCCUPIED(10030, "Room number is currently occupied by another guest", HttpStatus.CONFLICT),
 
     // --- Lỗi Booking / Review ---
     INVALID_BOOKING_STATE_AND_DATE_EXCEPTION(1009, "Invalid booking dates or state", HttpStatus.BAD_REQUEST),

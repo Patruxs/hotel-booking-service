@@ -15,17 +15,12 @@ import java.util.Set;
 @Getter
 @Setter
 @Entity
-@Table(name = "room", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"roomNumber", "hotel_id"})
-})
+@Table(name = "room")
 public class Room {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "Id", nullable = false)
     private Integer id;
-
-    @Min(value = 1, message = "Room Number must be at least 1")
-    private Integer roomNumber;
 
     @Size(max = 255)
     @NotNull
