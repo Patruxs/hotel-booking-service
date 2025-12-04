@@ -20,41 +20,44 @@ Copy nội dung mẫu sau vào file đó và sửa lại thông tin của bạn:
 
 ```yaml
 spring:
-  config:
-    activate:
-      on-profile: local
-  datasource:
-    url: jdbc:mysql://localhost:3306/hotel_booking_service
-    username: root          # <--- Sửa user DB của bạn
-    password: your_password # <--- Sửa pass DB của bạn
-jpa:
-    hibernate:
-      ddl-auto: update      
-    show-sql: true          
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:mysql://localhost:3306/YourDatabase
+    username: root
+    password: ${DB_PASSWORD} 
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+---
 
 springdoc:
-  api-docs:
-    path: /v3/api-docs
-    enabled: true
-  swagger-ui:
-    path: /swagger-ui.html
-    tags-sorter: alpha
-    operations-sorter: method
-    try-it-out-enabled: true
-    enabled: true
-  packages-to-scan: org.example.hotelbookingservice.controller
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    try-it-out-enabled: true
+    enabled: true
+  packages-to-scan: org.example.hotelbookingservice.controller
+
+---
 
 jwt:
-  secretKey: dien_key_jwt_bat_ky_vao_day
+  secretKey: ${JWT_SECRET_KEY} 
 
 cloudinary:
-  cloud-name: dien_cloud_name_cua_ban
-  api-key: dien_api_key_cua_ban
-  api-secret: dien_api_secret_cua_ban
+  cloud-name: ${CLOUDINARY_CLOUD_NAME} 
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 ```
 
 ### 4. Chạy lệnh
