@@ -28,6 +28,18 @@ spring:
     username: root          # <--- Sửa user DB của bạn
     password: your_password # <--- Sửa pass DB của bạn
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    try-it-out-enabled: true
+    enabled: true
+  packages-to-scan: org.example.hotelbookingservice.controller
+
 jwt:
   secretKey: dien_key_jwt_bat_ky_vao_day
 
