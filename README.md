@@ -18,6 +18,7 @@ Dự án không có sẵn file cấu hình local. Bạn cần tự tạo file:
 
 Copy nội dung mẫu sau vào file đó và sửa lại thông tin của bạn:
 
+```yaml
 spring:
   config:
     activate:
@@ -34,6 +35,7 @@ cloudinary:
   cloud-name: dien_cloud_name_cua_ban
   api-key: dien_api_key_cua_ban
   api-secret: dien_api_secret_cua_ban
+```
 
 ### 4. Chạy lệnh
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
