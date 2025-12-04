@@ -27,6 +27,14 @@ spring:
     url: jdbc:mysql://localhost:3306/hotel_booking_service
     username: root          # <--- Sửa user DB của bạn
     password: your_password # <--- Sửa pass DB của bạn
+jpa:
+    hibernate:
+      ddl-auto: update      
+    show-sql: true          
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
 
 springdoc:
   api-docs:
