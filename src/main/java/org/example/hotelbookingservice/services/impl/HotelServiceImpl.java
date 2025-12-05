@@ -46,6 +46,11 @@ public class HotelServiceImpl implements IHotelService {
     @Override
     @Transactional
     public HotelResponse addHotel(HotelCreateRequest hotelCreateRequest, List<MultipartFile> imageFile) {
+
+        if (imageFile == null || imageFile.isEmpty()) {
+            throw new AppException(ErrorCode.IMAGE_REQUIRED);
+        }
+
         User currentUser = userService.getCurrentLoggedInUser();
 
         boolean isAdmin = currentUser.getUserRoles().stream()
