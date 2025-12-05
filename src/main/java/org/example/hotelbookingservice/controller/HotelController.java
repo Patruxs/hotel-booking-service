@@ -14,6 +14,7 @@ import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.hotel.HotelCreateRequest;
 import org.example.hotelbookingservice.dto.request.hotel.HotelUpdateRequest;
 import org.example.hotelbookingservice.dto.response.HotelResponse;
+import org.example.hotelbookingservice.dto.response.RoomResponse;
 import org.example.hotelbookingservice.services.IHotelService;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -147,6 +148,20 @@ public class HotelController  {
                 .status(200)
                 .message("Search results")
                 .data(hotelService.searchHotels(location, checkInDate, checkOutDate, capacity, roomQuantity))
+                .build();
+    }
+
+    @Operation(summary = "Lấy danh sách phòng theo Hotel ID", description = "Xem tất cả các phòng thuộc một khách sạn cụ thể.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content)
+    })
+    @GetMapping("/{hotelId}/rooms")
+    public ApiResponse<List<RoomResponse>> getRoomsByHotelId(@PathVariable Integer hotelId) {
+        return ApiResponse.<List<RoomResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(hotelService.getRoomsByHotelId(hotelId))
                 .build();
     }
 

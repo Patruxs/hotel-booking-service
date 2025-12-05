@@ -3,6 +3,7 @@ package org.example.hotelbookingservice.services;
 import org.example.hotelbookingservice.dto.request.hotel.HotelCreateRequest;
 import org.example.hotelbookingservice.dto.request.hotel.HotelUpdateRequest;
 import org.example.hotelbookingservice.dto.response.HotelResponse;
+import org.example.hotelbookingservice.dto.response.RoomResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -27,5 +28,7 @@ public interface IHotelService {
     List<HotelResponse> getMyHotels();
 
     List<HotelResponse> searchHotels(String location, LocalDate checkInDate, LocalDate checkOutDate, Integer capacity,Integer roomQuantity);
+
+    List<RoomResponse> getRoomsByHotelId(Integer hotelId);
 }
 

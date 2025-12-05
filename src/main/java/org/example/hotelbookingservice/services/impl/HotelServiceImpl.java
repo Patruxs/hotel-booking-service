@@ -8,14 +8,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.hotelbookingservice.dto.request.hotel.HotelCreateRequest;
 import org.example.hotelbookingservice.dto.request.hotel.HotelUpdateRequest;
 import org.example.hotelbookingservice.dto.response.HotelResponse;
-import org.example.hotelbookingservice.entity.Hotel;
-import org.example.hotelbookingservice.entity.Hotelamenity;
-import org.example.hotelbookingservice.entity.Image;
-import org.example.hotelbookingservice.entity.User;
+import org.example.hotelbookingservice.dto.response.RoomResponse;
+import org.example.hotelbookingservice.entity.*;
 import org.example.hotelbookingservice.exception.AppException;
 import org.example.hotelbookingservice.exception.ErrorCode;
 import org.example.hotelbookingservice.exception.InvalidBookingStateAndDateException;
 import org.example.hotelbookingservice.mapper.HotelMapper;
+import org.example.hotelbookingservice.mapper.RoomMapper;
 import org.example.hotelbookingservice.repository.HotelRepository;
 import org.example.hotelbookingservice.repository.ImageRepository;
 import org.example.hotelbookingservice.services.IHotelAmenityService;
@@ -42,6 +41,8 @@ public class HotelServiceImpl implements IHotelService {
     private final HotelMapper hotelMapper;
     private final Cloudinary cloudinary;
     private final IHotelAmenityService hotelAmenityService;
+    private final RoomMapper roomMapper;
+
 
     @Override
     @Transactional
@@ -193,6 +194,17 @@ public class HotelServiceImpl implements IHotelService {
         );
 
         return hotelMapper.toHotelResponseList(availableHotels);
+    }
+
+    @Override
+    @Transactional
+    public List<RoomResponse> getRoomsByHotelId(Integer hotelId) {
+        Hotel hotel = hotelRepository.findById(hotelId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+
+        List<Room> roomList = new ArrayList<>(hotel.getRooms());
+
+        return roomMapper.toRoomResponseList(roomList);
     }
 
     private String saveImageToCloud(MultipartFile imageFile) {
