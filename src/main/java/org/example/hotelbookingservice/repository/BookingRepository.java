@@ -1,6 +1,7 @@
 package org.example.hotelbookingservice.repository;
 
 import org.example.hotelbookingservice.entity.Booking;
+import org.example.hotelbookingservice.enums.BookingStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -63,4 +64,21 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     """)
     boolean isRoomOccupied(@Param("roomNumber") String roomNumber,
                            @Param("currentBookingId") Integer currentBookingId);
+
+    @Query("""
+        SELECT h.id, h.name, COUNT(b), SUM(b.totalPrice)
+        FROM Booking b
+        JOIN b.bookingrooms br
+        JOIN br.room r
+        JOIN r.hotel h
+        WHERE b.status = 'CHECKED_OUT'
+        AND b.checkoutDate BETWEEN :startDate AND :endDate
+        GROUP BY h.id, h.name
+    """)
+    List<Object[]> getRevenueStatisticsByDateRange(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate
+    );
+
+    List<Booking> findByStatusAndCheckoutDateBetween(BookingStatus status, LocalDate startDate, LocalDate endDate);
 }
