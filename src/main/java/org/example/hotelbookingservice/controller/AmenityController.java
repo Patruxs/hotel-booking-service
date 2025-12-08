@@ -11,7 +11,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.amenity.AmenityRequest;
+import org.example.hotelbookingservice.dto.request.amenity.HotelAmenityRemoveRequest;
+import org.example.hotelbookingservice.dto.request.amenity.RoomAmenityRemoveRequest;
 import org.example.hotelbookingservice.dto.response.AmenityResponse;
+import org.example.hotelbookingservice.dto.response.RoomResponse;
 import org.example.hotelbookingservice.services.IAmenityService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -26,13 +29,28 @@ import java.util.List;
 public class AmenityController {
     IAmenityService amenityService;
 
-    @Operation(summary = "Lấy danh sách tất cả tiện ích", description = "API Public. Trả về danh sách toàn bộ tiện ích có trong hệ thống.")
-    @GetMapping("/all")
-    public ApiResponse<List<AmenityResponse>> getAllAmenities() {
+    @Operation(summary = "Lấy tiện ích cấp Khách sạn theo Hotel ID (Admin)")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/hotel/{hotelId}/hotel-amenities")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse<List<AmenityResponse>> getHotelAmenities(@PathVariable Integer hotelId) {
         return ApiResponse.<List<AmenityResponse>>builder()
                 .status(200)
                 .message("Success")
-                .data(amenityService.getAllAmenities())
+                .data(amenityService.getHotelAmenitiesByHotelId(hotelId))
+                .build();
+    }
+
+
+    @Operation(summary = "Lấy tiện ích cấp Phòng theo Hotel ID (Admin)")
+    @SecurityRequirement(name = "bearerAuth")
+    @GetMapping("/hotel/{hotelId}/room-amenities")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse<List<RoomResponse>> getRoomAmenities(@PathVariable Integer hotelId) {
+        return ApiResponse.<List<RoomResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(amenityService.getRoomAmenitiesByHotelId(hotelId))
                 .build();
     }
 
@@ -101,6 +119,40 @@ public class AmenityController {
         return ApiResponse.<Void>builder()
                 .status(200)
                 .message("Amenity deleted successfully")
+                .build();
+    }
+
+    @Operation(summary = "Xóa danh sách tiện ích khỏi Khách sạn (ADMIN)")
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/hotel/{hotelId}/remove")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse<Void> removeHotelAmenities(
+            @PathVariable Integer hotelId,
+            @RequestBody @Valid HotelAmenityRemoveRequest request
+    ) {
+        amenityService.removeAmenitiesFromHotel(hotelId, request.getAmenityIds());
+
+        return ApiResponse.<Void>builder()
+                .status(200)
+                .message("Amenities removed from hotel successfully")
+                .build();
+    }
+
+    @Operation(summary = "Xóa danh sách tiện ích khỏi Phòng (ADMIN)",
+            description = "Yêu cầu cung cấp chính xác Hotel ID và Room ID để đảm bảo tính toàn vẹn dữ liệu.")
+    @SecurityRequirement(name = "bearerAuth")
+    @DeleteMapping("/hotel/{hotelId}/room/{roomId}/remove")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse<Void> removeRoomAmenities(
+            @PathVariable Integer hotelId,
+            @PathVariable Integer roomId,
+            @RequestBody @Valid RoomAmenityRemoveRequest request
+    ) {
+        amenityService.removeAmenitiesFromRoom(hotelId, roomId, request.getAmenityIds());
+
+        return ApiResponse.<Void>builder()
+                .status(200)
+                .message("Amenities removed from room successfully")
                 .build();
     }
 

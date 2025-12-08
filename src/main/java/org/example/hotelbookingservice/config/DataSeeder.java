@@ -34,9 +34,9 @@ public class DataSeeder implements CommandLineRunner {
     private final RoomamenityRepository roomamenityRepository;
 
     @Override
-    @Transactional // Transaction sẽ hoạt động chính xác ở đây
+    @Transactional
     public void run(String... args) throws Exception {
-        // 1. Kiểm tra và tạo Role CUSTOMER
+
         if (roleRepository.findByName("CUSTOMER").isEmpty()) {
             Role customerRole = new Role();
             customerRole.setId(1);
@@ -44,7 +44,7 @@ public class DataSeeder implements CommandLineRunner {
             roleRepository.save(customerRole);
         }
 
-        // 2. Kiểm tra và tạo Role ADMIN
+
         if (roleRepository.findByName("ADMIN").isEmpty()) {
             Role adminRole = new Role();
             adminRole.setId(2);
@@ -82,10 +82,8 @@ public class DataSeeder implements CommandLineRunner {
         createRoomAndAssignAmenities("Luxury Hotel", roomAmenities);
     }
 
-    // --- Các hàm helper giữ nguyên như cũ ---
 
     private List<Amenity> createRoomAmenities() {
-        // ... (Giữ nguyên code của bạn)
         List<Amenity> list = new ArrayList<>();
         String[] names = {"Air Conditioning", "Flat-screen TV", "Minibar", "Balcony", "Private Bathroom", "Hairdryer", "Coffee Machine"};
 

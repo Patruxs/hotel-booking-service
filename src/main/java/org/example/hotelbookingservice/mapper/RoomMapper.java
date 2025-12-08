@@ -24,6 +24,8 @@ public abstract class RoomMapper {
     @Mapping(target = "amenities", source = "roomAmenities", qualifiedByName = "mapAmenities")
     public abstract RoomResponse toRoomResponse(Room room);
 
+    public abstract List<RoomResponse> toRoomResponseList(List<Room> rooms);
+
 
     //Request
     @Mapping(target = "hotel", ignore = true)
@@ -41,8 +43,15 @@ public abstract class RoomMapper {
     public abstract void updateRoomFromRequest(RoomCreateRequest request, @MappingTarget Room room);
 
 
+    @Named("amenityOnly")
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "id", source = "id")
+    @Mapping(target = "name", source = "name")
+    @Mapping(target = "amenities", source = "roomAmenities", qualifiedByName = "mapAmenities")
+    public abstract RoomResponse toRoomAmenityOnly(Room room);
 
-    public abstract List<RoomResponse> toRoomResponseList(List<Room> rooms);
+    @IterableMapping(qualifiedByName = "amenityOnly")
+    public abstract List<RoomResponse> toRoomAmenityOnlyList(List<Room> rooms);
 
 
     // Logic to get list of image paths
@@ -56,17 +65,9 @@ public abstract class RoomMapper {
     @Named("mapAmenities")
     protected List<AmenityResponse> mapAmenities(Set<Roomamenity> roomAmenities) {
         if (roomAmenities == null || roomAmenities.isEmpty()) return null;
-
-        if (roomAmenities == null || roomAmenities.isEmpty()) return null;
-
         return roomAmenities.stream()
-                .map(ra -> {
-                    // Lấy Entity Amenity từ bảng trung gian Roomamenity
-                    // Sau đó dùng amenityMapper để chuyển sang DTO AmenityResponse
-                    return amenityMapper.toAmenityResponse(ra.getAmenity());
-                })
+                .map(ra -> amenityMapper.toAmenityResponse(ra.getAmenity()))
                 .collect(Collectors.toList());
     }
-
 
 }

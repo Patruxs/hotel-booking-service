@@ -54,8 +54,6 @@ public class User {
     @Builder.Default
     private Boolean activate = false;
 
-//    @Enumerated(EnumType.STRING)
-//    private UserRole role; //e.g CUSTOMER, ADMIN
 
     private final LocalDateTime createdAt = LocalDateTime.now();
 
