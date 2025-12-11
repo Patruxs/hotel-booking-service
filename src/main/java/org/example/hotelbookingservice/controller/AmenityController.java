@@ -156,4 +156,22 @@ public class AmenityController {
                 .build();
     }
 
+    @Operation(summary = "Lấy danh sách tiện ích của một phòng cụ thể thuộc khách sạn")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng", content = @Content),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Phòng không thuộc khách sạn này", content = @Content)
+    })
+    @GetMapping("/hotel/{hotelId}/room/{roomId}")
+    public ApiResponse<List<AmenityResponse>> getAmenitiesByRoom(
+            @PathVariable Integer hotelId,
+            @PathVariable Integer roomId
+    ) {
+        return ApiResponse.<List<AmenityResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(amenityService.getAmenitiesByRoomId(hotelId, roomId))
+                .build();
+    }
+
 }

@@ -159,4 +159,24 @@ public class AmenityServiceImpl implements IAmenityService {
 
         roomamenityRepository.deleteAllById(idsToDelete);
     }
+
+    @Override
+    public List<AmenityResponse> getAmenitiesByRoomId(Integer hotelId, Integer roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
+
+        if (!room.getHotel().getId().equals(hotelId)) {
+            throw new AppException(ErrorCode.ROOM_NOT_BELONG_TO_HOTEL);
+        }
+
+        if (room.getRoomAmenities() == null || room.getRoomAmenities().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return room.getRoomAmenities().stream()
+                .map(roomAmenity -> amenityMapper.toAmenityResponse(roomAmenity.getAmenity()))
+                .collect(Collectors.toList());
+    }
+
+
 }

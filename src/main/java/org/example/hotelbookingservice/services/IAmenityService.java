@@ -16,5 +16,6 @@ public interface IAmenityService {
     void deleteAmenity(Integer id);
     void removeAmenitiesFromHotel(Integer hotelId, List<Integer> amenityIds);
     void removeAmenitiesFromRoom(Integer hotelId,Integer roomId, List<Integer> amenityIds);
+    List<AmenityResponse> getAmenitiesByRoomId(Integer hotelId, Integer roomId);
 
 }

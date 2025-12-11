@@ -66,7 +66,8 @@ public class SecurtyFilter {
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.GET,
-                                "/api/v1/amenities/{id}"
+                                "/api/v1/amenities/{id}",
+                                "/api/v1/amenities/hotel/{hotelId}/room/{roomId}"
                         ).permitAll()
 
 
