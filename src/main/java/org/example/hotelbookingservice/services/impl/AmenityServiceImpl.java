@@ -1,5 +1,6 @@
 package org.example.hotelbookingservice.services.impl;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.request.amenity.AmenityRequest;
 import org.example.hotelbookingservice.dto.response.AmenityResponse;
@@ -112,25 +113,46 @@ public class AmenityServiceImpl implements IAmenityService {
     @Override
     public void deleteAmenity(Integer id) {
         if (!amenityRepository.existsById(id)) {
-            throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
+            throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
+        }
+        // Validate: Check if Amenity is currently being used by any hotel.
+        if (hotelamenityRepository.existsByIdAmenityId(id)) {
+            throw new AppException(ErrorCode.AMENITY_IN_USE);
+        }
+        //Validate: Check if the Amenity is currently being used by any Room.
+        if (roomamenityRepository.existsByIdAmenityId(id)) {
+            throw new AppException(ErrorCode.AMENITY_IN_USE);
         }
 
         amenityRepository.deleteById(id);
     }
 
     @Override
+    @Transactional
     public void removeAmenitiesFromHotel(Integer hotelId, List<Integer> amenityIds) {
+        // Validate Hotel & Ownership (This logic is already in the getHotelIfOwnedByCurrentUser helper function)
         Hotel hotel = getHotelIfOwnedByCurrentUser(hotelId);
 
-        //Generate a list of intermediate table IDs to delete
-        List<HotelamenityId> idsToDelete = amenityIds.stream()
-                .map(amenityId -> {
-                    HotelamenityId id = new HotelamenityId();
-                    id.setHotelId(hotel.getId());
-                    id.setAmenityId(amenityId);
-                    return id;
-                })
-                .collect(Collectors.toList());
+        if (amenityIds == null || amenityIds.isEmpty()) return;
+
+        List<HotelamenityId> idsToDelete = new ArrayList<>();
+
+        for (Integer amenityId : amenityIds) {
+            // Validate: Does the Amenity ID exist in the system?
+            if (!amenityRepository.existsById(amenityId)) {
+                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
+            }
+
+            // 3. Validate: Does this amenity actually belong to this Hotel?
+            HotelamenityId id = new HotelamenityId();
+            id.setHotelId(hotel.getId());
+            id.setAmenityId(amenityId);
+
+            if (!hotelamenityRepository.existsById(id)) {
+                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
+            }
+            idsToDelete.add(id);
+        }
 
         hotelamenityRepository.deleteAllById(idsToDelete);
     }
@@ -140,26 +162,35 @@ public class AmenityServiceImpl implements IAmenityService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
-        // Check room belong to hotel
         if (!room.getHotel().getId().equals(hotelId)) {
             throw new AppException(ErrorCode.ROOM_NOT_BELONG_TO_HOTEL);
         }
 
-        //Room belongs to Hotel -> Hotel belongs to User. User must be the one logged in
+        // Validate: Is the current user the owner of this hotel?
         User currentUser = userService.getCurrentLoggedInUser();
         if (!room.getHotel().getUser().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        List<RoomamenityId> idsToDelete = amenityIds.stream()
-                .map(amenityId -> {
-                    RoomamenityId id = new RoomamenityId();
-                    id.setRoomId(room.getId());
-                    id.setAmenityId(amenityId);
-                    return id;
-                })
-                .collect(Collectors.toList());
+        if (amenityIds == null || amenityIds.isEmpty()) return;
 
+        List<RoomamenityId> idsToDelete = new ArrayList<>();
+
+        for (Integer amenityId : amenityIds) {
+            if (!amenityRepository.existsById(amenityId)) {
+                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
+            }
+
+            //Validate: Is this amenity actually present in this room?
+            RoomamenityId id = new RoomamenityId();
+            id.setRoomId(roomId);
+            id.setAmenityId(amenityId);
+
+            if (!roomamenityRepository.existsById(id)) {
+                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
+            }
+            idsToDelete.add(id);
+        }
         roomamenityRepository.deleteAllById(idsToDelete);
     }
 

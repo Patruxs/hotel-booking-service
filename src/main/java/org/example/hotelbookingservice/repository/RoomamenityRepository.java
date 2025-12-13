@@ -12,6 +12,7 @@ import java.util.List;
 public interface RoomamenityRepository extends JpaRepository<Roomamenity, RoomamenityId> {
     List<Roomamenity> findByIdRoomId(Integer roomId);
 
+    boolean existsByIdAmenityId(Integer amenityId);
 
     @Modifying
     @Transactional

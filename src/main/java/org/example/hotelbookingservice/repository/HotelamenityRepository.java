@@ -12,6 +12,8 @@ import java.util.List;
 public interface HotelamenityRepository extends JpaRepository<Hotelamenity, HotelamenityId> {
     List<Hotelamenity> findByIdHotelId(Integer hotelId);
 
+    boolean existsByIdAmenityId(Integer amenityId);
+
     @Modifying
     @Transactional
     @Query("DELETE FROM Hotelamenity ha WHERE ha.id.hotelId = :hotelId")

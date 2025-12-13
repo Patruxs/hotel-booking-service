@@ -42,6 +42,7 @@ public enum ErrorCode {
     ROOM_NOT_BELONG_TO_HOTEL(10023, "Room not belong to hotel", HttpStatus.BAD_REQUEST),
     HOTEL_ALREADY_EXISTS(10024, "Hotel already exists", HttpStatus.BAD_REQUEST),
     AMENITY_EXISTED(10020, "Amenity already exists", HttpStatus.BAD_REQUEST),
+    AMENITY_IN_USE(10031, "Amenity is currently in use by a hotel or room", HttpStatus.BAD_REQUEST),
     NOT_FOUND_AMENITY(10025,"Amenity Id not exists", HttpStatus.BAD_REQUEST),
     ROOM_NUMBER_OCCUPIED(10030, "Room number is currently occupied by another guest", HttpStatus.CONFLICT),
     IMAGE_REQUIRED(10029, "At least one image is required", HttpStatus.BAD_REQUEST),
