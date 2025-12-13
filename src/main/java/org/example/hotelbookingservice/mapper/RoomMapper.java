@@ -45,8 +45,6 @@ public abstract class RoomMapper {
 
     @Named("amenityOnly")
     @BeanMapping(ignoreByDefault = true)
-    @Mapping(target = "id", source = "id")
-    @Mapping(target = "name", source = "name")
     @Mapping(target = "amenities", source = "roomAmenities", qualifiedByName = "mapAmenities")
     public abstract RoomResponse toRoomAmenityOnly(Room room);
 

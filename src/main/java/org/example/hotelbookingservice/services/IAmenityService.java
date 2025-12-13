@@ -10,6 +10,7 @@ import java.util.List;
 public interface IAmenityService {
     List<AmenityResponse> getHotelAmenitiesByHotelId(Integer hotelId);
     List<RoomResponse> getRoomAmenitiesByHotelId(Integer hotelId);
+    List<AmenityResponse> getAllAmenities();
     AmenityResponse getAmenityById(Integer id);
     AmenityResponse createAmenity(AmenityRequest request);
     AmenityResponse updateAmenity(Integer id, AmenityRequest request);

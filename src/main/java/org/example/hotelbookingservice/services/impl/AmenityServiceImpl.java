@@ -59,15 +59,18 @@ public class AmenityServiceImpl implements IAmenityService {
 
     @Override
     public List<RoomResponse> getRoomAmenitiesByHotelId(Integer hotelId) {
-        Hotel targetHotel = getHotelIfOwnedByCurrentUser(hotelId);
+        Hotel hotel = hotelRepository.findById(hotelId)
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
-        if (targetHotel.getRooms() == null || targetHotel.getRooms().isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        List<Room> rooms = new ArrayList<>(targetHotel.getRooms());
+        List<Room> rooms = new ArrayList<>(hotel.getRooms());
 
         return roomMapper.toRoomAmenityOnlyList(rooms);
+    }
+
+    @Override
+    public List<AmenityResponse> getAllAmenities() {
+        List<Amenity> amenities = amenityRepository.findAll();
+        return amenityMapper.toAmenityResponseList(amenities);
     }
 
     @Override

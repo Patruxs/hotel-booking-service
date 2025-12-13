@@ -29,6 +29,16 @@ import java.util.List;
 public class AmenityController {
     IAmenityService amenityService;
 
+    @Operation(summary = "Lấy danh sách tất cả tiện ích trong hệ thống", description = "Dùng cho Admin khi muốn xem danh sách để chọn tiện ích thêm vào phòng/khách sạn.")
+    @GetMapping("/all")
+    public ApiResponse<List<AmenityResponse>> getAllAmenities() {
+        return ApiResponse.<List<AmenityResponse>>builder()
+                .status(200)
+                .message("Success")
+                .data(amenityService.getAllAmenities())
+                .build();
+    }
+
     @Operation(summary = "Lấy tiện ích cấp Khách sạn theo Hotel ID (Admin)")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/hotel/{hotelId}/hotel-amenities")
@@ -42,11 +52,9 @@ public class AmenityController {
     }
 
 
-    @Operation(summary = "Lấy tiện ích cấp Phòng theo Hotel ID (Admin)")
-    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Lấy danh sách amenity của tất cả các phòng thuộc Hotel A")
     @GetMapping("/hotel/{hotelId}/room-amenities")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    public ApiResponse<List<RoomResponse>> getRoomAmenities(@PathVariable Integer hotelId) {
+    public ApiResponse<List<RoomResponse>> getRoomAmenitiesByHotel(@PathVariable Integer hotelId) {
         return ApiResponse.<List<RoomResponse>>builder()
                 .status(200)
                 .message("Success")
