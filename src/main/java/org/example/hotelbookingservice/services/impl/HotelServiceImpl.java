@@ -84,13 +84,13 @@ public class HotelServiceImpl implements IHotelService {
                 imagesToSave.add(image);
             }
             imageRepository.saveAll(imagesToSave);
-            savedHotel.setImages(new HashSet<>(imagesToSave));
+            savedHotel.getImages().addAll(imagesToSave);
         }
 
         if (hotelCreateRequest.getAmenityIds() != null && !hotelCreateRequest.getAmenityIds().isEmpty()) {
             hotelAmenityService.addAmenitiesToHotel(savedHotel.getId(), hotelCreateRequest.getAmenityIds());
             List<Hotelamenity> addedAmenities = hotelAmenityService.getAmenitiesByHotelId(savedHotel.getId());
-            savedHotel.setHotelAmenities(new HashSet<>(addedAmenities));
+            savedHotel.getHotelAmenities().addAll(addedAmenities);
         }
 
         return hotelMapper.toHotelResponse(savedHotel);
@@ -122,7 +122,8 @@ public class HotelServiceImpl implements IHotelService {
                 imagesToSave.add(image);
             }
             imageRepository.saveAll(imagesToSave);
-            existingHotel.setImages(new HashSet<>(imagesToSave));
+            existingHotel.getImages().clear();
+            existingHotel.getImages().addAll(imagesToSave);
         }
 
         Hotel savedHotel = hotelRepository.save(existingHotel);
