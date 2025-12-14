@@ -11,6 +11,6 @@ public class AmenityRequest {
     private String name;
 
     @NotBlank(message = "Amenity type is required")
-    @Schema (description = "Loại tiện ích (Room, Hotel, Pool...)", example = "Hotel")
+    @Schema (description = "Loại tiện ích (Room, Hotel, Pool...)", example = "Hotel Service")
     private String type;
 }
