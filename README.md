@@ -62,3 +62,12 @@ cloudinary:
 
 ### 4. Chạy lệnh
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+
+### 5. Account login
+Admin : 
+- username : admin
+- password : admin123
+
+Customer :
+- username : customer
+- password : customer123
