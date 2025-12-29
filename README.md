@@ -65,9 +65,9 @@ cloudinary:
 
 ### 5. Account login
 Admin : 
-- username : admin
+- username : admin@gmail.com
 - password : admin123
 
 Customer :
-- username : customer
+- username : customer@gmail.com
 - password : customer123
