@@ -8,7 +8,7 @@ src/main/resources/application-local.yml
 **/application-local.yml
 
 # Bỏ qua cấu hình Dev (MỚI THÊM: vì file này đang chứa key mặc định nhạy cảm)
-src/main/resources/application-dev.yml
+src/main/resources/application-local.yml
 **/application-dev.yml
 
 # --- JAVA / SPRING BOOT ---
