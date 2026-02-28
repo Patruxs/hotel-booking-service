@@ -68,18 +68,23 @@ public class Hotel {
     private User user;
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private Set<Hotelamenity> hotelAmenities = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private Set<Image> images = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private Set<Policy> policies = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private Set<Review> reviews = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "hotel", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 20)
     private Set<Room> rooms = new LinkedHashSet<>();
 
 }
