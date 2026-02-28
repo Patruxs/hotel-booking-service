@@ -40,6 +40,7 @@ public class BookingRepositoryTest {
         testUser.setPhone("1234567890");
         testUser.setDob(LocalDate.of(1990, 1, 1));
         testUser.setActivate(true);
+        // Table name is properly escaped in Entity, so persisting should work if schema matches
         entityManager.persist(testUser);
 
         // 2. Create Hotel

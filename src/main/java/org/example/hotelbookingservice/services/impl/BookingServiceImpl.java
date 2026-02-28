@@ -22,6 +22,7 @@ import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.BookingCodeGenerator;
 import org.example.hotelbookingservice.services.IBookingService;
 import org.example.hotelbookingservice.services.IUserService;
+import org.example.hotelbookingservice.utils.DateValidationUtils;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
@@ -204,17 +205,6 @@ public class BookingServiceImpl implements IBookingService {
     }
 
     private void validateBookingRequest(BookingCreateRequest request) {
-        //validation: Ensure the check-in date is not before today
-        if (request.getCheckinDate().isBefore(LocalDate.now())) {
-            throw new InvalidBookingStateAndDateException("Check-in date cannot be in the past");
-        }
-        //validation: Ensure the check-out date is not before check in date
-        if (request.getCheckoutDate().isBefore(request.getCheckinDate())) {
-            throw new InvalidBookingStateAndDateException("Check-out date cannot be before check-in date");
-        }
-        //validation: Ensure the check-in date is not same as check out date
-        if (request.getCheckinDate().isEqual(request.getCheckoutDate())) {
-            throw new InvalidBookingStateAndDateException("Check-in date cannot be same as check-out date");
-        }
+        DateValidationUtils.validateCheckInAndCheckOutDates(request.getCheckinDate(), request.getCheckoutDate());
     }
 }
