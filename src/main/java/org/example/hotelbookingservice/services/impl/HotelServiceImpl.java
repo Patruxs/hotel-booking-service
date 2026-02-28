@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 @RequiredArgsConstructor
@@ -74,16 +77,41 @@ public class HotelServiceImpl implements IHotelService {
         Hotel savedHotel = hotelRepository.save(hotel);
 
         if (imageFile != null && !imageFile.isEmpty()) {
-            List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFile ) {
-                String imageUrl = fileStorageService.uploadFile(file);
-                Image image = new Image();
-                image.setPath(imageUrl);
-                image.setHotel(savedHotel);
-                imagesToSave.add(image);
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Image>> uploadFutures = new ArrayList<>();
+                for (MultipartFile file : imageFile) {
+                    CompletableFuture<Image> future = CompletableFuture.supplyAsync(() -> {
+                        String imageUrl = fileStorageService.uploadFile(file);
+                        Image image = new Image();
+                        image.setPath(imageUrl);
+                        image.setHotel(savedHotel);
+                        return image;
+                    }, executor);
+                    uploadFutures.add(future);
+                }
+
+                CompletableFuture<Void> allOf = CompletableFuture.allOf(
+                        uploadFutures.toArray(new CompletableFuture[0])
+                );
+
+                allOf.join(); // Wait for all uploads to finish
+
+                List<Image> imagesToSave = new ArrayList<>();
+                for (CompletableFuture<Image> future : uploadFutures) {
+                    // join here is safe and non-blocking because allOf is already completed
+                    imagesToSave.add(future.join());
+                }
+
+                imageRepository.saveAll(imagesToSave);
+                savedHotel.getImages().addAll(imagesToSave);
+            } catch (Exception e) {
+                log.error("Failed to upload images concurrently", e);
+                // Unwrap CompletionException if necessary
+                if (e.getCause() instanceof AppException) {
+                    throw (AppException) e.getCause();
+                }
+                throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
             }
-            imageRepository.saveAll(imagesToSave);
-            savedHotel.getImages().addAll(imagesToSave);
         }
 
         if (hotelCreateRequest.getAmenityIds() != null && !hotelCreateRequest.getAmenityIds().isEmpty()) {
@@ -110,17 +138,40 @@ public class HotelServiceImpl implements IHotelService {
         hotelMapper.updateHotelFromRequest(hotelUpdateRequest, existingHotel);
 
         if (imageFiles != null && !imageFiles.isEmpty()) {
-            List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFiles ) {
-                String imageUrl = fileStorageService.uploadFile(file);
-                Image image = new Image();
-                image.setPath(imageUrl);
-                image.setHotel(existingHotel);
-                imagesToSave.add(image);
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Image>> uploadFutures = new ArrayList<>();
+                for (MultipartFile file : imageFiles) {
+                    CompletableFuture<Image> future = CompletableFuture.supplyAsync(() -> {
+                        String imageUrl = fileStorageService.uploadFile(file);
+                        Image image = new Image();
+                        image.setPath(imageUrl);
+                        image.setHotel(existingHotel);
+                        return image;
+                    }, executor);
+                    uploadFutures.add(future);
+                }
+
+                CompletableFuture<Void> allOf = CompletableFuture.allOf(
+                        uploadFutures.toArray(new CompletableFuture[0])
+                );
+
+                allOf.join(); // Wait for all uploads to finish
+
+                List<Image> imagesToSave = new ArrayList<>();
+                for (CompletableFuture<Image> future : uploadFutures) {
+                    imagesToSave.add(future.join());
+                }
+
+                imageRepository.saveAll(imagesToSave);
+                existingHotel.getImages().clear();
+                existingHotel.getImages().addAll(imagesToSave);
+            } catch (Exception e) {
+                log.error("Failed to upload images concurrently during update", e);
+                if (e.getCause() instanceof AppException) {
+                    throw (AppException) e.getCause();
+                }
+                throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
             }
-            imageRepository.saveAll(imagesToSave);
-            existingHotel.getImages().clear();
-            existingHotel.getImages().addAll(imagesToSave);
         }
 
         Hotel savedHotel = hotelRepository.save(existingHotel);
