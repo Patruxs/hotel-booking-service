@@ -201,6 +201,112 @@ public class BookingServiceImplTest {
     }
 
     @Test
+    void createBooking_NullRoomQuantity_ReturnsBookingResponse() {
+        // Given
+        mockCreateRequest.setRoomQuantity(null); // Explicitly set to null
+
+        when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
+        when(roomRepository.findById(mockCreateRequest.getRoomId())).thenReturn(Optional.of(mockRoom));
+
+        // 5 total rooms. default quantity = 1.
+        // Currently booked: 1. Total = 2 <= 5.
+        when(bookingRepository.countBookedRooms(
+                mockRoom.getId(),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(1L);
+
+        when(bookingRepository.isRoomAvailable(
+                Long.valueOf(mockRoom.getId()),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(true);
+
+        when(bookingCodeGenerator.generateBookingReference()).thenReturn("BOOK_NULL_QTY");
+
+        Booking mockSavedBooking = new Booking();
+        mockSavedBooking.setId(3);
+        mockSavedBooking.setBookingReference("BOOK_NULL_QTY");
+        when(bookingRepository.save(any(Booking.class))).thenReturn(mockSavedBooking);
+
+        BookingResponse mockResponse = new BookingResponse();
+        mockResponse.setId(3);
+        mockResponse.setBookingReference("BOOK_NULL_QTY");
+        when(bookingMapper.toBookingResponse(mockSavedBooking)).thenReturn(mockResponse);
+
+        // When
+        BookingResponse result = bookingService.createBooking(mockCreateRequest);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getBookingReference()).isEqualTo("BOOK_NULL_QTY");
+        verify(bookingRepository, times(1)).save(any(Booking.class));
+    }
+
+    @Test
+    void createBooking_ExactBoundary_ReturnsBookingResponse() {
+        // Given
+        when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
+        when(roomRepository.findById(mockCreateRequest.getRoomId())).thenReturn(Optional.of(mockRoom));
+
+        // 5 total rooms. Want to book 2.
+        // Currently booked: 3. Total = 5 == 5. Boundary case should succeed.
+        when(bookingRepository.countBookedRooms(
+                mockRoom.getId(),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(3L);
+
+        when(bookingRepository.isRoomAvailable(
+                Long.valueOf(mockRoom.getId()),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(true);
+
+        when(bookingCodeGenerator.generateBookingReference()).thenReturn("BOOK_EXACT");
+
+        Booking mockSavedBooking = new Booking();
+        mockSavedBooking.setId(2);
+        mockSavedBooking.setBookingReference("BOOK_EXACT");
+        when(bookingRepository.save(any(Booking.class))).thenReturn(mockSavedBooking);
+
+        BookingResponse mockResponse = new BookingResponse();
+        mockResponse.setId(2);
+        mockResponse.setBookingReference("BOOK_EXACT");
+        when(bookingMapper.toBookingResponse(mockSavedBooking)).thenReturn(mockResponse);
+
+        // When
+        BookingResponse result = bookingService.createBooking(mockCreateRequest);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getBookingReference()).isEqualTo("BOOK_EXACT");
+        verify(bookingRepository, times(1)).save(any(Booking.class));
+    }
+
+    @Test
+    void createBooking_ZeroAvailableRooms_ThrowsInvalidBookingStateAndDateException() {
+        // Given
+        when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
+        when(roomRepository.findById(mockCreateRequest.getRoomId())).thenReturn(Optional.of(mockRoom));
+
+        // 5 total rooms. Want to book 2 (default from mockCreateRequest).
+        // Currently booked: 5. Total = 7 > 5. Room is fully booked.
+        when(bookingRepository.countBookedRooms(
+                mockRoom.getId(),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(5L);
+
+        // When & Then
+        assertThatThrownBy(() -> bookingService.createBooking(mockCreateRequest))
+                .isInstanceOf(InvalidBookingStateAndDateException.class)
+                .hasMessageContaining("Room is fully booked for the selected dates. Only 0 rooms left.");
+
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
     void createBooking_ExceedsAvailableRooms_ThrowsInvalidBookingStateAndDateException() {
         // Given
         when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
