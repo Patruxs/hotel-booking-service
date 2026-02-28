@@ -40,3 +40,7 @@ cloudinary:
   cloud-name: ${CLOUDINARY_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
+
+---
+cors:
+  allowed-origins: http://160.191.245.207,http://160.191.245.207:80,https://160.191.245.207,https://160.191.245.207:443
