@@ -158,6 +158,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional
     public void removeAmenitiesFromRoom(Integer hotelId, Integer roomId, List<Integer> amenityIds) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
@@ -174,24 +175,18 @@ public class AmenityServiceImpl implements IAmenityService {
 
         if (amenityIds == null || amenityIds.isEmpty()) return;
 
-        List<RoomamenityId> idsToDelete = new ArrayList<>();
+        Set<Integer> uniqueAmenityIds = new HashSet<>(amenityIds);
 
-        for (Integer amenityId : amenityIds) {
-            if (!amenityRepository.existsById(amenityId)) {
-                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
-            }
-
-            //Validate: Is this amenity actually present in this room?
-            RoomamenityId id = new RoomamenityId();
-            id.setRoomId(roomId);
-            id.setAmenityId(amenityId);
-
-            if (!roomamenityRepository.existsById(id)) {
-                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
-            }
-            idsToDelete.add(id);
+        // Validate: Ensure all requested amenities exist in this room.
+        // This single query effectively validates both that the amenity exists (via foreign key logic)
+        // and that the mapping exists.
+        long existingCount = roomamenityRepository.countById_RoomIdAndId_AmenityIdIn(roomId, uniqueAmenityIds);
+        if (existingCount != uniqueAmenityIds.size()) {
+            throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
         }
-        roomamenityRepository.deleteAllById(idsToDelete);
+
+        // Perform batch deletion
+        roomamenityRepository.deleteByRoomIdAndAmenityIdIn(roomId, uniqueAmenityIds);
     }
 
     @Override
