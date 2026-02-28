@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.core.env.Environment;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
@@ -39,6 +40,9 @@ public class BookingControllerTest {
     @Mock
     private IBookingService bookingService;
 
+    @Mock
+    private Environment environment;
+
     @InjectMocks
     private BookingController bookingController;
 
@@ -48,7 +52,7 @@ public class BookingControllerTest {
         objectMapper.registerModule(new JavaTimeModule());
 
         mockMvc = MockMvcBuilders.standaloneSetup(bookingController)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(new GlobalExceptionHandler(environment))
                 .build();
     }
 
