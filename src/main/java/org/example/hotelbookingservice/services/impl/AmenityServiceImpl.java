@@ -135,26 +135,14 @@ public class AmenityServiceImpl implements IAmenityService {
 
         if (amenityIds == null || amenityIds.isEmpty()) return;
 
-        List<HotelamenityId> idsToDelete = new ArrayList<>();
+        Set<Integer> uniqueAmenityIds = new HashSet<>(amenityIds);
 
-        for (Integer amenityId : amenityIds) {
-            // Validate: Does the Amenity ID exist in the system?
-            if (!amenityRepository.existsById(amenityId)) {
-                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
-            }
-
-            // 3. Validate: Does this amenity actually belong to this Hotel?
-            HotelamenityId id = new HotelamenityId();
-            id.setHotelId(hotel.getId());
-            id.setAmenityId(amenityId);
-
-            if (!hotelamenityRepository.existsById(id)) {
-                throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
-            }
-            idsToDelete.add(id);
+        int existingCount = hotelamenityRepository.countById_HotelIdAndId_AmenityIdIn(hotel.getId(), uniqueAmenityIds);
+        if (existingCount != uniqueAmenityIds.size()) {
+            throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
         }
 
-        hotelamenityRepository.deleteAllById(idsToDelete);
+        hotelamenityRepository.deleteAllByHotelIdAndAmenityIds(hotel.getId(), uniqueAmenityIds);
     }
 
     @Override
