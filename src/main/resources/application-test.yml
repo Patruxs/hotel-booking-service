@@ -22,3 +22,8 @@ spring:
 
 jwt:
   secretKey: ${JWT_SECRET_KEY:test-secret-key-only-for-testing-purposes-123}
+---
+cloudinary:
+  cloud-name: ${CLOUDINARY_NAME:test-cloud-name}
+  api-key: ${CLOUDINARY_API_KEY:test-api-key}
+  api-secret: ${CLOUDINARY_API_SECRET:test-api-secret}
