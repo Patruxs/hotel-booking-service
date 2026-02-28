@@ -24,6 +24,7 @@ import org.example.hotelbookingservice.services.IRoomAmenityService;
 import org.example.hotelbookingservice.services.IRoomService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.example.hotelbookingservice.services.IFileStorageService;
+import org.example.hotelbookingservice.utils.DateValidationUtils;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -161,20 +162,7 @@ public class RoomServiceImpl implements IRoomService {
 
     @Override
     public List<RoomResponse> getAvailableRooms(LocalDate checkInDate, LocalDate checkOutDate, RoomType roomType) {
-        //validation: Ensure the check-in date is not before today
-        if (checkInDate.isBefore(LocalDate.now())){
-            throw new InvalidBookingStateAndDateException("check in date cannot be before today ");
-        }
-
-        //validation: Ensure the check-out date is not before check in date
-        if (checkOutDate.isBefore(checkInDate)){
-            throw new InvalidBookingStateAndDateException("check out date cannot be before check in date ");
-        }
-
-        //validation: Ensure the check-in date is not same as check out date
-        if (checkInDate.isEqual(checkOutDate)){
-            throw new InvalidBookingStateAndDateException("check in date cannot be equal to check out date ");
-        }
+        DateValidationUtils.validateCheckInAndCheckOutDates(checkInDate, checkOutDate);
 
         //Get the list of available rooms from DB
         List<Room> roomList = roomRepository.findAvailableRooms(checkInDate, checkOutDate, roomType);
@@ -196,19 +184,7 @@ public class RoomServiceImpl implements IRoomService {
 
     @Override
     public List<RoomResponse> getAvailableRoomsByHotelId(Integer hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
-        //validate
-        if (checkInDate == null || checkOutDate == null) {
-            throw new InvalidBookingStateAndDateException("Check-in and Check-out dates are required");
-        }
-        if (checkInDate.isBefore(LocalDate.now())) {
-            throw new InvalidBookingStateAndDateException("Check-in date cannot be in the past");
-        }
-        if (checkOutDate.isBefore(checkInDate)) {
-            throw new InvalidBookingStateAndDateException("Check-out date cannot be before check-in date");
-        }
-        if (checkInDate.isEqual(checkOutDate)) {
-            throw new InvalidBookingStateAndDateException("Check-in and Check-out dates cannot be the same");
-        }
+        DateValidationUtils.validateCheckInAndCheckOutDates(checkInDate, checkOutDate);
 
         List<Room> availableRooms = roomRepository.findAvailableRoomsByHotelId(hotelId, checkInDate, checkOutDate);
 
