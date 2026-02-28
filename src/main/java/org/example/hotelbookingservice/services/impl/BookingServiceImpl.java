@@ -170,7 +170,7 @@ public class BookingServiceImpl implements IBookingService {
         // 3. SECURITY CHECK
         //Allow cancellation if ADMIN OR owner (User ID matches)
         boolean isAdmin = currentUser.getUserRoles().stream()
-                .anyMatch(userRole -> userRole.getRole().getName().equals("ADMIN"));
+                .anyMatch(userRole -> userRole.getRole().getName().equals(org.example.hotelbookingservice.enums.UserRole.ADMIN.name()));
 
         if (!isAdmin && !booking.getUser().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
