@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 @RequiredArgsConstructor
@@ -74,16 +77,30 @@ public class HotelServiceImpl implements IHotelService {
         Hotel savedHotel = hotelRepository.save(hotel);
 
         if (imageFile != null && !imageFile.isEmpty()) {
-            List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFile ) {
-                String imageUrl = fileStorageService.uploadFile(file);
-                Image image = new Image();
-                image.setPath(imageUrl);
-                image.setHotel(savedHotel);
-                imagesToSave.add(image);
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Image>> futures = imageFile.stream()
+                        .map(file -> CompletableFuture.supplyAsync(() -> {
+                            fileStorageService.validateImageFile(file);
+                            String imageUrl = fileStorageService.uploadFile(file);
+                            Image image = new Image();
+                            image.setPath(imageUrl);
+                            image.setHotel(savedHotel);
+                            return image;
+                        }, executor).exceptionally(ex -> {
+                            if (ex.getCause() instanceof AppException) {
+                                throw (AppException) ex.getCause();
+                            }
+                            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+                        }))
+                        .toList();
+
+                List<Image> imagesToSave = futures.stream()
+                        .map(CompletableFuture::join)
+                        .toList();
+
+                imageRepository.saveAll(imagesToSave);
+                savedHotel.getImages().addAll(imagesToSave);
             }
-            imageRepository.saveAll(imagesToSave);
-            savedHotel.getImages().addAll(imagesToSave);
         }
 
         if (hotelCreateRequest.getAmenityIds() != null && !hotelCreateRequest.getAmenityIds().isEmpty()) {
@@ -110,17 +127,31 @@ public class HotelServiceImpl implements IHotelService {
         hotelMapper.updateHotelFromRequest(hotelUpdateRequest, existingHotel);
 
         if (imageFiles != null && !imageFiles.isEmpty()) {
-            List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFiles ) {
-                String imageUrl = fileStorageService.uploadFile(file);
-                Image image = new Image();
-                image.setPath(imageUrl);
-                image.setHotel(existingHotel);
-                imagesToSave.add(image);
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                List<CompletableFuture<Image>> futures = imageFiles.stream()
+                        .map(file -> CompletableFuture.supplyAsync(() -> {
+                            fileStorageService.validateImageFile(file);
+                            String imageUrl = fileStorageService.uploadFile(file);
+                            Image image = new Image();
+                            image.setPath(imageUrl);
+                            image.setHotel(existingHotel);
+                            return image;
+                        }, executor).exceptionally(ex -> {
+                            if (ex.getCause() instanceof AppException) {
+                                throw (AppException) ex.getCause();
+                            }
+                            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+                        }))
+                        .toList();
+
+                List<Image> imagesToSave = futures.stream()
+                        .map(CompletableFuture::join)
+                        .toList();
+
+                imageRepository.saveAll(imagesToSave);
+                existingHotel.getImages().clear();
+                existingHotel.getImages().addAll(imagesToSave);
             }
-            imageRepository.saveAll(imagesToSave);
-            existingHotel.getImages().clear();
-            existingHotel.getImages().addAll(imagesToSave);
         }
 
         Hotel savedHotel = hotelRepository.save(existingHotel);
