@@ -93,7 +93,7 @@ public class ReviewServiceImpl implements IReviewService {
 
 
         boolean isAdmin = currentUser.getUserRoles().stream()
-                .anyMatch(r -> r.getRole().getName().equals("ADMIN"));
+                .anyMatch(r -> r.getRole().getName().equals(org.example.hotelbookingservice.enums.UserRole.ADMIN.name()));
 
         if (!isAdmin && !review.getUser().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.UNAUTHORIZED);

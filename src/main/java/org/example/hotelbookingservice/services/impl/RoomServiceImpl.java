@@ -1,7 +1,7 @@
 package org.example.hotelbookingservice.services.impl;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
+
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.request.room.RoomCreateRequest;
@@ -23,6 +23,7 @@ import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.IRoomAmenityService;
 import org.example.hotelbookingservice.services.IRoomService;
 import org.example.hotelbookingservice.services.IUserService;
+import org.example.hotelbookingservice.services.IFileStorageService;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,7 +44,7 @@ public class RoomServiceImpl implements IRoomService {
     private final RoomMapper roomMapper;
     private final IUserService userService;
     private final IRoomAmenityService roomAmenityService;
-    private final Cloudinary cloudinary;
+    private final IFileStorageService fileStorageService;
     private final AmenityMapper amenityMapper;
 
     @Override
@@ -75,9 +76,7 @@ public class RoomServiceImpl implements IRoomService {
         RoomResponse response = roomMapper.toRoomResponse(savedRoom);
 
         if (imageFile != null && !imageFile.isEmpty()) {
-            validateImageFile(imageFile);
-
-            String imageUrl = saveImageToCloud(imageFile);
+            String imageUrl = fileStorageService.uploadFile(imageFile);
 
             Image image = new Image();
             image.setPath(imageUrl);
@@ -114,9 +113,7 @@ public class RoomServiceImpl implements IRoomService {
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
         if (imageFile != null && !imageFile.isEmpty()){
-            validateImageFile(imageFile);
-
-            String imagePath = saveImageToCloud(imageFile);
+            String imagePath = fileStorageService.uploadFile(imageFile);
 
             Image image = new Image();
             image.setPath(imagePath);
@@ -217,25 +214,4 @@ public class RoomServiceImpl implements IRoomService {
 
         return roomMapper.toRoomResponseList(availableRooms);
     }
-
-    //upload image to cloud
-    private String saveImageToCloud(MultipartFile imageFile) {
-        try {
-            // Upload file to Cloudinary
-            Map uploadResult = cloudinary.uploader().upload(imageFile.getBytes(), ObjectUtils.emptyMap());
-            // Get URL
-            return (String) uploadResult.get("secure_url");
-        } catch (IOException e) {
-            log.error("Error uploading file to Cloudinary", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-    }
-
-    private void validateImageFile(MultipartFile file) {
-        String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equals("image/png") && !contentType.equals("image/jpeg"))) {
-            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
-        }
-    }
-
 }
