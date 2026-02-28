@@ -14,7 +14,11 @@ import org.example.hotelbookingservice.repository.HotelamenityRepository;
 import org.example.hotelbookingservice.services.IHotelAmenityService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,25 +33,43 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
-        for (Integer amenityId : amenityIds) {
-            Amenity amenity = amenityRepository.findById(amenityId)
-                    .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+        if (amenityIds == null || amenityIds.isEmpty()) {
+            return;
+        }
 
-            // Create a complex primary key
-            HotelamenityId id = new HotelamenityId();
-            id.setHotelId(hotelId);
-            id.setAmenityId(amenityId);
+        Set<Integer> uniqueAmenityIds = new HashSet<>(amenityIds);
 
-            // Check if this relationship already exists to avoid duplicate key errors
-            if (!hotelamenityRepository.existsById(id)) {
+        List<Amenity> foundAmenities = amenityRepository.findAllById(uniqueAmenityIds);
+
+        if (foundAmenities.size() != uniqueAmenityIds.size()) {
+            throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
+        }
+
+        // Fetch existing hotel amenities to filter out duplicates in-memory
+        List<Hotelamenity> existingHotelAmenities = hotelamenityRepository.findByIdHotelId(hotelId);
+        Set<Integer> existingAmenityIds = existingHotelAmenities.stream()
+                .map(ha -> ha.getId().getAmenityId())
+                .collect(Collectors.toSet());
+
+        List<Hotelamenity> newHotelAmenities = new ArrayList<>();
+
+        for (Amenity amenity : foundAmenities) {
+            if (!existingAmenityIds.contains(amenity.getId())) {
+                HotelamenityId id = new HotelamenityId();
+                id.setHotelId(hotelId);
+                id.setAmenityId(amenity.getId());
+
                 Hotelamenity hotelamenity = new Hotelamenity();
                 hotelamenity.setId(id);
                 hotelamenity.setHotel(hotel);
                 hotelamenity.setAmenity(amenity);
 
-                hotelamenityRepository.save(hotelamenity);
+                newHotelAmenities.add(hotelamenity);
             }
+        }
 
+        if (!newHotelAmenities.isEmpty()) {
+            hotelamenityRepository.saveAll(newHotelAmenities);
         }
     }
 
