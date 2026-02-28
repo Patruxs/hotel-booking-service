@@ -143,6 +143,79 @@ public class BookingControllerTest {
     }
 
     @Test
+    void createBooking_WhenCustomer_ShouldReturn403() throws Exception {
+        // Arrange
+        BookingCreateRequest request = new BookingCreateRequest();
+        request.setCheckinDate(LocalDate.now().plusDays(1));
+        request.setCheckoutDate(LocalDate.now().plusDays(3));
+        request.setAdultAmount(2);
+        request.setChildrenAmount(1);
+        request.setHotelId(1);
+        request.setRoomId(5);
+        request.setRoomQuantity(1);
+        request.setSpecialRequire("Quiet room");
+
+        doThrow(new AccessDeniedException("Access Denied"))
+            .when(bookingService).createBooking(any(BookingCreateRequest.class));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/bookings/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(1007))
+                .andExpect(jsonPath("$.message").value("You do not have permission"));
+    }
+
+    @Test
+    void createBooking_WhenRoomNotFound_ShouldReturn404() throws Exception {
+        // Arrange
+        BookingCreateRequest request = new BookingCreateRequest();
+        request.setCheckinDate(LocalDate.now().plusDays(1));
+        request.setCheckoutDate(LocalDate.now().plusDays(3));
+        request.setAdultAmount(2);
+        request.setChildrenAmount(1);
+        request.setHotelId(1);
+        request.setRoomId(999); // Room doesn't exist
+        request.setRoomQuantity(1);
+
+        doThrow(new org.example.hotelbookingservice.exception.AppException(org.example.hotelbookingservice.exception.ErrorCode.NOT_FOUND_ROOM))
+            .when(bookingService).createBooking(any(BookingCreateRequest.class));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/bookings/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(10015))
+                .andExpect(jsonPath("$.message").value("Not found Room"));
+    }
+
+    @Test
+    void createBooking_WhenInvalidBookingState_ShouldReturn400() throws Exception {
+        // Arrange
+        BookingCreateRequest request = new BookingCreateRequest();
+        request.setCheckinDate(LocalDate.now().plusDays(1));
+        request.setCheckoutDate(LocalDate.now().plusDays(3));
+        request.setAdultAmount(2);
+        request.setChildrenAmount(1);
+        request.setHotelId(1);
+        request.setRoomId(5);
+        request.setRoomQuantity(1);
+
+        doThrow(new org.example.hotelbookingservice.exception.InvalidBookingStateAndDateException("Room is fully booked"))
+            .when(bookingService).createBooking(any(BookingCreateRequest.class));
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/bookings/create")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(1009))
+                .andExpect(jsonPath("$.message").value("Room is fully booked"));
+    }
+
+    @Test
     void createBooking_WhenInvalidRequest_ShouldReturn400() throws Exception {
         // Arrange
         BookingCreateRequest request = new BookingCreateRequest();
