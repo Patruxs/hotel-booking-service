@@ -51,12 +51,12 @@ public class ReviewServiceImpl implements IReviewService {
                 .anyMatch(br -> br.getRoom().getHotel().getId().equals(request.getHotelId()));
 
         if (!isCorrectHotel) {
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
+            throw new AppException(ErrorCode.REVIEW_NOT_ALLOWED);
         }
 
         //Booking status must be CHECKED_OUT (must be reviewed after staying)
         if (booking.getStatus() != BookingStatus.CHECKED_OUT) {
-            throw new RuntimeException("You can only review after checking out.");
+            throw new AppException(ErrorCode.BOOKING_NOT_COMPLETED);
         }
 
         // Get info hotel
