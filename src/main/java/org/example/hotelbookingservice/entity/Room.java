@@ -58,9 +58,11 @@ public class Room {
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Bookingroom> bookingrooms = new LinkedHashSet<>();
 
+    @org.hibernate.annotations.BatchSize(size = 20)
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Image> images = new LinkedHashSet<>();
 
+    @org.hibernate.annotations.BatchSize(size = 20)
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Roomamenity> roomAmenities = new LinkedHashSet<>();
 
