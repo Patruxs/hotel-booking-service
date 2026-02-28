@@ -1,7 +1,7 @@
 package org.example.hotelbookingservice.services.impl;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
+
+
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +20,7 @@ import org.example.hotelbookingservice.repository.ImageRepository;
 import org.example.hotelbookingservice.services.IHotelAmenityService;
 import org.example.hotelbookingservice.services.IHotelService;
 import org.example.hotelbookingservice.services.IUserService;
+import org.example.hotelbookingservice.services.IFileStorageService;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -39,7 +40,7 @@ public class HotelServiceImpl implements IHotelService {
     private final ImageRepository imageRepository;
     private final IUserService userService;
     private final HotelMapper hotelMapper;
-    private final Cloudinary cloudinary;
+    private final IFileStorageService fileStorageService;
     private final IHotelAmenityService hotelAmenityService;
     private final RoomMapper roomMapper;
 
@@ -55,7 +56,7 @@ public class HotelServiceImpl implements IHotelService {
         User currentUser = userService.getCurrentLoggedInUser();
 
         boolean isAdmin = currentUser.getUserRoles().stream()
-                .anyMatch(role -> role.getRole().getName().equals("ADMIN"));
+                .anyMatch(role -> role.getRole().getName().equals(org.example.hotelbookingservice.enums.UserRole.ADMIN.name()));
 
         if (!isAdmin) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
@@ -75,9 +76,7 @@ public class HotelServiceImpl implements IHotelService {
         if (imageFile != null && !imageFile.isEmpty()) {
             List<Image> imagesToSave = new ArrayList<>();
             for (MultipartFile file : imageFile ) {
-                validateImageFile(file);
-
-                String imageUrl = saveImageToCloud(file);
+                String imageUrl = fileStorageService.uploadFile(file);
                 Image image = new Image();
                 image.setPath(imageUrl);
                 image.setHotel(savedHotel);
@@ -113,9 +112,7 @@ public class HotelServiceImpl implements IHotelService {
         if (imageFiles != null && !imageFiles.isEmpty()) {
             List<Image> imagesToSave = new ArrayList<>();
             for (MultipartFile file : imageFiles ) {
-                validateImageFile(file);
-
-                String imageUrl = saveImageToCloud(file);
+                String imageUrl = fileStorageService.uploadFile(file);
                 Image image = new Image();
                 image.setPath(imageUrl);
                 image.setHotel(existingHotel);
@@ -206,22 +203,5 @@ public class HotelServiceImpl implements IHotelService {
         List<Room> roomList = new ArrayList<>(hotel.getRooms());
 
         return roomMapper.toRoomResponseList(roomList);
-    }
-
-    private String saveImageToCloud(MultipartFile imageFile) {
-        try {
-            Map uploadResult = cloudinary.uploader().upload(imageFile.getBytes(), ObjectUtils.emptyMap());
-            return (String) uploadResult.get("secure_url");
-        } catch (IOException e) {
-            log.error("Error uploading file to Cloudinary", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION);
-        }
-    }
-
-    private void validateImageFile(MultipartFile file) {
-        String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equals("image/png") && !contentType.equals("image/jpeg"))) {
-            throw new AppException(ErrorCode.INVALID_FILE_FORMAT);
-        }
     }
 }
