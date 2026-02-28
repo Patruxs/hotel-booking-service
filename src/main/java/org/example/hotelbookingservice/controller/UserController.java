@@ -1,164 +1,69 @@
 package org.example.hotelbookingservice.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
-
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.dto.response.UserResponse;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import org.example.hotelbookingservice.api.UserApi;
 
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Tag(name = "User Management", description = "Quản lý người dùng (Thông tin cá nhân, Lịch sử đặt phòng, Quản trị viên)")
-public class UserController {
+public class UserController implements UserApi {
 
     IUserService userService;
 
-    @Operation(summary = "Lấy danh sách tất cả người dùng (ADMIN)", description = "Chỉ Admin mới có quyền truy cập.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập (Token không hợp lệ)", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập (Không phải ADMIN)", content = @Content)
-    })
-    @GetMapping("/all")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    ApiResponse<List<UserResponse>> getAllUser() {
-        return ApiResponse.<List<UserResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(userService.getAllUsers())
-                .build();
+    @Override
+    public ApiResponse<List<UserResponse>> getAllUser() {
+        return ApiResponse.<List<UserResponse>>builder().status(200).message("Success").data(userService.getAllUsers()).build();
     }
 
-    @Operation(summary = "Cập nhật thông tin cá nhân", description = "Người dùng tự cập nhật thông tin của mình.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (Số điện thoại sai, ngày sinh sai...)", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content)
-    })
-    @PutMapping("/update")
-    ApiResponse<UserResponse> updateOwnAccount(@RequestBody @Valid UserUpdateRequest request) {
-        return ApiResponse.<UserResponse>builder()
-                .status(200)
-                .message("User updated successfully")
-                .data(userService.updateOwnAccount(request))
-                .build();
+    @Override
+    public ApiResponse<UserResponse> updateOwnAccount(@RequestBody UserUpdateRequest request) {
+        return ApiResponse.<UserResponse>builder().status(200).message("User updated successfully").data(userService.updateOwnAccount(request)).build();
     }
 
-    @Operation(summary = "Xóa tài khoản cá nhân", description = "Người dùng tự xóa tài khoản của mình.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content)
-    })
-    @DeleteMapping("/delete")
-    ApiResponse<Void> deleteOwnAccount() {
+    @Override
+    public ApiResponse<Void> deleteOwnAccount() {
         userService.deleteOwnAccount();
-        return ApiResponse.<Void>builder()
-                .status(200)
-                .message("User deleted successfully")
-                .build();
+        return ApiResponse.<Void>builder().status(200).message("User deleted successfully").build();
     }
 
-    @Operation(summary = "Lấy thông tin profile", description = "Lấy thông tin của người dùng đang đăng nhập.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy user (Token lỗi)", content = @Content)
-    })
-    @GetMapping("/get-logged-in-profile-info")
-    ApiResponse<UserResponse> getOwnAccountDetails() {
-        return ApiResponse.<UserResponse>builder()
-                .status(200)
-                .message("Success")
-                .data(userService.getOwnAccountDetails())
-                .build();
+    @Override
+    public ApiResponse<UserResponse> getOwnAccountDetails() {
+        return ApiResponse.<UserResponse>builder().status(200).message("Success").data(userService.getOwnAccountDetails()).build();
     }
 
-    @Operation(summary = "Lịch sử đặt phòng", description = "Lấy danh sách các booking của người dùng hiện tại.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content)
-    })
-    @GetMapping("/get-user-bookings")
-    @PreAuthorize("hasAuthority('CUSTOMER') or hasAuthority('ADMIN')")
-    ApiResponse<List<BookingResponse>> getMyBookingHistory() {
-        return ApiResponse.<List<BookingResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(userService.getMyBookingHistory())
-                .build();
+    @Override
+    public ApiResponse<List<BookingResponse>> getMyBookingHistory() {
+        return ApiResponse.<List<BookingResponse>>builder().status(200).message("Success").data(userService.getMyBookingHistory()).build();
     }
 
-    @Operation(summary = "Đổi mật khẩu", description = "Yêu cầu mật khẩu cũ phải chính xác.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Đổi mật khẩu thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Mật khẩu cũ không đúng hoặc Mật khẩu mới trùng mật khẩu cũ", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content)
-    })
-    @PutMapping("/change-password")
-    ApiResponse<Void> changePassword(@RequestBody @Valid ChangePasswordRequest request) {
+    @Override
+    public ApiResponse<Void> changePassword(@RequestBody ChangePasswordRequest request) {
         userService.changePassword(request);
-        return ApiResponse.<Void>builder()
-                .status(200)
-                .message("Password changed successfully")
-                .build();
+        return ApiResponse.<Void>builder().status(200).message("Password changed successfully").build();
     }
 
-    @Operation(summary = "Khóa tài khoản (ADMIN)", description = "Admin khóa tài khoản người dùng.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Khóa thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User không tồn tại", content = @Content)
-    })
-    @PutMapping("/{userId}/lock")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    public ApiResponse<Void> lockUser(@PathVariable Integer userId){
+    @Override
+    public ApiResponse<Void> lockUser(@PathVariable Integer userId) {
         userService.lockUser(userId);
-        return ApiResponse.<Void>builder()
-                .status(200)
-                .message("User locked successfully")
-                .build();
+        return ApiResponse.<Void>builder().status(200).message("User locked successfully").build();
     }
 
-    @Operation(summary = "Mở khóa tài khoản (ADMIN)", description = "Admin mở khóa tài khoản người dùng.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Mở khóa thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User không tồn tại", content = @Content)
-    })
-    @PutMapping("/{userId}/unlock")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    public ApiResponse<Void> unlockUser(@PathVariable Integer userId){
+    @Override
+    public ApiResponse<Void> unlockUser(@PathVariable Integer userId) {
         userService.unlockUser(userId);
-        return ApiResponse.<Void>builder()
-                .status(200)
-                .message("User unlocked successfully")
-                .build();
+        return ApiResponse.<Void>builder().status(200).message("User unlocked successfully").build();
     }
-
-
 }

@@ -1,10 +1,5 @@
 package org.example.hotelbookingservice.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -14,185 +9,80 @@ import org.example.hotelbookingservice.dto.request.room.RoomCreateRequest;
 import org.example.hotelbookingservice.dto.response.RoomResponse;
 import org.example.hotelbookingservice.enums.RoomType;
 import org.example.hotelbookingservice.services.IRoomService;
-import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.time.LocalDate;
 import java.util.List;
+import org.example.hotelbookingservice.api.RoomApi;
 
 @RestController
 @RequestMapping("/api/v1/rooms")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@Tag(name = "Room Management", description = "Quản lý phòng khách sạn (Thêm, sửa, xóa, tìm kiếm phòng trống)")
-public class RoomController {
+public class RoomController implements RoomApi {
+
     IRoomService roomService;
 
-    @Operation(summary = "Thêm phòng mới (ADMIN)", description = "Thêm phòng vào khách sạn.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo phòng thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Phòng đã tồn tại hoặc dữ liệu sai", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin hoặc không sở hữu khách sạn", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content)
-    })
-    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('ADMIN')")
-    ApiResponse<RoomResponse> addRoom(
-            @RequestParam(value = "image", required = false) MultipartFile image,
-            @ParameterObject @ModelAttribute @Valid RoomCreateRequest roomCreateRequest
-            // @ModelAttribute spring map field from from-data to DTO
-            // @Valid error checking annotations in RoomDTO
-    ) {
-        return ApiResponse.<RoomResponse>builder()
-                .status(201)
-                .message("Room successfully added")
-                .data(roomService.addRoom(roomCreateRequest, image))
-                .build();
+    @Override
+    public ApiResponse<RoomResponse> addRoom(@RequestParam(value = "image", required = false) MultipartFile image, @ModelAttribute RoomCreateRequest roomCreateRequest) // @ModelAttribute spring map field from from-data to DTO
+    // @Valid error checking annotations in RoomDTO
+    {
+        return ApiResponse.<RoomResponse>builder().status(201).message("Room successfully added").data(roomService.addRoom(roomCreateRequest, image)).build();
     }
 
-    @Operation(summary = "Cập nhật thông tin phòng (ADMIN)", description = "Sửa thông tin phòng.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Phòng không tồn tại", content = @Content)
-    })
-    @PutMapping(value = "/update/{roomId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('ADMIN')")
-    ApiResponse<RoomResponse> updateRoom(
-            @PathVariable Integer roomId,
-            @RequestParam(value = "photo", required = false) MultipartFile photo,
-            @ParameterObject @ModelAttribute RoomCreateRequest roomCreateRequest
-    ) {
+    @Override
+    public ApiResponse<RoomResponse> updateRoom(@PathVariable Integer roomId, @RequestParam(value = "photo", required = false) MultipartFile photo, @ModelAttribute RoomCreateRequest roomCreateRequest) {
         roomCreateRequest.setId(roomId);
-        return ApiResponse.<RoomResponse>builder()
-                .status(200)
-                .message("Room updated successfully")
-                .data(roomService.updateRoom(roomCreateRequest, photo))
-                .build();
+        return ApiResponse.<RoomResponse>builder().status(200).message("Room updated successfully").data(roomService.updateRoom(roomCreateRequest, photo)).build();
     }
 
-    @Operation(summary = "Lấy danh sách tất cả phòng", description = "API Public.")
-    @GetMapping("/all")
-    ApiResponse<List<RoomResponse>> getAllRooms() {
-        return ApiResponse.<List<RoomResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.getAllRooms())
-                .build();
+    @Override
+    public ApiResponse<List<RoomResponse>> getAllRooms() {
+        return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.getAllRooms()).build();
     }
 
-    @Operation(summary = "Xem chi tiết phòng", description = "Lấy thông tin phòng theo ID.")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng", content = @Content)
-    })
-    @GetMapping("/{roomId}")
-    ApiResponse<RoomResponse> getRoomById(@PathVariable Integer roomId) {
-        return ApiResponse.<RoomResponse>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.getRoomById(roomId))
-                .build();
+    @Override
+    public ApiResponse<RoomResponse> getRoomById(@PathVariable Integer roomId) {
+        return ApiResponse.<RoomResponse>builder().status(200).message("Success").data(roomService.getRoomById(roomId)).build();
     }
 
-
-    @Operation(summary = "Xóa phòng (ADMIN)", description = "Xóa phòng khỏi hệ thống.")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng", content = @Content)
-    })
-    @DeleteMapping("/delete/{roomId}")
-    @PreAuthorize("hasAuthority('ADMIN')")
-    ApiResponse<Void> deleteRoom(@PathVariable Integer roomId) {
+    @Override
+    public ApiResponse<Void> deleteRoom(@PathVariable Integer roomId) {
         roomService.deleteRoom(roomId);
-        return ApiResponse.<Void>builder()
-                .status(200)
-                .message("Room Deleted Successfully")
-                .build();
+        return ApiResponse.<Void>builder().status(200).message("Room Deleted Successfully").build();
     }
 
-
-    @Operation(summary = "Tìm phòng trống theo ngày", description = "Tìm các phòng có thể đặt.")
-    @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Ngày check-in/out không hợp lệ hoặc thiếu", content = @Content)
-    })
-    @GetMapping("/all-available-rooms")
-    ApiResponse<List<RoomResponse>> getAvailableRooms(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate,
-            @RequestParam(required = false) String roomType
-    ) {
+    @Override
+    public ApiResponse<List<RoomResponse>> getAvailableRooms(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate, @RequestParam(required = false) String roomType) {
         if (checkInDate == null || checkOutDate == null) {
-            return ApiResponse.<List<RoomResponse>>builder()
-                    .status(400)
-                    .message("Check-in and Check-out dates are required")
-                    .build();
+            return ApiResponse.<List<RoomResponse>>builder().status(400).message("Check-in and Check-out dates are required").build();
         }
-
         RoomType type = null;
         if (roomType != null && !roomType.isEmpty()) {
             try {
                 type = RoomType.valueOf(roomType.toUpperCase());
             } catch (IllegalArgumentException e) {
-                return ApiResponse.<List<RoomResponse>>builder()
-                        .status(400)
-                        .message("Invalid room type")
-                        .build();
+                return ApiResponse.<List<RoomResponse>>builder().status(400).message("Invalid room type").build();
             }
         }
-
-        return ApiResponse.<List<RoomResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.getAvailableRooms(checkInDate, checkOutDate, type))
-                .build();
+        return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.getAvailableRooms(checkInDate, checkOutDate, type)).build();
     }
 
-    @Operation(summary = "Lấy danh sách loại phòng", description = "Trả về các enum loại phòng (SINGLE, DOUBLE, SUIT, TRIPLE).")
-    @GetMapping("/types")
-    ApiResponse<List<RoomType>> getRoomTypes() {
-        return ApiResponse.<List<RoomType>>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.getAllRoomTypes())
-                .build();
+    @Override
+    public ApiResponse<List<RoomType>> getRoomTypes() {
+        return ApiResponse.<List<RoomType>>builder().status(200).message("Success").data(roomService.getAllRoomTypes()).build();
     }
 
-    @Operation(summary = "Tìm kiếm phòng chung", description = "Tìm kiếm phòng theo từ khóa (Tên, mô tả, giá...).")
-    @GetMapping("/search")
-    ApiResponse<List<RoomResponse>> searchRoom(@RequestParam String input) {
-        return ApiResponse.<List<RoomResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.searchRoom(input))
-                .build();
+    @Override
+    public ApiResponse<List<RoomResponse>> searchRoom(@RequestParam String input) {
+        return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.searchRoom(input)).build();
     }
 
-    @Operation(summary = "Tìm phòng trống theo ID khách sạn", description = "Lấy danh sách phòng còn trống của một khách sạn cụ thể trong khoảng thời gian Check-in/Check-out.")
-    @GetMapping("/hotel/{hotelId}/available")
-    public ApiResponse<List<RoomResponse>> getAvailableRoomsByHotel(
-            @PathVariable Integer hotelId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate
-    ) {
-        return ApiResponse.<List<RoomResponse>>builder()
-                .status(200)
-                .message("Success")
-                .data(roomService.getAvailableRoomsByHotelId(hotelId, checkInDate, checkOutDate))
-                .build();
+    @Override
+    public ApiResponse<List<RoomResponse>> getAvailableRoomsByHotel(@PathVariable Integer hotelId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
+        return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.getAvailableRoomsByHotelId(hotelId, checkInDate, checkOutDate)).build();
     }
-
-
-
 }
-
-
