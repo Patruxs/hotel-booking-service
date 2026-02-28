@@ -18,4 +18,12 @@ public interface RoomamenityRepository extends JpaRepository<Roomamenity, Roomam
     @Transactional
     @Query("DELETE FROM Roomamenity ra WHERE ra.id.roomId = :roomId")
     void deleteByRoomId(Integer roomId);
+
+    @Query("SELECT COUNT(ra) FROM Roomamenity ra WHERE ra.id.roomId = :roomId AND ra.id.amenityId IN :amenityIds")
+    long countById_RoomIdAndId_AmenityIdIn(Integer roomId, java.util.Collection<Integer> amenityIds);
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM Roomamenity ra WHERE ra.id.roomId = :roomId AND ra.id.amenityId IN :amenityIds")
+    void deleteByRoomIdAndAmenityIdIn(Integer roomId, java.util.Collection<Integer> amenityIds);
 }
