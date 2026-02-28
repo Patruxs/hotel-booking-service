@@ -12,6 +12,8 @@ import java.util.List;
 public interface RoomamenityRepository extends JpaRepository<Roomamenity, RoomamenityId> {
     List<Roomamenity> findByIdRoomId(Integer roomId);
 
+    List<Roomamenity> findByIdRoomIdAndIdAmenityIdIn(Integer roomId, List<Integer> amenityIds);
+
     boolean existsByIdAmenityId(Integer amenityId);
 
     @Modifying
