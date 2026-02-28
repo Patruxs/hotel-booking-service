@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: hotel-booking-service
+  profiles:
+    active: test
