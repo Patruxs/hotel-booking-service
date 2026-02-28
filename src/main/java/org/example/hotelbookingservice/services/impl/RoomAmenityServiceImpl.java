@@ -47,20 +47,31 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
             throw new NotFoundException("Could not add successfully. The following Amenity IDs do not exist: " + missingIds);
         }
 
-        // 5. Nếu tất cả đều hợp lệ, tiến hành lưu
-        for (Amenity amenity : foundAmenities) {
-            RoomamenityId id = new RoomamenityId();
-            id.setRoomId(roomId);
-            id.setAmenityId(amenity.getId());
+        // 5. Lấy danh sách các Roomamenity đã tồn tại để tránh lỗi trùng lặp
+        List<Roomamenity> existingRoomAmenities = roomAmenityRepository.findByIdRoomIdAndIdAmenityIdIn(roomId, foundIds);
+        List<Integer> existingAmenityIds = existingRoomAmenities.stream()
+                .map(ra -> ra.getId().getAmenityId())
+                .collect(Collectors.toList());
 
-            if (!roomAmenityRepository.existsById(id)) {
-                Roomamenity roomAmenity = new Roomamenity();
-                roomAmenity.setId(id);
-                roomAmenity.setRoom(room);
-                roomAmenity.setAmenity(amenity);
+        // 6. Lọc ra các Amenity chưa được thêm vào phòng
+        List<Roomamenity> newRoomAmenities = foundAmenities.stream()
+                .filter(amenity -> !existingAmenityIds.contains(amenity.getId()))
+                .map(amenity -> {
+                    RoomamenityId id = new RoomamenityId();
+                    id.setRoomId(roomId);
+                    id.setAmenityId(amenity.getId());
 
-                roomAmenityRepository.save(roomAmenity);
-            }
+                    Roomamenity roomAmenity = new Roomamenity();
+                    roomAmenity.setId(id);
+                    roomAmenity.setRoom(room);
+                    roomAmenity.setAmenity(amenity);
+                    return roomAmenity;
+                })
+                .collect(Collectors.toList());
+
+        // 7. Nếu có Amenity mới, tiến hành lưu hàng loạt
+        if (!newRoomAmenities.isEmpty()) {
+            roomAmenityRepository.saveAll(newRoomAmenities);
         }
 
     }
