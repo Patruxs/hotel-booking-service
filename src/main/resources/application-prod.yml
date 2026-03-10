@@ -12,7 +12,7 @@ spring:
     database-platform: org.hibernate.dialect.MySQLDialect
     show-sql: false
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate :
         format_sql: false
@@ -40,3 +40,13 @@ cloudinary:
   cloud-name: ${CLOUDINARY_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
+
+---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    tags:
+      application: hotel-booking-service
