@@ -1,0 +1,21 @@
+---
+- name: Deploy Prometheus and Grafana
+  hosts: monitoring_server
+  tasks:
+    - name: Copy Prometheus config
+      copy:
+        src: prometheus.yml
+        dest: /home/ubuntu/prometheus.yml
+
+    - name: Copy docker-compose file
+      copy:
+        src: docker-compose-monitor.yml
+        dest: /home/ubuntu/docker-compose.yml
+
+    - name: Start Monitoring services
+      become: yes
+      shell: |
+        docker compose pull
+        docker compose up -d
+      args:
+        chdir: /home/ubuntu
