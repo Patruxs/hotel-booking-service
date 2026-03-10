@@ -1,0 +1,48 @@
+# ========================
+# Terraform
+# ========================
+# Provider cache directory (re-downloaded via terraform init)
+.terraform/
+
+# State files - contain sensitive information (IPs, passwords, ARNs, ...)
+terraform.tfstate
+terraform.tfstate.backup
+
+# Variables files may contain secrets
+*.tfvars
+*.tfvars.json
+
+# Crash log
+crash.log
+crash.*.log
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# ========================
+# SSH Keys - NEVER PUSH TO REPOSITORY
+# ========================
+*.pem
+*.key
+
+# ========================
+# Ansible
+# ========================
+# Ansible retry files
+*.retry
+
+# ========================
+# Analysis docs
+# ========================
+INFRASTRUCTURE_ANALYSIS.md
+
+# ========================
+# OS / IDE
+# ========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

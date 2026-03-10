@@ -1,0 +1,22 @@
+- name: Deploy Hotel Booking App
+  hosts: app_servers
+  tasks:
+    - name: Copy docker-compose file to server
+      copy:
+        src: docker-compose.yml
+        dest: /home/ubuntu/docker-compose.yml
+
+    - name: Run docker-compose up
+      shell: |
+        export BACKEND_IMAGE="{{ backend_image }}"
+        export FRONTEND_IMAGE="{{ frontend_image }}"
+        export RDS_ENDPOINT="{{ rds_endpoint }}"
+        export DB_USER="admin"
+        export DB_PASSWORD="Admin123456!"
+        export CLOUDINARY_NAME="{{ cloudinary_name }}"
+        export CLOUDINARY_API_KEY="{{ cloudinary_key }}"
+        export CLOUDINARY_API_SECRET="{{ cloudinary_secret }}"
+        docker compose pull
+        docker compose up -d
+      args:
+        chdir: /home/ubuntu
