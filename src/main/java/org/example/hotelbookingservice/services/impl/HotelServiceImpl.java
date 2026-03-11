@@ -136,9 +136,15 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
+    @Transactional
     public List<HotelResponse> getAllHotels() {
+       long startTime = System.nanoTime();
        List<Hotel> hotelList = hotelRepository.findAll();
-       return hotelMapper.toHotelResponseList(hotelList);
+       List<HotelResponse> responses = hotelMapper.toHotelResponseList(hotelList);
+       long endTime = System.nanoTime();
+       log.info("⚡ PERFORMANCE BENCHMARK: getAllHotels() took {} ms to execute and map {} hotels.",
+               (endTime - startTime) / 1_000_000.0, responses.size());
+       return responses;
     }
 
     @Override
