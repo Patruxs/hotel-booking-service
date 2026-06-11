@@ -1,5 +1,5 @@
 package org.example.hotelbookingservice.enums;
 
 public enum UserRole {
-    CUSTOMER, ADMIN
+    CUSTOMER, ADMIN, RECEPTIONIST, MANAGER
 }

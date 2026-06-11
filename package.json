@@ -1,0 +1,13 @@
+{
+  "name": "hotel-booking-service",
+  "private": true,
+  "scripts": {
+    "swagger:export": "node ./scripts/export-openapi.mjs",
+    "swagger:validate": "swagger-cli validate ./openapi/generated/openapi.json",
+    "swagger:bundle": "swagger-cli bundle ./openapi/generated/openapi.json --type yaml --outfile ./openapi/generated/openapi.bundle.yaml",
+    "swagger:check": "npm run swagger:export && npm run swagger:validate"
+  },
+  "devDependencies": {
+    "@apidevtools/swagger-cli": "^4.0.4"
+  }
+}

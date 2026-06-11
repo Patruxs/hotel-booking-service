@@ -39,6 +39,9 @@ public class RoomCreateRequest {
     @Schema(description = "Sức chứa tối đa (người)", example = "2")
     private Integer capacity;
 
+    @Schema(description = "Số phòng ngủ", example = "1")
+    private Integer numberOfBedrooms;
+
     @NotBlank(message = "Description is required")
     @Schema(description = "Mô tả chi tiết tiện nghi", example = "Phòng có view biển, điều hòa 2 chiều...")
     private String description;

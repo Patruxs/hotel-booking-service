@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.hotelbookingservice.dto.request.auth.LoginRequest;
 import org.example.hotelbookingservice.dto.request.auth.RegisterRequest;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
+import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.dto.response.LoginResponse;
@@ -239,5 +240,53 @@ public class UserServiceImpl implements IUserService {
             log.info("User {} is logging out.", email);
         }
         SecurityContextHolder.clearContext();
+    }
+
+    @Override
+    @Transactional
+    public UserResponse createStaff(CreateStaffRequest request) {
+        // Validate: email must not already exist
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new AppException(ErrorCode.USER_EXISTED);
+        }
+
+        // Validate: role must be RECEPTIONIST or MANAGER only
+        UserRole roleEnum = request.getRole();
+        if (roleEnum == UserRole.CUSTOMER || roleEnum == UserRole.ADMIN) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Create user entity
+        User staffUser = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .phone(request.getPhone())
+                .dob(request.getDob())
+                .activate(Boolean.TRUE)
+                .userRoles(new LinkedHashSet<>())
+                .build();
+
+        User savedUser = userRepository.save(staffUser);
+
+        // Find role entity in DB
+        Role roleEntity = roleRepository.findByName(roleEnum.name())
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+
+        // Create user-role assignment
+        UserroleId userroleId = new UserroleId();
+        userroleId.setUserId(savedUser.getId());
+        userroleId.setRoleId(roleEntity.getId());
+
+        Userrole userrole = new Userrole();
+        userrole.setId(userroleId);
+        userrole.setUser(savedUser);
+        userrole.setRole(roleEntity);
+
+        userroleRepository.save(userrole);
+
+        log.info("Staff account created: {} with role {}", request.getEmail(), roleEnum.name());
+
+        return userMapper.toUserResponse(savedUser);
     }
 }

@@ -39,4 +39,7 @@ public class AuthController implements AuthApi {
         userService.logout();
         return ApiResponse.<Void>builder().status(200).message("Logged out successfully").build();
     }
+
+
+
 }

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
+import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.dto.response.UserResponse;
@@ -25,6 +26,13 @@ public interface UserApi {
     @GetMapping("/all")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<List<UserResponse>> getAllUser();
+
+    @Operation(summary = "Tạo tài khoản nhân viên (ADMIN)", description = "Admin tạo tài khoản cho Lễ tân (RECEPTIONIST) hoặc Quản lý (MANAGER).")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo nhân viên thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc email đã tồn tại", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content) })
+    @PostMapping("/create-staff")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    ApiResponse<UserResponse> createStaff(@RequestBody @Valid CreateStaffRequest request);
 
     @Operation(summary = "Cập nhật thông tin cá nhân", description = "Người dùng tự cập nhật thông tin của mình.")
     @SecurityRequirement(name = "bearerAuth")
@@ -71,3 +79,4 @@ public interface UserApi {
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> unlockUser(@PathVariable Integer userId);
 }
+

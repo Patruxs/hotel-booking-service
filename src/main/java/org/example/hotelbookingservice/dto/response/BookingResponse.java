@@ -60,6 +60,14 @@ public class BookingResponse {
     @Schema(description = "Danh sách các phòng đã đặt trong booking này")
     private List<RoomResponse> rooms;
 
+    @Schema(description = "Phí hư hao (nếu có)")
+    private Float damageFee;
+
+    @Schema(description = "Mô tả hư hao")
+    private String damageDescription;
+
+    @Schema(description = "Danh sách khách lưu trú")
+    private List<GuestDetailResponse> guestDetails;
 
 }
 

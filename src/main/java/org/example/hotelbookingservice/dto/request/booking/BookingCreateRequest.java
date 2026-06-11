@@ -1,6 +1,7 @@
 package org.example.hotelbookingservice.dto.request.booking;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Min;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 import org.example.hotelbookingservice.enums.BookingStatus;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -50,5 +52,9 @@ public class BookingCreateRequest {
     @Schema(description = "Yêu cầu đặc biệt (tùy chọn)", example = "Cần phòng tầng cao, view đẹp")
     private String specialRequire;
 
+    @Valid
+    @Schema(description = "Danh sách khách lưu trú (tùy chọn)")
+    private List<GuestDetailRequest> guestDetails;
 
 }
+

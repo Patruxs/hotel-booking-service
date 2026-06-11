@@ -85,6 +85,8 @@ public class DataSeeder implements CommandLineRunner {
 
         map.put(1, createRole(1, "CUSTOMER"));
         map.put(2, createRole(2, "ADMIN"));
+        map.put(3, createRole(3, "RECEPTIONIST"));
+        map.put(4, createRole(4, "MANAGER"));
 
         log.info("Seeded {} roles", map.size());
         return map;
@@ -116,6 +118,12 @@ public class DataSeeder implements CommandLineRunner {
         // User 5: Tran Van Nam
         map.put(5, createUser("Tran Van Nam", "tranam@gmail.com", "customer123", "0909123123",
                 LocalDate.of(1990, 2, 10)));
+        // User 6: Receptionist
+        map.put(6, createUser("Nguyen Thi Letan", "receptionist@hotel.com", "staff123", "0911222333",
+                LocalDate.of(1997, 3, 15)));
+        // User 7: Manager
+        map.put(7, createUser("Tran Van Quanly", "manager@hotel.com", "staff123", "0911444555",
+                LocalDate.of(1992, 7, 20)));
 
         log.info("Seeded {} users", map.size());
         return map;
@@ -136,12 +144,14 @@ public class DataSeeder implements CommandLineRunner {
 
     // ======================== 3. USER-ROLE ========================
     private void seedUserRoles(Map<Integer, User> users, Map<Integer, Role> roles) {
-        // SQL: (role_id, user_id) => (2,1),(1,2),(1,3),(1,4),(1,5)
+        // SQL: (role_id, user_id) => (2,1),(1,2),(1,3),(1,4),(1,5),(3,6),(4,7)
         assignUserRole(users.get(1), roles.get(2)); // Admin User -> ADMIN
         assignUserRole(users.get(2), roles.get(1)); // Customer -> CUSTOMER
         assignUserRole(users.get(3), roles.get(1)); // Nguyen Van A -> CUSTOMER
         assignUserRole(users.get(4), roles.get(1)); // Le Thi B -> CUSTOMER
         assignUserRole(users.get(5), roles.get(1)); // Tran Van Nam -> CUSTOMER
+        assignUserRole(users.get(6), roles.get(3)); // Nguyen Thi Letan -> RECEPTIONIST
+        assignUserRole(users.get(7), roles.get(4)); // Tran Van Quanly -> MANAGER
 
         log.info("Seeded user-role assignments");
     }

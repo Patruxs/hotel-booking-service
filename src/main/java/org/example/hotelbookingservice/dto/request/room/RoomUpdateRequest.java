@@ -1,5 +1,6 @@
 package org.example.hotelbookingservice.dto.request.room;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -27,6 +28,9 @@ public class RoomUpdateRequest {
     @NotNull(message = "Capacity is required")
     @Min(value = 1, message = "Capacity must be at least 1 person")
     private Integer capacity;
+
+    @Schema(description = "Số phòng ngủ", example = "1")
+    private Integer numberOfBedrooms;
 
     @NotBlank(message = "Description is required")
     private String description;

@@ -48,6 +48,11 @@ public class SecurtyFilter {
                                 "/swagger-ui.html"
                         ).permitAll()
 
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/prometheus"
+                        ).permitAll()
+
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET,

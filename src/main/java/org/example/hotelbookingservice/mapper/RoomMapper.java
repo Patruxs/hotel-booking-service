@@ -32,6 +32,7 @@ public abstract class RoomMapper {
     @Mapping(target = "images", ignore = true)
     @Mapping(target = "roomAmenities", ignore = true)
     @Mapping(target = "bookingrooms", ignore = true)
+    @Mapping(target = "physicalRooms", ignore = true)
     public abstract Room toRoom(RoomCreateRequest roomCreateRequest);
 
     //Update Entity from Request
@@ -39,6 +40,7 @@ public abstract class RoomMapper {
     @Mapping(target = "images", ignore = true)
     @Mapping(target = "roomAmenities", ignore = true)
     @Mapping(target = "bookingrooms", ignore = true)
+    @Mapping(target = "physicalRooms", ignore = true)
     @Mapping(target = "id", ignore = true)
     public abstract void updateRoomFromRequest(RoomCreateRequest request, @MappingTarget Room room);
 

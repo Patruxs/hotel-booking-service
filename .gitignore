@@ -18,8 +18,7 @@ target/
 *.war
 *.ear
 *.log
-# File sinh ra bởi Maven Wrapper (giữ lại mvnw nhưng bỏ file jar/properties để project nhẹ hơn)
-.mvn/wrapper/maven-wrapper.properties
+# File sinh ra bởi Maven Wrapper (giữ lại metadata properties để mvnw hoạt động)
 .mvn/wrapper/maven-wrapper.jar
 
 # --- IDE (IntelliJ, Eclipse, VSCode) ---
@@ -40,6 +39,13 @@ build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+openapi/generated/
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
 # --- HỆ ĐIỀU HÀNH ---
 .DS_Store

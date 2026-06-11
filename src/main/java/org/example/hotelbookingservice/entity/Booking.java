@@ -75,6 +75,15 @@ public class Booking {
     @Column(name = "refund")
     private Float refund;
 
+    @Column(name = "damageFee")
+    private Float damageFee;
+
+    @Column(name = "damageDescription")
+    private String damageDescription;
+
+
+
+
     @NotNull
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
@@ -87,5 +96,7 @@ public class Booking {
     @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Payment> payments = new LinkedHashSet<>();
 
+    @OneToMany(mappedBy = "booking", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<GuestDetail> guestDetails = new LinkedHashSet<>();
 
 }

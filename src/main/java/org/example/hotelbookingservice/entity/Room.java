@@ -31,6 +31,9 @@ public class Room {
     @Column(name = "capacity", nullable = false)
     private Integer capacity;
 
+    @Column(name = "numberOfBedrooms")
+    private Integer numberOfBedrooms;
+
     @NotNull
     @Column(name = "price", nullable = false)
     private BigDecimal price;
@@ -39,7 +42,6 @@ public class Room {
     @NotNull
     @Column(name = "description", nullable = false)
     private String description;
-
 
     @NotNull
     @Column(name = "type", nullable = false)
@@ -63,5 +65,8 @@ public class Room {
 
     @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Roomamenity> roomAmenities = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "room", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PhysicalRoom> physicalRooms = new LinkedHashSet<>();
 
 }

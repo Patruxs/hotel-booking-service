@@ -20,17 +20,17 @@ import java.util.List;
 @Tag(name = "Revenue Management", description = "Quản lý thống kê doanh thu hệ thống")
 public interface RevenueApi {
 
-    @Operation(summary = "Thống kê doanh thu theo năm (ADMIN)", description = "Xem doanh thu của các khách sạn theo từng tháng.")
+    @Operation(summary = "Thống kê doanh thu theo năm (ADMIN, MANAGER)", description = "Xem doanh thu của các khách sạn theo từng tháng.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập", content = @Content) })
     @GetMapping("/yearly")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('MANAGER')")
     ApiResponse<List<RevenueStatisticResponse>> getYearlyRevenue(@RequestParam(defaultValue = "2025") int year);
 
-    @Operation(summary = "Thống kê doanh thu theo khoảng thời gian (ADMIN)", description = "Trả về tổng doanh thu, số lượng booking và hoa hồng của từng khách sạn trong khoảng thời gian được chọn.")
+    @Operation(summary = "Thống kê doanh thu theo khoảng thời gian (ADMIN, MANAGER)", description = "Trả về tổng doanh thu, số lượng booking và hoa hồng của từng khách sạn trong khoảng thời gian được chọn.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RevenueStatisticResponse.class))), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Lỗi dữ liệu đầu vào (Ngày bắt đầu lớn hơn ngày kết thúc...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập (Yêu cầu quyền ADMIN)", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RevenueStatisticResponse.class))), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Lỗi dữ liệu đầu vào (Ngày bắt đầu lớn hơn ngày kết thúc...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập (Yêu cầu quyền ADMIN hoặc MANAGER)", content = @Content) })
     @GetMapping("/date-range")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('MANAGER')")
     ApiResponse<List<RevenueStatisticResponse>> getRevenueByDateRange(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate);
 }

@@ -186,13 +186,17 @@ Once the application starts, visit:
 
 | Profile | File | Purpose | Default |
 |---------|------|---------|---------|
-| `dev` | `application-dev.yml` | Local development | ✅ Yes |
+| `local` | `application-local.yml` | Local startup with embedded H2 | ✅ Yes |
+| `dev` | `application-dev.yml` | Local development with MySQL on `localhost:3306` | No |
 | `test` | `application-test.yml` | Testing (H2 database) | No |
 | `prod` | `application-prod.yml` | Production (AWS RDS) | No |
 
 ```bash
-# Development (default)
+# Local H2 database (default, no MySQL required)
 mvn spring-boot:run
+
+# MySQL development database
+mvn spring-boot:run -Pdev
 
 # Test
 mvn spring-boot:run -Ptest
@@ -294,6 +298,27 @@ Once the application is running, access the interactive API documentation:
 - Test API calls directly from the browser
 - See request/response schemas
 - Authenticate with JWT tokens
+
+### Swagger CLI
+
+This repo now includes a local `swagger-cli` workflow for exporting and validating the generated OpenAPI spec.
+
+```bash
+npm install
+npm run swagger:check
+npm run swagger:bundle
+```
+
+- `npm run swagger:export` downloads `http://localhost:8080/v3/api-docs` into `openapi/generated/openapi.json`
+- `npm run swagger:validate` validates the exported spec
+- `npm run swagger:bundle` writes `openapi/generated/openapi.bundle.yaml`
+
+If your app runs on another URL, override the source endpoint before running the command:
+
+```powershell
+$env:OPENAPI_URL = "http://localhost:8081/v3/api-docs"
+npm run swagger:check
+```
 
 ## 🔑 Default Accounts
 

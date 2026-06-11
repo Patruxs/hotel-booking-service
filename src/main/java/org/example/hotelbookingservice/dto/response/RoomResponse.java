@@ -22,6 +22,7 @@ public class RoomResponse {
     private RoomType type;
     private BigDecimal price;
     private Integer capacity;
+    private Integer numberOfBedrooms;
     private String description;
     private String name;
     private Integer amount;

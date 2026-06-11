@@ -5,12 +5,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotelbookingservice.dto.request.booking.BookingCreateRequest;
 import org.example.hotelbookingservice.dto.request.booking.BookingUpdateRequest;
+import org.example.hotelbookingservice.dto.request.booking.GuestDetailRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
-import org.example.hotelbookingservice.entity.Booking;
-import org.example.hotelbookingservice.entity.Bookingroom;
-import org.example.hotelbookingservice.entity.Room;
-import org.example.hotelbookingservice.entity.User;
+import org.example.hotelbookingservice.entity.*;
 import org.example.hotelbookingservice.enums.BookingStatus;
+import org.example.hotelbookingservice.enums.RoomCondition;
 import org.example.hotelbookingservice.exception.AppException;
 import org.example.hotelbookingservice.exception.ErrorCode;
 import org.example.hotelbookingservice.exception.InvalidBookingStateAndDateException;
@@ -18,6 +17,8 @@ import org.example.hotelbookingservice.exception.NotFoundException;
 import org.example.hotelbookingservice.mapper.BookingMapper;
 import org.example.hotelbookingservice.repository.BookingRepository;
 import org.example.hotelbookingservice.repository.BookingRoomRepository;
+import org.example.hotelbookingservice.repository.GuestDetailRepository;
+import org.example.hotelbookingservice.repository.PhysicalRoomRepository;
 import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.BookingCodeGenerator;
 import org.example.hotelbookingservice.services.IBookingService;
@@ -40,6 +41,8 @@ public class BookingServiceImpl implements IBookingService {
     private final IUserService userService;
     private final BookingCodeGenerator bookingCodeGenerator;
     private final BookingRoomRepository bookingRoomRepository;
+    private final GuestDetailRepository guestDetailRepository;
+    private final PhysicalRoomRepository physicalRoomRepository;
 
 
     @Override
@@ -114,8 +117,18 @@ public class BookingServiceImpl implements IBookingService {
         // Entity Booking needs to initialize Set<Bookingroom> first (already done in Entity)
         booking.getBookingrooms().add(bookingRoom);
 
+        // Save GuestDetails if provided
+        if (bookingRequest.getGuestDetails() != null && !bookingRequest.getGuestDetails().isEmpty()) {
+            for (GuestDetailRequest guestReq : bookingRequest.getGuestDetails()) {
+                GuestDetail guestDetail = new GuestDetail();
+                guestDetail.setFullName(guestReq.getFullName());
+                guestDetail.setIdentityNumber(guestReq.getIdentityNumber());
+                guestDetail.setBooking(booking);
+                booking.getGuestDetails().add(guestDetail);
+            }
+        }
 
-        // Hibernate will automatically save Booking -> get ID -> save BookingRoom
+        // Hibernate will automatically save Booking -> get ID -> save BookingRoom + GuestDetails (cascade)
         Booking savedBooking = bookingRepository.save(booking);
 
         return bookingMapper.toBookingResponse(savedBooking);
@@ -130,15 +143,59 @@ public class BookingServiceImpl implements IBookingService {
     }
 
     @Override
+    @Transactional
     public BookingResponse updateBooking(Integer bookingId, BookingUpdateRequest bookingRequest) {
         Booking existingBooking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Booking Not Found"));
 
+        // Handle status update
         if (bookingRequest.getStatus() != null) {
-            existingBooking.setStatus(bookingRequest.getStatus());
+            BookingStatus newStatus = bookingRequest.getStatus();
+
+            // === CHECKOUT LOGIC ===
+            if (newStatus == BookingStatus.CHECKED_OUT) {
+                // Add damageFee to totalPrice if present
+                if (bookingRequest.getDamageFee() != null && bookingRequest.getDamageFee() > 0) {
+                    existingBooking.setDamageFee(bookingRequest.getDamageFee());
+                    existingBooking.setDamageDescription(bookingRequest.getDamageDescription());
+
+                    // Add damageFee to totalPrice
+                    float newTotal = existingBooking.getTotalPrice() + bookingRequest.getDamageFee();
+                    existingBooking.setTotalPrice(newTotal);
+
+                    log.info("Booking {} - Added damage fee: {}. New total: {}",
+                            bookingId, bookingRequest.getDamageFee(), newTotal);
+                }
+
+                // Update PhysicalRoom status to DIRTY
+                if (existingBooking.getRoomNumber() != null && !existingBooking.getRoomNumber().isBlank()) {
+                    try {
+                        Integer roomNumber = Integer.parseInt(existingBooking.getRoomNumber());
+                        physicalRoomRepository.findByRoomNumber(roomNumber)
+                                .ifPresent(physicalRoom -> {
+                                    physicalRoom.setRoomCondition(RoomCondition.DIRTY);
+                                    physicalRoomRepository.save(physicalRoom);
+                                    log.info("Physical room {} marked as DIRTY after checkout", roomNumber);
+                                });
+                    } catch (NumberFormatException e) {
+                        log.warn("Could not parse room number '{}' to update PhysicalRoom status",
+                                existingBooking.getRoomNumber());
+                    }
+                }
+            }
+
+            existingBooking.setStatus(newStatus);
         }
+
+        // Handle cancel reason
         if (bookingRequest.getCancelReason() != null) {
             existingBooking.setCancelReason(bookingRequest.getCancelReason());
+        }
+
+        // Handle damage fields directly (for cases without status change)
+        if (bookingRequest.getDamageFee() != null && bookingRequest.getStatus() == null) {
+            existingBooking.setDamageFee(bookingRequest.getDamageFee());
+            existingBooking.setDamageDescription(bookingRequest.getDamageDescription());
         }
 
         // Logic check duplicate room

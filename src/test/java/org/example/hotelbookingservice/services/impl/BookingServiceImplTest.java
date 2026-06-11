@@ -2,9 +2,11 @@ package org.example.hotelbookingservice.services.impl;
 
 import org.example.hotelbookingservice.dto.request.booking.BookingCreateRequest;
 import org.example.hotelbookingservice.dto.request.booking.BookingUpdateRequest;
+import org.example.hotelbookingservice.dto.request.booking.GuestDetailRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.entity.*;
 import org.example.hotelbookingservice.enums.BookingStatus;
+import org.example.hotelbookingservice.enums.RoomCondition;
 import org.example.hotelbookingservice.exception.AppException;
 import org.example.hotelbookingservice.exception.ErrorCode;
 import org.example.hotelbookingservice.exception.InvalidBookingStateAndDateException;
@@ -12,6 +14,8 @@ import org.example.hotelbookingservice.exception.NotFoundException;
 import org.example.hotelbookingservice.mapper.BookingMapper;
 import org.example.hotelbookingservice.repository.BookingRepository;
 import org.example.hotelbookingservice.repository.BookingRoomRepository;
+import org.example.hotelbookingservice.repository.GuestDetailRepository;
+import org.example.hotelbookingservice.repository.PhysicalRoomRepository;
 import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.BookingCodeGenerator;
 import org.example.hotelbookingservice.services.IUserService;
@@ -25,6 +29,7 @@ import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -55,6 +60,12 @@ public class BookingServiceImplTest {
 
     @Mock
     private BookingRoomRepository bookingRoomRepository;
+
+    @Mock
+    private GuestDetailRepository guestDetailRepository;
+
+    @Mock
+    private PhysicalRoomRepository physicalRoomRepository;
 
     @InjectMocks
     private BookingServiceImpl bookingService;
@@ -524,5 +535,180 @@ public class BookingServiceImplTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ROOM_NUMBER_OCCUPIED);
 
         verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    // ======================== NEW TESTS: PHASE 3/4 FEATURES ========================
+
+    @Test
+    void updateBooking_CheckoutWithDamageFee_AddsDamageFeeToTotalPrice() {
+        // Given
+        Integer bookingId = 1;
+        BookingUpdateRequest updateRequest = new BookingUpdateRequest();
+        updateRequest.setStatus(BookingStatus.CHECKED_OUT);
+        updateRequest.setDamageFee(500000f);
+        updateRequest.setDamageDescription("Broken mirror in bathroom");
+
+        Booking existingBooking = new Booking();
+        existingBooking.setId(bookingId);
+        existingBooking.setStatus(BookingStatus.CHECKED_IN);
+        existingBooking.setTotalPrice(2000000f); // Original total
+        existingBooking.setRoomNumber("301");
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
+
+        // Mock: No physical room mapped to room number 301
+        when(physicalRoomRepository.findByRoomNumber(301)).thenReturn(Optional.empty());
+
+        Booking savedBooking = new Booking();
+        savedBooking.setId(bookingId);
+        savedBooking.setTotalPrice(2500000f);
+        when(bookingRepository.save(existingBooking)).thenReturn(savedBooking);
+
+        BookingResponse response = new BookingResponse();
+        response.setId(bookingId);
+        response.setTotalPrice(2500000f);
+        response.setDamageFee(500000f);
+        when(bookingMapper.toBookingResponse(savedBooking)).thenReturn(response);
+
+        // When
+        BookingResponse result = bookingService.updateBooking(bookingId, updateRequest);
+
+        // Then
+        assertThat(existingBooking.getTotalPrice()).isEqualTo(2500000f); // 2000000 + 500000
+        assertThat(existingBooking.getDamageFee()).isEqualTo(500000f);
+        assertThat(existingBooking.getDamageDescription()).isEqualTo("Broken mirror in bathroom");
+        assertThat(existingBooking.getStatus()).isEqualTo(BookingStatus.CHECKED_OUT);
+        verify(bookingRepository, times(1)).save(existingBooking);
+    }
+
+    @Test
+    void updateBooking_CheckoutWithoutDamageFee_KeepsTotalPriceUnchanged() {
+        // Given
+        Integer bookingId = 1;
+        BookingUpdateRequest updateRequest = new BookingUpdateRequest();
+        updateRequest.setStatus(BookingStatus.CHECKED_OUT);
+        // No damageFee set
+
+        Booking existingBooking = new Booking();
+        existingBooking.setId(bookingId);
+        existingBooking.setStatus(BookingStatus.CHECKED_IN);
+        existingBooking.setTotalPrice(2000000f);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
+
+        Booking savedBooking = new Booking();
+        savedBooking.setId(bookingId);
+        savedBooking.setTotalPrice(2000000f);
+        when(bookingRepository.save(existingBooking)).thenReturn(savedBooking);
+
+        BookingResponse response = new BookingResponse();
+        response.setId(bookingId);
+        response.setTotalPrice(2000000f);
+        when(bookingMapper.toBookingResponse(savedBooking)).thenReturn(response);
+
+        // When
+        BookingResponse result = bookingService.updateBooking(bookingId, updateRequest);
+
+        // Then
+        assertThat(existingBooking.getTotalPrice()).isEqualTo(2000000f); // Unchanged
+        assertThat(existingBooking.getDamageFee()).isNull();
+        assertThat(existingBooking.getStatus()).isEqualTo(BookingStatus.CHECKED_OUT);
+        verify(bookingRepository, times(1)).save(existingBooking);
+    }
+
+    @Test
+    void updateBooking_CheckoutMarksPhysicalRoomAsDirty() {
+        // Given
+        Integer bookingId = 1;
+        BookingUpdateRequest updateRequest = new BookingUpdateRequest();
+        updateRequest.setStatus(BookingStatus.CHECKED_OUT);
+
+        Booking existingBooking = new Booking();
+        existingBooking.setId(bookingId);
+        existingBooking.setStatus(BookingStatus.CHECKED_IN);
+        existingBooking.setTotalPrice(1000000f);
+        existingBooking.setRoomNumber("205"); // Physical room number
+
+        PhysicalRoom physicalRoom = new PhysicalRoom();
+        physicalRoom.setId(5);
+        physicalRoom.setRoomNumber(205);
+        physicalRoom.setRoomCondition(RoomCondition.CLEAN);
+        Room linkedRoom = new Room();
+        linkedRoom.setId(10);
+        linkedRoom.setName("Deluxe");
+        physicalRoom.setRoom(linkedRoom);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
+        when(physicalRoomRepository.findByRoomNumber(205)).thenReturn(Optional.of(physicalRoom));
+
+        Booking savedBooking = new Booking();
+        savedBooking.setId(bookingId);
+        when(bookingRepository.save(existingBooking)).thenReturn(savedBooking);
+
+        BookingResponse response = new BookingResponse();
+        response.setId(bookingId);
+        when(bookingMapper.toBookingResponse(savedBooking)).thenReturn(response);
+
+        // When
+        bookingService.updateBooking(bookingId, updateRequest);
+
+        // Then
+        assertThat(physicalRoom.getRoomCondition()).isEqualTo(RoomCondition.DIRTY);
+        verify(physicalRoomRepository, times(1)).save(physicalRoom);
+        verify(physicalRoomRepository, times(1)).findByRoomNumber(205);
+    }
+
+    @Test
+    void createBooking_WithGuestDetails_SavesGuestDetailsViaCascade() {
+        // Given
+        GuestDetailRequest guest1 = new GuestDetailRequest();
+        guest1.setFullName("Nguyen Van A");
+        guest1.setIdentityNumber("079203012345");
+
+        GuestDetailRequest guest2 = new GuestDetailRequest();
+        guest2.setFullName("Le Thi B");
+        guest2.setIdentityNumber("079203067890");
+
+        List<GuestDetailRequest> guests = new ArrayList<>();
+        guests.add(guest1);
+        guests.add(guest2);
+        mockCreateRequest.setGuestDetails(guests);
+
+        when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
+        when(roomRepository.findById(mockCreateRequest.getRoomId())).thenReturn(Optional.of(mockRoom));
+        when(bookingRepository.countBookedRooms(
+                mockRoom.getId(),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(0L);
+        when(bookingRepository.isRoomAvailable(
+                Long.valueOf(mockRoom.getId()),
+                mockCreateRequest.getCheckinDate(),
+                mockCreateRequest.getCheckoutDate()
+        )).thenReturn(true);
+        when(bookingCodeGenerator.generateBookingReference()).thenReturn("GUEST123");
+
+        Booking mockSavedBooking = new Booking();
+        mockSavedBooking.setId(1);
+        mockSavedBooking.setBookingReference("GUEST123");
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> {
+            Booking booking = invocation.getArgument(0);
+            // Verify guest details were added to the booking before save
+            assertThat(booking.getGuestDetails()).hasSize(2);
+            return mockSavedBooking;
+        });
+
+        BookingResponse mockResponse = new BookingResponse();
+        mockResponse.setId(1);
+        mockResponse.setBookingReference("GUEST123");
+        when(bookingMapper.toBookingResponse(mockSavedBooking)).thenReturn(mockResponse);
+
+        // When
+        BookingResponse result = bookingService.createBooking(mockCreateRequest);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.getBookingReference()).isEqualTo("GUEST123");
+        verify(bookingRepository, times(1)).save(any(Booking.class));
     }
 }

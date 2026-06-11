@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
+import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.dto.response.UserResponse;
@@ -26,6 +27,11 @@ public class UserController implements UserApi {
     @Override
     public ApiResponse<List<UserResponse>> getAllUser() {
         return ApiResponse.<List<UserResponse>>builder().status(200).message("Success").data(userService.getAllUsers()).build();
+    }
+
+    @Override
+    public ApiResponse<UserResponse> createStaff(@RequestBody CreateStaffRequest request) {
+        return ApiResponse.<UserResponse>builder().status(201).message("Staff account created successfully").data(userService.createStaff(request)).build();
     }
 
     @Override
@@ -67,3 +73,4 @@ public class UserController implements UserApi {
         return ApiResponse.<Void>builder().status(200).message("User unlocked successfully").build();
     }
 }
+

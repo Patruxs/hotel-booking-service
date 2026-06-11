@@ -18,18 +18,18 @@ import java.util.List;
 @Tag(name = "Booking Management", description = "Quản lý đặt phòng (Tạo mới, hủy, cập nhật trạng thái, xem lịch sử)")
 public interface BookingApi {
 
-    @Operation(summary = "Lấy toàn bộ danh sách đặt phòng (ADMIN)")
+    @Operation(summary = "Lấy toàn bộ danh sách đặt phòng (ADMIN, RECEPTIONIST)")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập", content = @Content) })
     @GetMapping("/all")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<List<BookingResponse>> getAllBookings();
 
     @Operation(summary = "Tạo đặt phòng mới", description = "Khách hàng tạo booking.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Đặt phòng thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Lỗi logic (Ngày check-in > check-out, Phòng đã kín chỗ...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng hoặc user", content = @Content) })
     @PostMapping("/create")
-    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER') ")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER') or hasAuthority('RECEPTIONIST')")
     ApiResponse<BookingResponse> createBooking(@RequestBody @Valid BookingCreateRequest bookingRequest);
 
     @Operation(summary = "Tìm booking theo mã xác nhận")
@@ -37,17 +37,17 @@ public interface BookingApi {
     @GetMapping("/get-by-confirmation-code/{confirmationCode}")
     ApiResponse<BookingResponse> getBookingByConfirmationCode(@PathVariable String confirmationCode);
 
-    @Operation(summary = "Cập nhật trạng thái booking (ADMIN)", description = "Check-in, Check-out, Hủy.")
+    @Operation(summary = "Cập nhật trạng thái booking (ADMIN, RECEPTIONIST)", description = "Check-in, Check-out, Hủy.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking không tồn tại", content = @Content) })
     @PutMapping("/update/{bookingId}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<BookingResponse> updateBooking(@PathVariable Integer bookingId, @RequestBody BookingUpdateRequest bookingRequest);
 
     @Operation(summary = "Hủy đặt phòng", description = "Khách hàng hoặc Admin hủy phòng.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Hủy thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Không thể hủy (Đã check-out hoặc đã hủy trước đó)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền hủy (Không chính chủ)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking không tồn tại", content = @Content) })
     @DeleteMapping("/cancel/{bookingId}")
-    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER')")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER') or hasAuthority('RECEPTIONIST')")
     ApiResponse<Void> cancelBooking(@PathVariable Integer bookingId, @RequestParam(required = false) String reason);
 }
