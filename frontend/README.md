@@ -1,34 +1,38 @@
 # Hotel Booking Frontend
 
-This is the React + Vite + TypeScript frontend migrated from the Repomix XML source under `apps/web`.
+Vite + React + TypeScript SPA migrated from `apps/web` in `repomix-output-kinyias-hotel-booking-web.git (1).xml`.
 
-## Run Locally
+## Stack
 
-Start the Spring Boot backend from the repository root:
+- Vite, React, TypeScript, React Router
+- TanStack React Query, Axios, js-cookie
+- Tailwind CSS v4, shadcn/ui-style primitives, Radix UI, lucide-react
+- React Hook Form, Zod, React Hot Toast
+- TipTap dependencies retained for `/editor` and `/simple`
+
+## Local
 
 ```bash
-./mvnw spring-boot:run
-```
-
-Start the frontend:
-
-```bash
-cd frontend
 npm install
 npm run dev
+npm run typecheck
+npm run build
 ```
 
-The frontend reads the backend URL from:
+Default development variables:
 
-```env
-VITE_API_BASE_URL=http://localhost:8080
+```bash
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_USE_MOCKS=true
+VITE_BYPASS_AUTH=true
 ```
 
-Use `http://localhost:5173` during development so it matches the backend CORS configuration.
+Production expectation:
 
-## Migration Notes
+```bash
+VITE_API_BASE_URL=/api/v1
+VITE_USE_MOCKS=false
+VITE_BYPASS_AUTH=false
+```
 
-- Routes from the XML `apps/web/src/app` tree are mapped in `src/App.tsx`.
-- API configuration lives in `src/lib/axios.ts`.
-- Spring Boot endpoint adapters live in `src/services/hotelApi.ts`.
-- Missing XML-era backend endpoints are listed in `MIGRATION_REPORT.md`.
+The app uses `BrowserRouter`; Nginx/static hosting needs fallback to `index.html`.

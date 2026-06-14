@@ -1,81 +1,93 @@
-export type Hotel = {
-  id: number;
+export type Role = {
+  id: string;
   name: string;
-  location: string;
-  description?: string;
-  starRating?: number;
-  email?: string;
-  phone?: string;
-  isActive?: boolean;
-  coverImage?: string;
-  averageRating?: number;
-  totalReviews?: number;
-  minPrice?: number;
-  images?: string[];
-  amenities?: string[];
-  rooms?: Room[];
-};
-
-export type Room = {
-  id: number;
-  type?: string;
-  name?: string;
-  price?: number;
-  capacity?: number;
-  numberOfBedrooms?: number;
-  description?: string;
-  amount?: number;
-  availableQuantity?: number;
-  roomImages?: string[];
-  amenities?: Amenity[];
-};
-
-export type Amenity = {
-  id: number;
-  name: string;
-  type?: string;
-};
-
-export type Booking = {
-  id: number;
-  checkinDate: string;
-  checkoutDate: string;
-  adultAmount?: number;
-  childrenAmount?: number;
-  totalPrice?: number;
-  bookingReference?: string;
-  roomNumber?: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  status?: string;
-  specialRequire?: string;
-  hotel?: Hotel;
-  rooms?: Room[];
+  permissions?: string[];
 };
 
 export type User = {
-  id: number;
-  fullName: string;
+  id: string;
+  name: string;
   email: string;
   phone?: string;
-  dob?: string;
-  activate?: boolean;
+  avatarUrl?: string;
+  roles: Role[];
+  allowedActions: string[];
 };
 
-export type LoginResponse = {
-  token: string;
-  role: "ADMIN" | "CUSTOMER" | "RECEPTIONIST";
-  expirationTime?: string;
-  isActive?: boolean;
+export type Hotel = {
+  id: string;
+  name: string;
+  city: string;
+  address: string;
+  rating: number;
+  priceFrom: number;
+  imageUrl: string;
+  description: string;
+  amenities: string[];
 };
 
-export type RevenueStatistic = {
-  hotelId?: number;
-  hotelName?: string;
-  totalBookings?: number;
-  totalRevenue?: number;
-  adminCommission?: number;
-  month?: number;
-  year?: number;
+export type RoomType = {
+  id: string;
+  hotelId: string;
+  name: string;
+  capacity: number;
+  price: number;
+  available: number;
+};
+
+export type Booking = {
+  id: string;
+  hotelId: string;
+  hotelName: string;
+  guestName: string;
+  checkIn: string;
+  checkOut: string;
+  status: "pending" | "confirmed" | "checked_in" | "completed" | "cancelled";
+  total: number;
+};
+
+export type NewsItem = {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  publishedAt: string;
+};
+
+export type Promotion = {
+  id: string;
+  title: string;
+  code: string;
+  discountPercent: number;
+  active: boolean;
+};
+
+export type Policy = {
+  id: string;
+  hotelId: string;
+  title: string;
+  description: string;
+};
+
+export type Review = {
+  id: string;
+  hotelId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+};
+
+export type ContactMessage = {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  status: "new" | "processing" | "closed";
+};
+
+export type CommissionPackage = {
+  id: string;
+  name: string;
+  rate: number;
+  hotelCount: number;
 };
