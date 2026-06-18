@@ -32,3 +32,5 @@ export function usePermissions() {
   }
   return context;
 }
+
+export const usePermission = usePermissions;

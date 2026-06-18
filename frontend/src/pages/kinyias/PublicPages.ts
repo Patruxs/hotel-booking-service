@@ -1,0 +1,15 @@
+export { default as HomePage } from "./HomePage";
+export { default as LoginPage } from "./LoginPage";
+export { default as RegisterPage } from "./RegisterPage";
+export { default as ForgotPasswordPage } from "./ForgotPasswordPage";
+export { default as OAuthCallbackPage } from "./OAuthCallbackPage";
+export { default as ResetPasswordPage } from "./ResetPasswordPage";
+export { default as VerifyEmailPage } from "./VerifyEmailPage";
+export { default as HotelsPage } from "./HotelsPage";
+export { default as HotelDetailPage } from "./HotelDetailPage";
+export { default as BookingPage } from "./BookingPage";
+export { default as PaymentResultPage } from "./PaymentResultPage";
+export { default as ContactPage } from "./ContactPage";
+export { default as NewsPage } from "./NewsPage";
+export { default as NewsDetailPage } from "./NewsDetailPage";
+export { default as PartnerPage } from "./PartnerPage";

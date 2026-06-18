@@ -2,6 +2,7 @@ export type Role = {
   id: string;
   name: string;
   permissions?: string[];
+  [key: string]: any;
 };
 
 export type User = {
@@ -10,8 +11,14 @@ export type User = {
   email: string;
   phone?: string;
   avatarUrl?: string;
+  firstName?: string;
+  lastName?: string;
+  avatar?: { url?: string };
   roles: Role[];
   allowedActions: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  [key: string]: any;
 };
 
 export type Hotel = {
@@ -24,6 +31,11 @@ export type Hotel = {
   imageUrl: string;
   description: string;
   amenities: string[];
+  country?: string;
+  status?: string;
+  images?: Array<Record<string, unknown>>;
+  owner?: Record<string, unknown>;
+  [key: string]: any;
 };
 
 export type RoomType = {
@@ -33,6 +45,7 @@ export type RoomType = {
   capacity: number;
   price: number;
   available: number;
+  [key: string]: any;
 };
 
 export type Booking = {
@@ -42,8 +55,9 @@ export type Booking = {
   guestName: string;
   checkIn: string;
   checkOut: string;
-  status: "pending" | "confirmed" | "checked_in" | "completed" | "cancelled";
+  status: string;
   total: number;
+  [key: string]: any;
 };
 
 export type NewsItem = {
@@ -52,6 +66,7 @@ export type NewsItem = {
   excerpt: string;
   content: string;
   publishedAt: string;
+  [key: string]: any;
 };
 
 export type Promotion = {
@@ -60,6 +75,7 @@ export type Promotion = {
   code: string;
   discountPercent: number;
   active: boolean;
+  [key: string]: any;
 };
 
 export type Policy = {
@@ -67,6 +83,7 @@ export type Policy = {
   hotelId: string;
   title: string;
   description: string;
+  [key: string]: any;
 };
 
 export type Review = {
@@ -75,6 +92,7 @@ export type Review = {
   userName: string;
   rating: number;
   comment: string;
+  [key: string]: any;
 };
 
 export type ContactMessage = {
@@ -82,7 +100,8 @@ export type ContactMessage = {
   name: string;
   email: string;
   subject: string;
-  status: "new" | "processing" | "closed";
+  status: string;
+  [key: string]: any;
 };
 
 export type CommissionPackage = {
@@ -90,4 +109,5 @@ export type CommissionPackage = {
   name: string;
   rate: number;
   hotelCount: number;
+  [key: string]: any;
 };

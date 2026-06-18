@@ -22,3 +22,11 @@ export type PaginatedResponse<T> = {
 };
 
 export type ApiResult<T> = Promise<T>;
+export type ApiError = {
+  response?: {
+    data: {
+      message?: string;
+    };
+  };
+  message?: string;
+};

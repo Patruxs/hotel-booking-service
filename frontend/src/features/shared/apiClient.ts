@@ -8,7 +8,11 @@ type SpringApiResponse<T> = {
 
 function unwrapResponse<T>(payload: T | SpringApiResponse<T>): T {
   if (payload && typeof payload === "object" && "data" in payload && ("status" in payload || "message" in payload)) {
-    return (payload as SpringApiResponse<T>).data as T;
+    const springPayload = payload as SpringApiResponse<T>;
+    if (typeof springPayload.status === "number" && springPayload.status >= 400) {
+      throw new Error(springPayload.message || "Spring API request failed");
+    }
+    return springPayload.data as T;
   }
   return payload as T;
 }
@@ -19,4 +23,8 @@ export async function mockOrRequest<T>(mockValue: T, request: () => Promise<{ da
   }
   const response = await request();
   return unwrapResponse<T>(response.data as T | SpringApiResponse<T>);
+}
+
+export async function mockOnly<T>(mockValue: T): Promise<T> {
+  return Promise.resolve(mockValue);
 }

@@ -42,6 +42,18 @@ UI goal:
 Giữ toàn bộ UI/module/route gần giống cũ nhất có thể
 ```
 
+Quyết định bổ sung sau audit:
+
+```text id="full-migration-confirmed"
+Frontend hiện tại chỉ là scaffold.
+Phải thay các page/component placeholder bằng UI migrate từ Kinyias apps/web.
+Phải migrate cả UI library từ XML: shadcn/Radix primitives, layout/navigation, feature components, TipTap editor/UI.
+Giữ tất cả module frontend Kinyias kể cả khi Spring Boot hiện chưa có endpoint tương ứng.
+Module nào Spring Boot chưa hỗ trợ thì giữ mock-backed/TODO-safe, không xóa UI.
+Module nào Spring Boot đã có endpoint thì nối qua API adapter/mapper ở frontend.
+Không migrate apps/api/NestJS và không sửa backend Java trong phase frontend này.
+```
+
 Điều này hợp với repo đích vì infrastructure hiện tại đã có mô hình `backend` container port `8080` và `frontend` container port `80` riêng . Repo frontend cũ cũng đã tách nhiều phần có thể reuse như `components`, `features`, `hooks`, `lib`, `providers`, `types`, `utils`, nhưng vẫn đang chứa `next.config.ts`, `proxy.ts`, `package.json` Next.js và App Router nên cần convert chứ không copy nguyên xi .
 
 ## 2. Migration plan

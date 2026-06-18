@@ -1,15 +1,12 @@
-import { useNavigate } from "react-router-dom";
-import { usePermissions } from "@/providers/PermissionProvider";
-
-export function useActionGuard() {
-  const navigate = useNavigate();
-  const { can } = usePermissions();
-
-  return (action: string) => {
-    if (can(action)) {
-      return true;
+import { usePermission } from "@/providers/PermissionProvider";
+import { useRouter } from '@/hooks/navigation';
+import { useEffect } from "react";
+export function useActionGuard(action: string) {
+  const { can } = usePermission();
+  const router = useRouter();
+  useEffect(() => {
+    if (!can(action)) {
+      router.replace("/403");
     }
-    navigate("/forbidden");
-    return false;
-  };
+  }, [action, can, router]);
 }

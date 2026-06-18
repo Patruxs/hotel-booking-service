@@ -1,12 +1,18 @@
-import api from "@/lib/axios";
 import { mockApi } from "@/mocks/mockApi";
-import { mockOrRequest } from "@/features/shared/apiClient";
+import { mockOnly } from "@/features/shared/apiClient";
 
-export const promotionApi = {
-  list: (params?: unknown) => mockOrRequest({ data: mockApi.promotions.list() }, () => api.get("/promotions", { params })),
-  listPublic: (params?: unknown) => mockOrRequest({ data: mockApi.promotions.list() }, () => api.get("/promotions/public", { params })),
-  get: (id: string) => mockOrRequest(mockApi.promotions.get(id), () => api.get(`/promotions/${id}`)),
-  create: (body: unknown) => mockOrRequest(mockApi.promotions.list()[0], () => api.post("/promotions", body)),
-  update: (id: string, body: unknown) => mockOrRequest(mockApi.promotions.get(id), () => api.patch(`/promotions/${id}`, body)),
-  remove: (id: string) => mockOrRequest({ ok: true }, () => api.delete(`/promotions/${id}`)),
+export const promotionApi: any = {
+  list: (_params?: unknown) => mockOnly({ data: mockApi.promotions.list() }),
+  listPublic: (_params?: unknown) => mockOnly({ data: mockApi.promotions.list() }),
+  get: (id: string) => mockOnly(mockApi.promotions.get(id)),
+  create: (_body: unknown) => mockOnly(mockApi.promotions.list()[0]),
+  update: (id: string, _body: unknown) => mockOnly(mockApi.promotions.get(id)),
+  remove: (_id: string) => mockOnly({ ok: true }),
 };
+
+export const getPromotions = (params?: unknown) => promotionApi.list(params);
+export const getPublicPromotions = (params?: unknown) => promotionApi.listPublic(params);
+export const getPromotionById = (id: string) => promotionApi.get(id);
+export const createPromotion = (body: unknown) => promotionApi.create(body);
+export const updatePromotion = (id: string, body: unknown) => promotionApi.update(id, body);
+export const deletePromotion = (id: string) => promotionApi.remove(id);

@@ -1,13 +1,20 @@
-import api from "@/lib/axios";
 import { mockApi } from "@/mocks/mockApi";
-import { mockOrRequest } from "@/features/shared/apiClient";
+import { mockOnly } from "@/features/shared/apiClient";
 
-export const reviewsApi = {
-  listPublic: (hotelId: string, params?: unknown) => mockOrRequest({ data: mockApi.reviews.list(hotelId) }, () => api.get(`/hotels/${hotelId}/reviews`, { params })),
-  listModeration: (hotelId: string, params?: unknown) => mockOrRequest({ data: mockApi.reviews.list(hotelId) }, () => api.get(`/hotels/${hotelId}/reviews/moderation`, { params })),
-  create: (hotelId: string, body: unknown) => mockOrRequest(mockApi.reviews.list(hotelId)[0], () => api.post(`/hotels/${hotelId}/reviews`, body)),
-  moderate: (hotelId: string, id: string, body: unknown) => mockOrRequest({ ok: true }, () => api.patch(`/hotels/${hotelId}/reviews/${id}/moderate`, body)),
-  remove: (hotelId: string, id: string) => mockOrRequest({ ok: true }, () => api.delete(`/hotels/${hotelId}/reviews/${id}`)),
-  mine: (params?: unknown) => mockOrRequest({ data: mockApi.reviews.list() }, () => api.get("/users/me/reviews", { params })),
-  updateMine: (id: string, body: unknown) => mockOrRequest({ ok: true }, () => api.patch(`/reviews/${id}`, body)),
+export const reviewsApi: any = {
+  listPublic: (hotelId: string, _params?: unknown) => mockOnly({ data: mockApi.reviews.list(hotelId) }),
+  listModeration: (hotelId: string, _params?: unknown) => mockOnly({ data: mockApi.reviews.list(hotelId) }),
+  create: (hotelId: string, _body: unknown) => mockOnly(mockApi.reviews.list(hotelId)[0]),
+  moderate: (_hotelId: string, _id: string, _body: unknown) => mockOnly({ ok: true }),
+  remove: (_hotelId: string, _id: string) => mockOnly({ ok: true }),
+  mine: (_params?: unknown) => mockOnly({ data: mockApi.reviews.list() }),
+  updateMine: (_id: string, _body: unknown) => mockOnly({ ok: true }),
 };
+
+export const listHotelReviews = (hotelId: string, params?: unknown) => reviewsApi.listPublic(hotelId, params);
+export const listModerationReviews = (hotelId: string, params?: unknown) => reviewsApi.listModeration(hotelId, params);
+export const createReview = (hotelId: string, body: unknown) => reviewsApi.create(hotelId, body);
+export const moderateReview = (hotelId: string, id: string, body: unknown) => reviewsApi.moderate(hotelId, id, body);
+export const deleteReview = (hotelId: string, id: string) => reviewsApi.remove(hotelId, id);
+export const listMyReviews = (params?: unknown) => reviewsApi.mine(params);
+export const updateReview = (id: string, body: unknown) => reviewsApi.updateMine(id, body);

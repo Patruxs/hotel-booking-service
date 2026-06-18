@@ -8,6 +8,16 @@ into this Spring Boot repository as a new Vite + React + TypeScript SPA under:
 
 `frontend/`
 
+Confirmed full-migration decision:
+
+* Treat the current `frontend/` as a scaffold only.
+* Replace placeholder/shell pages and generic admin resource pages with the migrated Kinyias `apps/web` UI.
+* Migrate the Kinyias UI library too, including Shadcn/Radix primitives, layout/navigation components, feature components, and the TipTap UI/editor system.
+* Preserve all Kinyias frontend modules, even when the current Spring Boot backend does not support them yet.
+* Keep unsupported backend modules mock-backed/TODO-safe rather than deleting the screens or copying NestJS backend code.
+* Wire to Spring Boot where equivalent endpoints already exist through frontend API adapters/mappers.
+* Do not modify backend Java source in this frontend migration phase.
+
 Do not use Next.js. Do not keep Next.js. Do not create a Next.js app.
 
 Important source restriction:

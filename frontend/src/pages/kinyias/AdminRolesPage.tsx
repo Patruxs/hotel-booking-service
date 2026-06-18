@@ -1,0 +1,209 @@
+'use client';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { MESSAGES } from '@/constants/message';
+import { PermissionAssignRoleFormValues, Role, RoleFormValues, useRolesQuery } from '@/features/roles';
+import PermissionAssignRoleDialog from '@/features/roles/component/PermissionAssignRoleDialog';
+import RoleFormDialog from '@/features/roles/component/RoleFormDialog';
+import RoleManagementTable from '@/features/roles/component/RoleManagementTable';
+import { ConfirmDialog } from '@/components/common/CofirmDialog';
+import {
+  useAssignPermissionToRole,
+  useCreateRoleMutation,
+  useUpdateRoleMutation,
+  useDeleteRoleMutation,
+} from '@/features/roles/mutations';
+import { ApiError } from '@/types';
+import { Plus, Search } from 'lucide-react';
+import React, { useState } from 'react';
+import toast from 'react-hot-toast';
+function RolesPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const { data, isLoading, isError } = useRolesQuery();
+  const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [openAssignDialog, setOpenAssignDialog] = useState(false);
+  const roles = data || [];
+  const updateRoleMutation = useUpdateRoleMutation();
+  const createRoleMutation = useCreateRoleMutation();
+  const assignPermissionToRoleMutation = useAssignPermissionToRole();
+  const deleteRoleMutation = useDeleteRoleMutation();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const handleEdit = (role: Role) => {
+    setRoleToEdit(role);
+    setOpenDialog(true);
+  };
+  const handleCreate = () => {
+    setRoleToEdit(null);
+    setOpenDialog(true);
+  };
+  const handleDelete = (id: string) => {
+    setDeleteId(id);
+    setOpenDeleteDialog(true);
+  };
+  const confirmDelete = () => {
+    if (deleteId) {
+      deleteRoleMutation.mutate(deleteId, {
+        onSuccess: () => {
+          toast.success('Role deleted successfully');
+          setOpenDeleteDialog(false);
+          setDeleteId(null);
+        },
+        onError: (error: any) => {
+           const err = error as ApiError;
+           toast.error(err?.response?.data.message || 'Failed to delete role');
+        },
+      });
+    }
+  };
+  const handleSave = async (data: RoleFormValues) => {
+    if (roleToEdit) {
+      updateRoleMutation.mutate(
+        {
+          id: roleToEdit.id,
+          data,
+        },
+        {
+          onSuccess: () => {
+            toast.success(MESSAGES.USER.UPDATE_ROLE_SUCCESS);
+            setOpenDialog(false);
+          },
+          onError: (err) => {
+            const error = err as ApiError;
+            console.error('Edit role error:', error);
+            toast.error(
+              error?.response?.data.message ||
+                MESSAGES.USER.UPDATE_ROLE_FAILED
+            );
+          },
+        }
+      );
+    } else {
+      createRoleMutation.mutate(
+        {
+          data,
+        },
+        {
+          onSuccess: () => {
+            toast.success(MESSAGES.USER.UPDATE_ROLE_SUCCESS);
+            setOpenDialog(false);
+          },
+          onError: (err) => {
+            const error = err as ApiError;
+            console.error('Edit role error:', error);
+            toast.error(
+              error?.response?.data.message ||
+                MESSAGES.USER.UPDATE_ROLE_FAILED
+            );
+            setOpenDialog(false);
+          },
+        }
+      );
+    }
+  };
+  const handleAssignSave = async (data: PermissionAssignRoleFormValues) => {
+    if (roleToEdit) {
+           assignPermissionToRoleMutation.mutate(
+        {
+          id: roleToEdit.id,
+          data,
+        },
+        {
+          onSuccess: () => {
+            toast.success(MESSAGES.USER.UPDATE_ROLE_SUCCESS);
+            setOpenAssignDialog(false);
+          },
+          onError: (err) => {
+            const error = err as ApiError;
+            console.error('Edit role error:', error);
+            toast.error(
+              error?.response?.data.message ||
+                MESSAGES.USER.UPDATE_ROLE_FAILED
+            );
+            setOpenAssignDialog(false);
+          },
+        }
+      );
+    }
+    else{
+      toast.error(MESSAGES.USER.MISSING_ROLE);
+    }
+  };
+  const hanldeAssign = (role: Role) => {
+    setRoleToEdit(role);
+    setOpenAssignDialog(true);
+  };
+  return (
+    <div className="m-4 md:m-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Roles Management</h1>
+        <Button
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          onClick={handleCreate}
+        >
+          <Plus size={20} className="mr-2" />
+          Add Role
+        </Button>
+      </div>
+      <Card className="p-4 bg-card border-border">
+        <div className="relative">
+          <Search
+            size={18}
+            className="absolute left-3 top-3 text-muted-foreground"
+          />
+          <Input
+            type="text"
+            placeholder="Search roles by name or description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-input border border-border rounded-lg text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </Card>
+      {isLoading ? (
+        <div className="flex justify-center py-8">Loading roles...</div>
+      ) : isError ? (
+        <div className="flex justify-center py-8 text-destructive">
+          Error loading roles
+        </div>
+      ) : (
+        <>
+          <RoleManagementTable
+            roles={roles}
+            onEdit={handleEdit}
+            onAssign={hanldeAssign}
+            onDelete={handleDelete}
+          />
+          {}
+          <RoleFormDialog
+            open={openDialog}
+            onOpenChange={setOpenDialog}
+            role={roleToEdit}
+            onSubmit={handleSave}
+            isSubmitting={updateRoleMutation.isPending}
+          />
+          {}
+          <PermissionAssignRoleDialog
+            open={openAssignDialog}
+            onOpenChange={setOpenAssignDialog}
+            role={roleToEdit || null}
+            onSubmit={handleAssignSave}
+            isSubmitting={assignPermissionToRoleMutation.isPending}
+          />
+          <ConfirmDialog
+            open={openDeleteDialog}
+            onConfirm={confirmDelete}
+            onCancel={() => setOpenDeleteDialog(false)}
+            title="Delete Role"
+            description="Are you sure you want to delete this role? This action cannot be undone."
+            confirmText="Delete"
+            isLoading={deleteRoleMutation.isPending}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+export default RolesPage;

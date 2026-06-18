@@ -7,11 +7,15 @@ import {
   MyBookingsPage,
   MyReviewsPage,
   ProfilePage,
-} from "@/pages/AccountPages";
+} from "@/pages/kinyias/AccountPages";
 import {
+  AdminActionsPage,
+  AdminAmenityDetailPage,
+  AdminAmenitiesPage,
   AdminBookingDetailPage,
   AdminBookingsPage,
   AdminCommissionDetailPage,
+  AdminCommissionHotelsPage,
   AdminCommissionsPage,
   AdminContactDetailPage,
   AdminContactsPage,
@@ -19,15 +23,30 @@ import {
   AdminHomePage,
   AdminHotelBookingsPage,
   AdminHotelDetailPage,
+  AdminHotelPoliciesPage,
+  AdminHotelReviewsPage,
+  AdminHotelRoomTypesPage,
   AdminHotelsPage,
+  AdminInventoryPage,
+  AdminMemberHotelsPage,
+  AdminNewsDetailPage,
+  AdminNewsPage,
+  AdminPermissionsPage,
+  AdminPoliciesPage,
+  AdminPolicyDetailPage,
   AdminPromotionDetailPage,
   AdminPromotionsPage,
-  AdminResourcePage,
-} from "@/pages/AdminPages";
+  AdminReviewsPage,
+  AdminRolesPage,
+  AdminRoomManagePage,
+  AdminRoomTypeManagePage,
+  AdminRoomTypesPage,
+  AdminSettingsPage,
+  AdminUsersPage,
+} from "@/pages/kinyias/AdminPages";
 import {
   BookingPage,
   ContactPage,
-  ForbiddenPage,
   ForgotPasswordPage,
   HomePage,
   HotelDetailPage,
@@ -35,14 +54,14 @@ import {
   LoginPage,
   NewsDetailPage,
   NewsPage,
-  NotFoundPage,
   OAuthCallbackPage,
   PartnerPage,
   PaymentResultPage,
   RegisterPage,
   ResetPasswordPage,
   VerifyEmailPage,
-} from "@/pages/PublicPages";
+} from "@/pages/kinyias/PublicPages";
+import { ForbiddenPage, NotFoundPage } from "@/pages/ErrorPages";
 import { bypassAuth } from "@/mocks/mockAuth";
 import { useAuth } from "@/providers/AuthProvider";
 
@@ -105,35 +124,36 @@ export function AppRoutes() {
         <Route path="dashboard/:hotelId" element={<AdminDashboardPage />} />
         <Route path="hotels" element={<AdminHotelsPage />} />
         <Route path="hotels/:id" element={<AdminHotelDetailPage />} />
-        <Route path="member-hotels" element={<AdminResourcePage title="Member hotels" kind="users" />} />
+        <Route path="member-hotels" element={<AdminMemberHotelsPage />} />
         <Route path="bookings" element={<AdminBookingsPage />} />
         <Route path="bookings/:hotelId" element={<AdminHotelBookingsPage />} />
         <Route path="bookings/:hotelId/booking/:bookingId" element={<AdminBookingDetailPage />} />
-        <Route path="amenities" element={<AdminResourcePage title="Amenities" kind="amenities" />} />
-        <Route path="amenities/:id" element={<AdminResourcePage title="Amenity detail" kind="amenities" />} />
-        <Route path="users" element={<AdminResourcePage title="Users" kind="users" />} />
-        <Route path="users/roles" element={<AdminResourcePage title="Roles" kind="roles" />} />
-        <Route path="users/permissions" element={<AdminResourcePage title="Permissions" kind="permissions" />} />
-        <Route path="users/actions" element={<AdminResourcePage title="Actions" kind="actions" />} />
-        <Route path="room-types/:hotelId" element={<AdminResourcePage title="Room types" kind="rooms" />} />
-        <Route path="room-types/:hotelId/manage/:typeId" element={<AdminResourcePage title="Room type manage" kind="rooms" />} />
-        <Route path="room-types/:hotelId/manage/:typeId/room/:roomId" element={<AdminResourcePage title="Room manage" kind="rooms" />} />
-        <Route path="inventory" element={<AdminResourcePage title="Inventory" kind="inventory" />} />
-        <Route path="news" element={<AdminResourcePage title="Admin news" kind="news" />} />
-        <Route path="news/:newsId" element={<AdminResourcePage title="Admin news detail" kind="news" />} />
-        <Route path="policies" element={<AdminResourcePage title="Policies" kind="policies" />} />
-        <Route path="policies/:hotelId" element={<AdminResourcePage title="Hotel policies" kind="policies" />} />
-        <Route path="policies/:hotelId/policy/:policyId" element={<AdminResourcePage title="Policy detail" kind="policies" />} />
+        <Route path="amenities" element={<AdminAmenitiesPage />} />
+        <Route path="amenities/:id" element={<AdminAmenityDetailPage />} />
+        <Route path="users" element={<AdminUsersPage />} />
+        <Route path="users/roles" element={<AdminRolesPage />} />
+        <Route path="users/permissions" element={<AdminPermissionsPage />} />
+        <Route path="users/actions" element={<AdminActionsPage />} />
+        <Route path="room-types" element={<AdminRoomTypesPage />} />
+        <Route path="room-types/:hotelId" element={<AdminHotelRoomTypesPage />} />
+        <Route path="room-types/:hotelId/manage/:typeId" element={<AdminRoomTypeManagePage />} />
+        <Route path="room-types/:hotelId/manage/:typeId/room/:roomId" element={<AdminRoomManagePage />} />
+        <Route path="inventory" element={<AdminInventoryPage />} />
+        <Route path="news" element={<AdminNewsPage />} />
+        <Route path="news/:newsId" element={<AdminNewsDetailPage />} />
+        <Route path="policies" element={<AdminPoliciesPage />} />
+        <Route path="policies/:hotelId" element={<AdminHotelPoliciesPage />} />
+        <Route path="policies/:hotelId/policy/:policyId" element={<AdminPolicyDetailPage />} />
         <Route path="promotions" element={<AdminPromotionsPage />} />
         <Route path="promotions/:id" element={<AdminPromotionDetailPage />} />
-        <Route path="reviews" element={<AdminResourcePage title="Reviews" kind="reviews" />} />
-        <Route path="reviews/:hotelId" element={<AdminResourcePage title="Hotel reviews" kind="reviews" />} />
+        <Route path="reviews" element={<AdminReviewsPage />} />
+        <Route path="reviews/:hotelId" element={<AdminHotelReviewsPage />} />
         <Route path="contacts" element={<AdminContactsPage />} />
         <Route path="contacts/:contactId" element={<AdminContactDetailPage />} />
         <Route path="commissions" element={<AdminCommissionsPage />} />
-        <Route path="commissions/hotels" element={<AdminResourcePage title="Commission hotels" kind="hotels" />} />
+        <Route path="commissions/hotels" element={<AdminCommissionHotelsPage />} />
         <Route path="commissions/:commissionId" element={<AdminCommissionDetailPage />} />
-        <Route path="settings" element={<AdminResourcePage title="Settings" kind="settings" />} />
+        <Route path="settings" element={<AdminSettingsPage />} />
       </Route>
 
       <Route

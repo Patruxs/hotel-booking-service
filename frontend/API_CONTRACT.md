@@ -1,10 +1,16 @@
 # API Contract
 
+This frontend was migrated from the Kinyias `apps/web` source into the Vite React app. The backend for this repository is Spring Boot, not the Kinyias/NestJS backend. The tables below preserve the Kinyias frontend contract vocabulary while documenting which parts are currently backed by Spring and which remain frontend-visible but mock/TODO-safe.
+
 Base URL: `VITE_API_BASE_URL`, default `http://localhost:8080/api/v1`.
 
 Auth transport: `withCredentials: true`, `Authorization: Bearer <accessToken>` from the `accessToken` cookie.
 
-Mock mode: all groups below are currently represented by fixture data when `VITE_USE_MOCKS=true`; Spring Boot should implement the same paths under `/api/v1`.
+Mock mode: all groups below are currently represented by fixture data when `VITE_USE_MOCKS=true`. Unsupported Kinyias-era modules use `mockOnly` adapters and do not call missing Spring endpoints even when `VITE_USE_MOCKS=false`.
+
+Active route pages now call Kinyias-compatible feature API functions from `src/features/*/api.ts`. Spring-supported adapters decide between fixture data and Spring requests through `VITE_USE_MOCKS`, so routed pages should not read `mockApi` directly.
+
+Unsupported adapters are deliberately `mockOnly`/TODO-safe. They return fixtures regardless of `VITE_USE_MOCKS` until matching Spring controllers exist.
 
 ## Current Spring Boot connection
 
@@ -20,7 +26,17 @@ Mock mode: all groups below are currently represented by fixture data when `VITE
 | account/users | `/users/all`, `/users/get-logged-in-profile-info`, `/users/get-user-bookings`, `/users/update`, `/users/change-password` |
 | amenities | `/amenities/all`, `/amenities/:id`, `/amenities/create`, `/amenities/update/:id` |
 
-Kinyias modules without current Spring Boot equivalents remain documented below as TODOs for backend implementation.
+Spring audit notes:
+
+- Spring wraps responses as `{ status, message, data }`; frontend adapters unwrap this envelope.
+- Spring auth returns `data.token`, `role`, `expirationTime`, and `isActive`; the frontend maps this into `accessToken` plus frontend user state.
+- Spring currently has no refresh-token endpoint.
+- Spring has revenue endpoints at `/revenue/yearly` and `/revenue/date-range`, but no complete Kinyias dashboard endpoint surface.
+- Spring physical-room endpoints exist under `/physical-rooms/*`, but browser `PATCH` may need CORS follow-up.
+- News, banners, policies, promotions, contacts, commissions, gallery/upload, notifications, permissions, roles, actions, inventory, payments, and review controllers are absent or incomplete in Spring and remain mock/TODO-safe.
+- Migrated Kinyias admin pages for these unsupported modules remain visible in the SPA; their adapter functions deliberately return fixture data and do not call missing Spring controllers.
+
+Kinyias modules without current Spring Boot equivalents remain documented below as TODOs for future Spring Boot implementation. Their listed Kinyias paths are contract references, not active NestJS runtime dependencies.
 
 ## auth
 
