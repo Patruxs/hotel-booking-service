@@ -1,0 +1,1 @@
+export { banners } from "./content";

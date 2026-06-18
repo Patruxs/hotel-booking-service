@@ -1,0 +1,1 @@
+export { promotions } from "./content";

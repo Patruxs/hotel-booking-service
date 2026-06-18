@@ -19,20 +19,20 @@ npm run typecheck
 npm run build
 ```
 
-Default development variables:
+Default real-backend development variables:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_USE_MOCKS=false
+VITE_BYPASS_AUTH=false
+```
+
+Mock-only inspection variables:
 
 ```bash
 VITE_API_BASE_URL=http://localhost:8080/api/v1
 VITE_USE_MOCKS=true
 VITE_BYPASS_AUTH=true
-```
-
-Production expectation:
-
-```bash
-VITE_API_BASE_URL=/api/v1
-VITE_USE_MOCKS=false
-VITE_BYPASS_AUTH=false
 ```
 
 The app uses `BrowserRouter`; Nginx/static hosting needs fallback to `index.html`.

@@ -1,0 +1,1 @@
+export { commissions } from "./content";
