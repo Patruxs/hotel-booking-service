@@ -1,26 +1,37 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Calendar as CalendarIcon, User, ArrowRight, MapPin } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  User,
+  ArrowRight,
+  MapPin,
+} from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { DateRange } from "react-day-picker";
-import { useRouter, useSearchParams } from '@/hooks/navigation';
+import { useRouter, useSearchParams } from "@/hooks/navigation";
 const BookingFilter = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [location, setLocation] = useState(searchParams.get('city') || "");
-  const [rooms, setRooms] = useState(Number(searchParams.get('rooms')) || 1);
-  const [adults, setAdults] = useState(Number(searchParams.get('adults')) || 1);
-  const [children, setChildren] = useState(Number(searchParams.get('children')) || 0);
+  const [location, setLocation] = useState(searchParams.get("city") || "");
+  const [rooms, setRooms] = useState(Number(searchParams.get("rooms")) || 1);
+  const [adults, setAdults] = useState(Number(searchParams.get("adults")) || 1);
+  const [children, setChildren] = useState(
+    Number(searchParams.get("children")) || 0,
+  );
   const [isGuestPopoverOpen, setIsGuestPopoverOpen] = useState(false);
   const [date, setDate] = useState<DateRange | undefined>(() => {
-    const checkIn = searchParams.get('check_in');
-    const checkOut = searchParams.get('check_out');
+    const checkIn = searchParams.get("check_in");
+    const checkOut = searchParams.get("check_out");
     if (checkIn && checkOut) {
       return {
         from: parseISO(checkIn),
@@ -37,24 +48,24 @@ const BookingFilter = () => {
   });
   // Sync state with URL changes
   useEffect(() => {
-    const city = searchParams.get('city');
+    const city = searchParams.get("city");
     if (city !== null) setLocation(city);
-    const checkIn = searchParams.get('check_in');
-    const checkOut = searchParams.get('check_out');
+    const checkIn = searchParams.get("check_in");
+    const checkOut = searchParams.get("check_out");
     if (checkIn && checkOut) {
       setDate({
         from: parseISO(checkIn),
         to: parseISO(checkOut),
       });
     }
-    setRooms(Number(searchParams.get('rooms')) || 1);
-    setAdults(Number(searchParams.get('adults')) || 1);
-    setChildren(Number(searchParams.get('children')) || 0);
+    setRooms(Number(searchParams.get("rooms")) || 1);
+    setAdults(Number(searchParams.get("adults")) || 1);
+    setChildren(Number(searchParams.get("children")) || 0);
   }, [searchParams]);
   const handleApplyGuests = () => {
     setIsGuestPopoverOpen(false);
   };
-  // Format date range for display
+  // Format date range for displays
   const formatDateRange = () => {
     if (!date?.from) {
       return "Chọn ngày";
@@ -67,38 +78,38 @@ const BookingFilter = () => {
   const handleApplyFilter = () => {
     const params = new URLSearchParams(searchParams.toString());
     if (location) {
-      params.set('city', location);
+      params.set("city", location);
     } else {
-      params.delete('city');
+      params.delete("city");
     }
     if (date?.from) {
-      params.set('check_in', format(date.from, 'yyyy-MM-dd'));
+      params.set("check_in", format(date.from, "yyyy-MM-dd"));
     } else {
-      params.delete('check_in');
+      params.delete("check_in");
     }
     if (date?.to) {
-      params.set('check_out', format(date.to, 'yyyy-MM-dd'));
+      params.set("check_out", format(date.to, "yyyy-MM-dd"));
     } else {
-      params.delete('check_out');
+      params.delete("check_out");
     }
-    params.set('rooms', rooms.toString());
-    params.set('adults', adults.toString());
-    params.set('children', children.toString());
+    params.set("rooms", rooms.toString());
+    params.set("adults", adults.toString());
+    params.set("children", children.toString());
     router.push(`/hotels?${params.toString()}`);
   };
   const containerVariants = {
     hidden: {
       opacity: 0,
-      y: 50
+      y: 50,
     },
     visible: {
       opacity: 1,
       y: 0,
       transition: {
         duration: 0.6,
-        ease: "easeOut" as const
-      }
-    }
+        ease: "easeOut" as const,
+      },
+    },
   };
   return (
     <motion.section
@@ -113,7 +124,10 @@ const BookingFilter = () => {
           <div className="flex items-center gap-4">
             <MapPin className="w-10 h-10 text-primary-foreground opacity-90 flex-shrink-0" />
             <div className="flex-1">
-              <label htmlFor="location" className="text-primary-foreground text-sm font-medium mb-1 block">
+              <label
+                htmlFor="location"
+                className="text-primary-foreground text-sm font-medium mb-1 block"
+              >
                 Location
               </label>
               <Input
@@ -127,12 +141,14 @@ const BookingFilter = () => {
             </div>
           </div>
           {}
-           <Popover>
+          <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-4 text-left group cursor-pointer w-full">
                 <CalendarIcon className="w-10 h-10 text-primary-foreground opacity-90 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-primary-foreground text-sm font-medium mb-1">Check In - Check Out</p>
+                  <p className="text-primary-foreground text-sm font-medium mb-1">
+                    Check In - Check Out
+                  </p>
                   <p className="text-primary-foreground text-lg font-semibold truncate">
                     {formatDateRange()}
                   </p>
@@ -151,12 +167,17 @@ const BookingFilter = () => {
             </PopoverContent>
           </Popover>
           {}
-          <Popover open={isGuestPopoverOpen} onOpenChange={setIsGuestPopoverOpen}>
+          <Popover
+            open={isGuestPopoverOpen}
+            onOpenChange={setIsGuestPopoverOpen}
+          >
             <PopoverTrigger asChild>
               <button className="flex items-center gap-4 text-left group cursor-pointer">
                 <User className="w-10 h-10 text-primary-foreground opacity-90" />
                 <div>
-                  <p className="text-primary-foreground text-sm font-medium mb-1">Guests</p>
+                  <p className="text-primary-foreground text-sm font-medium mb-1">
+                    Guests
+                  </p>
                   <p className="text-primary-foreground text-lg font-semibold">
                     {rooms} Rooms {adults} Adults {children} children
                   </p>
