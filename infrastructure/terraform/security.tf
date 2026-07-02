@@ -115,13 +115,13 @@ resource "aws_security_group" "app_sg" {
 # 4. Database Security Group (Last layer of defense, only accepts from App)
 resource "aws_security_group" "db_sg" {
   name        = "HotelBooking-DB-SG"
-  description = "Security Group for RDS MySQL"
+  description = "Security Group for RDS PostgreSQL"
   vpc_id      = aws_vpc.main_vpc.id
 
   ingress {
-    description     = "Allow 3306 from App SG only"
-    from_port       = 3306
-    to_port         = 3306
+    description     = "Allow 5432 from App SG only"
+    from_port       = 5432
+    to_port         = 5432
     protocol        = "tcp"
     security_groups = [aws_security_group.app_sg.id]
   }

@@ -4,7 +4,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PROD_DB_URL=jdbc:mysql://${RDS_ENDPOINT}:3306/hotel_booking
+      - PROD_DB_URL=jdbc:postgresql://${RDS_ENDPOINT}/hotel_booking
       - PROD_DB_USER=${DB_USER}
       - PROD_DB_PASSWORD=${DB_PASSWORD}
       - SPRING_PROFILES_ACTIVE=prod

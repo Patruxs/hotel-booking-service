@@ -37,9 +37,9 @@ This directory contains all **Infrastructure as Code (IaC)** source files to dep
                     │    │         Private Subnets                 │           │
                     │    │  10.0.3.0/24 (AZ-a) │ 10.0.4.0/24 (AZ-b)│         │
                     │    │         ┌──────────────────┐            │           │
-                    │    │         │   RDS MySQL 8.0  │            │           │
+                    │    │         │ RDS PostgreSQL 16│            │           │
                     │    │         │   db.t3.micro    │            │           │
-                    │    │         │   :3306          │            │           │
+                    │    │         │   :5432          │            │           │
                     │    │         └──────────────────┘            │           │
                     │    └────────────────────────────────────────┘           │
                     └─────────────────────────────────────────────────────────┘
@@ -55,7 +55,7 @@ This directory contains all **Infrastructure as Code (IaC)** source files to dep
 | **Prometheus** | Metrics collection from Spring Boot Actuator |
 | **Grafana** | Monitoring dashboard visualization |
 | **AWS ALB** | Load balancing across 2 EC2 instances |
-| **AWS RDS** | AWS-managed MySQL Database |
+| **AWS RDS** | AWS-managed PostgreSQL Database |
 
 ## 📁 Directory Structure
 
@@ -70,7 +70,7 @@ infrastructure/
 │   ├── network.tf                   # VPC, Subnets, Internet Gateway, Route Tables
 │   ├── security.tf                  # Security Groups (ALB, App, Monitor, DB)
 │   ├── compute.tf                   # EC2 Instances, ALB, Target Groups, Listeners
-│   ├── rds.tf                       # RDS MySQL Instance
+│   ├── rds.tf                       # RDS PostgreSQL Instance
 │   ├── outputs.tf                   # Output important information after apply
 │   └── .terraform.lock.hcl          # Terraform providers lock file
 │
@@ -112,7 +112,7 @@ After a successful apply, Terraform will output:
 - `alb_dns_name` — Application access URL
 - `app_1_public_ip` / `app_2_public_ip` — Public IPs of the 2 App EC2 instances
 - `monitor_public_ip` — Public IP of the Monitor EC2 instance
-- `rds_endpoint` — MySQL RDS endpoint
+- `rds_endpoint` — PostgreSQL RDS endpoint
 
 ### Step 2: Install Docker on EC2 Instances
 
@@ -156,14 +156,14 @@ Internet ──► ALB SG (Port 80)
                  │
                  ├──► App SG (Port 8080 from ALB, Port 80 from ALB, Port 22 SSH)
                  │        │
-                 │        └──► DB SG (Port 3306 from App SG only)
+                 │        └──► DB SG (Port 5432 from App SG only)
                  │
                  └──► Monitor SG (Port 22, 3000, 9090)
                           │
                           └──► App SG (Port 8080 from Monitor)
 ```
 
-- **RDS MySQL** is placed in **Private Subnets** with no public IP
+- **RDS PostgreSQL** is placed in **Private Subnets** with no public IP
 - **Security Groups** are designed following the **least privilege** principle
 - Database only accepts connections from the **App Security Group**
 

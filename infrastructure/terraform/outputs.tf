@@ -7,7 +7,7 @@ output "alb_dns_name" {
 
 output "rds_endpoint" {
   description = "Database endpoint for Spring Boot to connect"
-  value       = aws_db_instance.mysql_db.endpoint
+  value       = aws_db_instance.postgres_db.endpoint
 }
 
 output "monitor_public_ip" {

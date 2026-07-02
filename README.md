@@ -12,7 +12,7 @@ A full-stack hotel booking management system built with **Spring Boot**, deploye
   └──────────┘       │        ──► EC2 App-2 (Backend + Frontend)        │
                       │                    │                              │
                       │                    ▼                              │
-                      │              RDS MySQL 8.0                       │
+                      │              RDS PostgreSQL 16                   │
   ┌──────────┐       │             (Private Subnet)                      │
   │ Docker   │       │                                                    │
   │ Hub      │       │   EC2 Monitor (Prometheus + Grafana)              │
@@ -58,7 +58,8 @@ A full-stack hotel booking management system built with **Spring Boot**, deploye
 | **Spring Boot 3.5.7** | Application framework |
 | **Spring Security** | Authentication & Authorization |
 | **Spring Data JPA** | Database ORM |
-| **MySQL 8.0** | Relational database |
+| **PostgreSQL 16** | Relational database |
+| **Flyway** | SQL schema migrations |
 | **JWT (jjwt 0.12.6)** | Token-based authentication |
 | **MapStruct** | Object mapping |
 | **Lombok** | Reduce boilerplate code |
@@ -78,7 +79,7 @@ A full-stack hotel booking management system built with **Spring Boot**, deploye
 | **Ansible** | Configuration management & deployment |
 | **AWS EC2** | Application servers (t2.micro) |
 | **AWS ALB** | Load balancing |
-| **AWS RDS** | Managed MySQL database |
+| **AWS RDS** | Managed PostgreSQL database |
 | **AWS VPC** | Network isolation |
 | **Prometheus** | Metrics collection |
 | **Grafana** | Monitoring dashboards |
@@ -88,7 +89,7 @@ A full-stack hotel booking management system built with **Spring Boot**, deploye
 Before you begin, ensure you have the following installed:
 
 - **Java 21** or higher ([Download](https://www.oracle.com/java/technologies/downloads/))
-- **MySQL 8.0+** ([Download](https://dev.mysql.com/downloads/))
+- **PostgreSQL 16+** ([Download](https://www.postgresql.org/download/))
 - **Maven 3.6+** (or use the included Maven Wrapper)
 - **Git** ([Download](https://git-scm.com/downloads))
 - **Docker** (optional, for containerized deployment)
@@ -102,10 +103,10 @@ git clone https://github.com/Patruxs/hotel-booking-service.git
 cd hotel-booking-service
 ```
 
-### 2. Create MySQL Database
+### 2. Create PostgreSQL Database
 
-```sql
-CREATE DATABASE hotel_booking_service;
+```bash
+createdb hotel_booking_service
 ```
 
 ### 3. Configure Application Properties
@@ -132,13 +133,15 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: jdbc:mysql://localhost:3306/hotel_booking_service
-    username: root
-    password: YOUR_MYSQL_PASSWORD       # ⚠️ Change this!
+    url: jdbc:postgresql://localhost:5432/hotel_booking_service
+    username: hotel_booking
+    password: YOUR_POSTGRES_PASSWORD    # ⚠️ Change this!
+  flyway:
+    enabled: true
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: none
 ---
 jwt:
   secretKey: YOUR_JWT_SECRET_KEY_HERE   # ⚠️ Generate a secure key!
@@ -186,16 +189,16 @@ Once the application starts, visit:
 
 | Profile | File | Purpose | Default |
 |---------|------|---------|---------|
-| `local` | `application-local.yml` | Local startup with embedded H2 | ✅ Yes |
-| `dev` | `application-dev.yml` | Local development with MySQL on `localhost:3306` | No |
-| `test` | `application-test.yml` | Testing (H2 database) | No |
+| `local` | `application-local.yml` | Local startup with PostgreSQL on `localhost:5432` | ✅ Yes |
+| `dev` | `application-dev.yml` | Local development with PostgreSQL on `localhost:5432` | No |
+| `test` | `application-test.yml` | Testing with PostgreSQL Testcontainers | No |
 | `prod` | `application-prod.yml` | Production (AWS RDS) | No |
 
 ```bash
-# Local H2 database (default, no MySQL required)
+# Local PostgreSQL database (default)
 mvn spring-boot:run
 
-# MySQL development database
+# PostgreSQL development database
 mvn spring-boot:run -Pdev
 
 # Test
@@ -231,7 +234,7 @@ Push to main → 🧪 Test → 🐳 Build & Push Image → 🚀 Deploy to AWS �
 | `APP_EC2_2_IP` | Public IP of App EC2 instance 2 |
 | `MONITOR_EC2_IP` | Public IP of Monitor EC2 instance |
 | `ALB_DNS` | ALB DNS name |
-| `RDS_ENDPOINT` | RDS MySQL endpoint |
+| `RDS_ENDPOINT` | RDS PostgreSQL endpoint |
 | `FRONTEND_IMAGE` | Docker Hub frontend image |
 | `CLOUDINARY_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_KEY` | Cloudinary API key |
@@ -267,7 +270,7 @@ All AWS infrastructure is managed as code in the [`infrastructure/`](infrastruct
 | EC2 App-1 & App-2 | `t2.micro` | Backend + Frontend containers |
 | EC2 Monitor | `t2.micro` | Prometheus + Grafana |
 | ALB | Application | Load balancing + routing |
-| RDS | `db.t3.micro` | MySQL 8.0 database |
+| RDS | `db.t3.micro` | PostgreSQL 16 database |
 | Security Groups | 4 groups | Network access control |
 
 ### Deployment (Ansible)
@@ -389,8 +392,8 @@ hotel-booking-service/
 **Problem**: `Communications link failure`
 
 **Solution**:
-- Verify MySQL is running: `mysql -u root -p`
-- Check database exists: `SHOW DATABASES;`
+- Verify PostgreSQL is running: `psql -d hotel_booking_service`
+- Check database exists: `psql -d hotel_booking_service -c "\\l"`
 - Verify credentials in `application-dev.yml`
 
 ### Port 8080 Already in Use

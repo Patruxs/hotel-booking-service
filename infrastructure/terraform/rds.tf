@@ -8,16 +8,16 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   tags = { Name = "HotelBooking-DB-Subnet-Group" }
 }
 
-# 2. Create RDS MySQL instance
-resource "aws_db_instance" "mysql_db" {
+# 2. Create RDS PostgreSQL instance
+resource "aws_db_instance" "postgres_db" {
   allocated_storage      = 20                   # 20GB storage (Free Tier eligible)
-  engine                 = "mysql"
-  engine_version         = "8.0"
+  engine                 = "postgres"
+  engine_version         = "16"
   instance_class         = "db.t3.micro"        # DB server instance type
   db_name                = "hotel_booking"      # Initial database name
   username               = "admin"
   password               = "Admin123456!"       # Password (should not be hardcoded in production)
-  parameter_group_name   = "default.mysql8.0"
+  parameter_group_name   = "default.postgres16"
   skip_final_snapshot    = true                 # Skip backup when deleting DB for faster operations
   publicly_accessible    = false                # Block access from the Internet
 

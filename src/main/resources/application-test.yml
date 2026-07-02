@@ -5,15 +5,17 @@ spring:
   devtools:
     add-properties: true
   datasource:
-    url: ${TEST_DB_URL:jdbc:h2:mem:hotel_booking_service_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
-    username: ${TEST_DB_USERNAME:sa}
-    password: ${TEST_DB_PASSWORD:}
-    driver-class-name: org.h2.Driver
+    url: ${TEST_DB_URL:jdbc:tc:postgresql:16-alpine:///hotel_booking_service_test}
+    username: ${TEST_DB_USERNAME:test}
+    password: ${TEST_DB_PASSWORD:test}
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  flyway:
+    enabled: true
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     show-sql: true
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: none
     properties:
       hibernate :
         format_sql: true
