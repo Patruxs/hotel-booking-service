@@ -1,10 +1,11 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
+import { mockOrRequest } from "@/features/shared/apiClient";
 
 export const actionsApi: any = {
-  list: () => mockOnly(mockApi.actions.list()),
+  list: () => mockOrRequest(mockApi.actions.list(), () => api.get("/actions")),
   assignPermissions: (_actionId: string, _permissionIds: string[]) =>
-    mockOnly({ ok: true }),
+    mockOrRequest({ ok: true }, () => api.patch(`/actions/${_actionId}/permissions`, { permissionIds: _permissionIds })),
 };
 
 export const getActions = () => actionsApi.list();

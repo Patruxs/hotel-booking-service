@@ -10,6 +10,10 @@ import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.dto.response.UserResponse;
+import org.example.hotelbookingservice.dto.response.auth.AuthResponses.CurrentUserResponse;
+import org.example.hotelbookingservice.dto.response.auth.AuthResponses.PageResponse;
+import org.example.hotelbookingservice.dto.response.auth.AuthResponses.UserListItem;
+import org.example.hotelbookingservice.services.AuthAccountService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +27,7 @@ import org.example.hotelbookingservice.api.UserApi;
 public class UserController implements UserApi {
 
     IUserService userService;
+    AuthAccountService authAccountService;
 
     @Override
     public ApiResponse<List<UserResponse>> getAllUser() {
@@ -57,7 +62,29 @@ public class UserController implements UserApi {
 
     @Override
     public ApiResponse<Void> changePassword(@RequestBody ChangePasswordRequest request) {
-        userService.changePassword(request);
+        authAccountService.changePassword(request);
+        return ApiResponse.<Void>builder().status(200).message("Password changed successfully").build();
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAuthority('ADMIN')")
+    public ApiResponse<PageResponse<UserListItem>> listUsers(@RequestParam(defaultValue = "20") int limit, @RequestParam(defaultValue = "0") int offset) {
+        return ApiResponse.<PageResponse<UserListItem>>builder().status(200).message("Success").data(authAccountService.users(limit, offset)).build();
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<CurrentUserResponse> me() {
+        return ApiResponse.<CurrentUserResponse>builder().status(200).message("Success").data(authAccountService.currentUser()).build();
+    }
+
+    @PatchMapping("/me")
+    public ApiResponse<CurrentUserResponse> updateMe(@RequestBody @Valid UserUpdateRequest request) {
+        return ApiResponse.<CurrentUserResponse>builder().status(200).message("User updated successfully").data(authAccountService.updateCurrentUser(request)).build();
+    }
+
+    @PostMapping("/me/change-password")
+    public ApiResponse<Void> changePasswordCanonical(@RequestBody ChangePasswordRequest request) {
+        authAccountService.changePassword(request);
         return ApiResponse.<Void>builder().status(200).message("Password changed successfully").build();
     }
 

@@ -12,6 +12,8 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let refreshRequest: Promise<string | null> | null = null;
+
 api.interceptors.request.use((config) => {
   const accessToken = Cookies.get("accessToken");
   if (accessToken) {
@@ -22,7 +24,32 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !originalRequest.url?.includes("/auth/refresh")) {
+      originalRequest._retry = true;
+      refreshRequest =
+        refreshRequest ??
+        api
+          .post("/auth/refresh")
+          .then((response) => {
+            const accessToken = response.data?.data?.accessToken ?? response.data?.accessToken;
+            if (accessToken) {
+              setAuthTokens(accessToken);
+              return accessToken as string;
+            }
+            return null;
+          })
+          .finally(() => {
+            refreshRequest = null;
+          });
+      const accessToken = await refreshRequest;
+      if (accessToken) {
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      }
+      clearAuthTokens();
+    }
     if (error.response?.status === 403) {
       toast.error("You do not have permission to access this feature");
       if (window.location.pathname !== "/forbidden") {

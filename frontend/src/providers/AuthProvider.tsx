@@ -1,7 +1,6 @@
-import Cookies from "js-cookie";
 import { createContext, useContext, useMemo, useState, type PropsWithChildren } from "react";
 import { authApi } from "@/features/auth/api";
-import { setAuthTokens } from "@/lib/axios";
+import { clearAuthTokens, setAuthTokens } from "@/lib/axios";
 import { bypassAuth, getMockCurrentUser } from "@/mocks/mockAuth";
 import type { User } from "@/lib/types";
 
@@ -94,12 +93,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await authApi.register(body);
       },
       logout: () => {
-        Cookies.remove("accessToken");
+        void authApi.logout().catch(() => undefined);
+        clearAuthTokens();
         localStorage.removeItem("currentUser");
         setUser(null);
       },
       loadUser: async () => {
-        const current = getMockCurrentUser();
+        const current = bypassAuth ? getMockCurrentUser() : await authApi.me();
         localStorage.setItem("currentUser", JSON.stringify(current));
         setUser(current);
       },

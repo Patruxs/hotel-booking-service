@@ -1,13 +1,14 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
+import { mockOrRequest } from "@/features/shared/apiClient";
 
 export const rolesApi: any = {
-  list: () => mockOnly(mockApi.roles.list()),
-  create: (_body: unknown) => mockOnly({ ok: true }),
-  update: (_id: string, _body: unknown) => mockOnly({ ok: true }),
-  assignPermissions: (_id: string, _body: unknown) => mockOnly({ ok: true }),
-  assignToUser: (_body: unknown) => mockOnly({ ok: true }),
-  remove: (_id: string) => mockOnly({ ok: true }),
+  list: () => mockOrRequest(mockApi.roles.list(), () => api.get("/roles")),
+  create: (_body: unknown) => mockOrRequest({ ok: true }, () => api.post("/roles", _body)),
+  update: (_id: string, _body: unknown) => mockOrRequest({ ok: true }, () => api.patch(`/roles/${_id}`, _body)),
+  assignPermissions: (_id: string, _body: unknown) => mockOrRequest({ ok: true }, () => api.post(`/roles/${_id}/permissions`, _body)),
+  assignToUser: (_body: unknown) => mockOrRequest({ ok: true }, () => api.post("/roles/assign-to-user", _body)),
+  remove: (_id: string) => mockOrRequest({ ok: true }, () => api.delete(`/roles/${_id}`)),
 };
 
 export const getRoles = () => rolesApi.list();

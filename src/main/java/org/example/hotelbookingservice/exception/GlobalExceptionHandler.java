@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -83,6 +85,16 @@ public class GlobalExceptionHandler {
                 ApiResponse.<Void>builder()
                         .status(errorCode.getCode())
                         .message(errorCode.getMessage())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatusException(ResponseStatusException ex) {
+        return ResponseEntity.status(ex.getStatusCode()).body(
+                ApiResponse.<Void>builder()
+                        .status(ex.getStatusCode().value())
+                        .message(ex.getReason())
                         .build()
         );
     }
