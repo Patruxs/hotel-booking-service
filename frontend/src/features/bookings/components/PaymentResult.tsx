@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import {
   CheckCircle2,
   XCircle,
+  AlertTriangle,
   Loader2,
   ArrowRight,
   Home,
@@ -34,6 +35,54 @@ export function PaymentResult() {
   const bookingId = searchParams.get("booking_id");
   const { data: booking, isLoading, isError } = useMyBookingByIdQuery(bookingId || "");
   const isSuccess = paymentStatus === "success";
+  const requiresReview = paymentStatus === "requires_review";
+  const resultStyle = isSuccess
+    ? {
+        card: "border-green-200 bg-green-50",
+        iconWrap: "bg-green-100",
+        icon: <CheckCircle2 className="w-12 h-12 text-green-600" />,
+        title: "Payment Successful!",
+        titleColor: "text-green-900",
+        message: "Your booking has been confirmed. We've sent a confirmation email to your registered email address.",
+        messageColor: "text-green-700",
+        badge: (
+          <Badge className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-base">
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            Confirmed
+          </Badge>
+        ),
+      }
+    : requiresReview
+      ? {
+          card: "border-amber-200 bg-amber-50",
+          iconWrap: "bg-amber-100",
+          icon: <AlertTriangle className="w-12 h-12 text-amber-600" />,
+          title: "Payment Requires Review",
+          titleColor: "text-amber-900",
+          message: "The provider reported payment success, but this booking was not confirmed. Our team will review it before any refund or reconciliation.",
+          messageColor: "text-amber-700",
+          badge: (
+            <Badge className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-base">
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              Requires Review
+            </Badge>
+          ),
+        }
+      : {
+          card: "border-red-200 bg-red-50",
+          iconWrap: "bg-red-100",
+          icon: <XCircle className="w-12 h-12 text-red-600" />,
+          title: "Payment Failed",
+          titleColor: "text-red-900",
+          message: "Unfortunately, your payment could not be processed. Please try again or contact support.",
+          messageColor: "text-red-700",
+          badge: (
+            <Badge variant="destructive" className="px-4 py-2 text-base">
+              <XCircle className="w-4 h-4 mr-2" />
+              Payment Failed
+            </Badge>
+          ),
+        };
   useEffect(() => {
     if (!bookingId) {
       router.push("/");
@@ -63,38 +112,17 @@ export function PaymentResult() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
         {}
-        <Card className={`border-2 ${isSuccess ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+        <Card className={`border-2 ${resultStyle.card}`}>
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center space-y-4">
-              {isSuccess ? (
-                <>
-                  <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-12 h-12 text-green-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-green-900 mb-2">Payment Successful!</h1>
-                    <p className="text-green-700">Your booking has been confirmed. We've sent a confirmation email to your registered email address.</p>
-                  </div>
-                  <Badge className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 text-base">
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Confirmed
-                  </Badge>
-                </>
-              ) : (
-                <>
-                  <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
-                    <XCircle className="w-12 h-12 text-red-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-red-900 mb-2">Payment Failed</h1>
-                    <p className="text-red-700">Unfortunately, your payment could not be processed. Please try again or contact support.</p>
-                  </div>
-                  <Badge variant="destructive" className="px-4 py-2 text-base">
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Payment Failed
-                  </Badge>
-                </>
-              )}
+              <div className={`w-20 h-20 rounded-full ${resultStyle.iconWrap} flex items-center justify-center`}>
+                {resultStyle.icon}
+              </div>
+              <div>
+                <h1 className={`text-3xl font-bold ${resultStyle.titleColor} mb-2`}>{resultStyle.title}</h1>
+                <p className={resultStyle.messageColor}>{resultStyle.message}</p>
+              </div>
+              {resultStyle.badge}
             </div>
           </CardContent>
         </Card>
@@ -215,7 +243,7 @@ export function PaymentResult() {
           </Button>
         </div>
         {}
-        {!isSuccess && booking.status === 'PENDING' && (
+        {!isSuccess && !requiresReview && booking.status === 'PENDING' && (
           <Card className="border-orange-200 bg-orange-50">
             <CardContent className="pt-6">
               <div className="text-center space-y-3">

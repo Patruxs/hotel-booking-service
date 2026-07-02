@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useQuery } from "@tanstack/react-query";
-import { getBookingById, getBookings, getMyBookings, getMyBookingById } from "./api";
+import { getBookingById, getBookings, getMyBookings, getMyBookingById, getCheckIn } from "./api";
 import { BookingQueryParams } from "./types";
 export const useBookingsQuery = (hotelId: string, params?: BookingQueryParams, enabled: boolean = true) => {
     return useQuery({
@@ -28,10 +28,10 @@ export const useMyBookingByIdQuery = (bookingId: string) => {
         enabled: !!bookingId,
     });
 }
-export const useCheckInQuery = (bookingId: string, enabled: boolean = true) => {
+export const useCheckInQuery = (hotelId: string, bookingId: string, enabled: boolean = true) => {
     return useQuery({
-        queryKey: ['booking-check-in', bookingId],
-        queryFn: () => import("./api").then(mod => mod.getCheckIn(bookingId)),
-        enabled: !!bookingId && enabled,
+        queryKey: ['booking-check-in', hotelId, bookingId],
+        queryFn: () => getCheckIn(hotelId, bookingId),
+        enabled: !!hotelId && !!bookingId && enabled,
     });
 }

@@ -1,29 +1,76 @@
 import api from "@/lib/axios";
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly, mockOrRequest } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
 import { toBooking } from "@/features/shared/springMappers";
 
+const toBookingPage = (payload: any) => {
+  const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  return {
+    data: rows.map(toBooking),
+    meta: payload?.meta ?? { limit: rows.length || 10, offset: 0, total: rows.length },
+  };
+};
+
+const mockBookingPage = (hotelId: string, params?: any) => {
+  const q = String(params?.q ?? "").trim().toLowerCase();
+  const rows = mockApi.bookings.list().filter((booking: any) => {
+    if (booking.hotelId !== hotelId) return false;
+    if (!q) return true;
+    return [booking.guestName, booking.guestEmail, booking.guestPhone].some((value) =>
+      String(value ?? "").toLowerCase().includes(q),
+    );
+  });
+  const limit = Number(params?.limit ?? 10);
+  const offset = Number(params?.offset ?? Math.max(0, (Number(params?.page ?? 1) - 1) * limit));
+  return {
+    data: rows.slice(offset, offset + limit),
+    meta: { limit, offset, total: rows.length },
+  };
+};
+
+const mockMyBookingPage = (params?: any) => {
+  const status = String(params?.status ?? "").trim().toUpperCase();
+  const rows = mockApi.bookings.list().filter((booking: any) => {
+    if (!status) return true;
+    return String(booking.status ?? "").toUpperCase() === status;
+  });
+  const limit = Number(params?.limit ?? 10);
+  const offset = Number(params?.offset ?? Math.max(0, (Number(params?.page ?? 1) - 1) * limit));
+  return {
+    data: rows.slice(offset, offset + limit),
+    meta: { limit, offset, total: rows.length },
+  };
+};
+
+const mockVnpayPayment = (bookingId: string) => ({
+  paymentId: `mock-payment-${bookingId}`,
+  merchantTxnRef: `BK_${bookingId}_${Date.now()}`,
+  paymentUrl: `/payment-result?payment_status=failed&booking_id=${bookingId}`,
+});
+
 export const bookingsApi: any = {
-  create: async (_hotelId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.list()[0], () => api.post("/bookings/create", body))),
-  list: async () => (await mockOrRequest(mockApi.bookings.list(), () => api.get("/bookings/all"))).map(toBooking),
-  listByHotel: async (hotelId: string) => (await bookingsApi.list()).filter((booking: any) => booking.hotelId === hotelId),
-  getByHotel: async (_hotelId: string, bookingId: string) => (await bookingsApi.list()).find((booking: any) => booking.id === bookingId) ?? mockApi.bookings.get(bookingId),
-  updateStatus: async (_hotelId: string, bookingId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.put(`/bookings/update/${bookingId}`, body))),
-  cancel: (_hotelId: string, bookingId: string, reason?: string) => mockOrRequest({ ok: true }, () => api.delete(`/bookings/cancel/${bookingId}`, { params: { reason } })),
-  mine: async () => (await mockOrRequest(mockApi.bookings.list(), () => api.get("/users/get-user-bookings"))).map(toBooking),
-  myDetail: async (bookingId: string) => (await bookingsApi.mine()).find((booking: any) => booking.id === bookingId) ?? mockApi.bookings.get(bookingId),
-  createVnpayPayment: (_bookingId: string) => mockOnly({ paymentUrl: "/payment-result?status=success" }),
-  checkIn: (_bookingId: string, _body: unknown) => mockOnly({ ok: true }),
-  checkInDetail: (bookingId: string) => mockOnly({ bookingId, guests: [] }),
+  create: async (hotelId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.list()[0], () => api.post(`/hotels/${hotelId}/bookings`, body))),
+  listByHotel: async (hotelId: string, params?: unknown) => toBookingPage(await mockOrRequest(mockBookingPage(hotelId, params), () => api.get(`/hotels/${hotelId}/bookings`, { params }))),
+  getByHotel: async (hotelId: string, bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.list().find((booking: any) => booking.hotelId === hotelId && booking.id === bookingId) ?? mockApi.bookings.get(bookingId), () => api.get(`/hotels/${hotelId}/bookings/${bookingId}`))),
+  updateStatus: async (hotelId: string, bookingId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.patch(`/hotels/${hotelId}/bookings/${bookingId}/status`, body))),
+  cancel: async (hotelId: string, bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.patch(`/hotels/${hotelId}/bookings/${bookingId}/cancel`))),
+  cancelMine: async (bookingId: string) => toBooking(await mockOrRequest({ ...mockApi.bookings.get(bookingId), status: "CANCELLED" }, () => api.patch(`/bookings/me/${bookingId}/cancel`))),
+  mine: async (params?: unknown) => toBookingPage(await mockOrRequest(mockMyBookingPage(params), () => api.get("/bookings/me", { params }))),
+  myDetail: async (bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.get(`/bookings/me/${bookingId}`))),
+  createVnpayPayment: (bookingId: string) => mockOrRequest(mockVnpayPayment(bookingId), () => api.post(`/bookings/${bookingId}/payments/vnpay`)),
+  checkIn: async (hotelId: string, bookingId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.post(`/hotels/${hotelId}/bookings/${bookingId}/check-in`, body))),
+  checkInDetail: (hotelId: string, bookingId: string) => mockOrRequest({ checkIn: null, guests: [] }, () => api.get(`/hotels/${hotelId}/bookings/${bookingId}/check-in`)),
 };
 
 export const createBooking = (hotelId: string, body: unknown) => bookingsApi.create(hotelId, body);
-export const getBookings = async (hotelId: string, _params?: unknown) => ({ data: await bookingsApi.listByHotel(hotelId), meta: { limit: 10, offset: 0, total: (await bookingsApi.listByHotel(hotelId)).length } });
+export const getBookings = (hotelId: string, params?: unknown) => bookingsApi.listByHotel(hotelId, params);
 export const getBookingById = (hotelId: string, bookingId: string) => bookingsApi.getByHotel(hotelId, bookingId);
 export const updateBookingStatus = (hotelId: string, bookingId: string, status: unknown) => bookingsApi.updateStatus(hotelId, bookingId, { status });
-export const cancleBooking = (hotelId: string, bookingId: string) => bookingsApi.cancel(hotelId, bookingId);
-export const getMyBookings = async (_params?: unknown) => ({ data: await bookingsApi.mine(), meta: { limit: 10, offset: 0, total: (await bookingsApi.mine()).length } });
+export const cancelBooking = (hotelId: string, bookingId: string) => bookingsApi.cancel(hotelId, bookingId);
+export const cancleBooking = cancelBooking;
+export const cancelMyBooking = (bookingId: string) => bookingsApi.cancelMine(bookingId);
+export const getMyBookings = (params?: unknown) => bookingsApi.mine(params);
 export const getMyBookingById = (bookingId: string) => bookingsApi.myDetail(bookingId);
 export const createPayment = (bookingId: string) => bookingsApi.createVnpayPayment(bookingId);
-export const checkInBooking = (bookingId: string, body: unknown) => bookingsApi.checkIn(bookingId, body);
-export const getCheckIn = (bookingId: string) => bookingsApi.checkInDetail(bookingId);
+export const checkInBooking = (hotelId: string, bookingId: string, body: unknown) => bookingsApi.checkIn(hotelId, bookingId, body);
+export const getCheckIn = async (hotelId: string, bookingId: string) => ({ data: await bookingsApi.checkInDetail(hotelId, bookingId) });

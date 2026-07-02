@@ -22,8 +22,8 @@ Unsupported adapters are deliberately `mockOnly`/TODO-safe. They return fixtures
 | public/admin hotels | `/hotels/all`, `/hotels/:hotelId`, `/hotels/search` |
 | hotel rooms | `/hotels/:hotelId/rooms` |
 | rooms | `/rooms/all`, `/rooms/:roomId`, `/rooms/types`, `/rooms/all-available-rooms` |
-| bookings | `/bookings/all`, `/bookings/create`, `/bookings/update/:bookingId`, `/bookings/cancel/:bookingId` |
-| account/users | `/users/all`, `/users/get-logged-in-profile-info`, `/users/get-user-bookings`, `/users/update`, `/users/change-password` |
+| bookings | Hotel create/list/detail/status/cancellation targets are under `/hotels/:hotelId/bookings`; customer history uses `/bookings/me` |
+| account/users | `/users/all`, `/users/get-logged-in-profile-info`, `/users/update`, `/users/change-password`; customer bookings use `/bookings/me` |
 | amenities | `/amenities/all`, `/amenities/:id`, `/amenities/create`, `/amenities/update/:id` |
 
 Spring audit notes:
@@ -106,7 +106,7 @@ Source: `apps/web/src/features/room-types/api.ts`.
 |---|---|---|
 | GET | `/hotels/:hotelId/room-types` | Hotel room types |
 | GET | `/room-types` | Query `{ limit }` |
-| GET | `/hotels/:hotelId/room-types/available` | Availability query |
+| GET | `/hotels/:hotelId/room-types/available` | Query `{ from, to, page?, limit?, q? }`; `from` inclusive, `to` exclusive; returns `{ data, meta }`, default `limit=20`, ordered by `price_per_night asc`; `availableRooms` is min availability across stay dates or `0` if missing/stop-sell |
 | GET | `/hotels/:hotelId/room-types/:id` | Detail |
 | POST | `/hotels/:hotelId/room-types` | Create |
 | PATCH | `/hotels/:hotelId/room-types/:id` | Update |
@@ -118,16 +118,66 @@ Source: `apps/web/src/features/bookings/api.ts`.
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/hotels/:hotelId/bookings` | Create booking |
-| GET | `/hotels/:hotelId/bookings` | Hotel bookings |
-| GET | `/hotels/:hotelId/bookings/:bookingId` | Booking detail |
-| PATCH | `/hotels/:hotelId/bookings/:bookingId/status` | Update status |
-| PATCH | `/hotels/:hotelId/bookings/:bookingId/cancel` | Cancel booking |
-| GET | `/bookings/me` | My bookings |
-| GET | `/bookings/me/:bookingId` | My booking detail |
-| POST | `/bookings/:bookingId/payments/vnpay` | `{ locale: "vn", bankCode: "NCB" }` |
-| POST | `/bookings/:bookingId/check-in` | Check-in payload |
-| GET | `/bookings/:bookingId/check-in` | Check-in detail |
+| POST | `/hotels/:hotelId/bookings` | Authenticated create booking; server calculates totals and ignores client `totalAmount` if present |
+| GET | `/hotels/:hotelId/bookings` | Hotel bookings; query supports `status`, `from`, `to`, `page`, `offset`, `limit`, and `q`; `offset` wins over `page`; ordered by `createdAt desc`; `limit` defaults to `10` and caps at `100` |
+| GET | `/hotels/:hotelId/bookings/:bookingId` | Booking detail; queries by both `hotelId` and `bookingId`; cross-hotel mismatch returns `404 Booking not found` |
+| PATCH | `/hotels/:hotelId/bookings/:bookingId/status` | Domain status update for `CANCELLED`, `CHECKED_IN`, `COMPLETED`, or `NO_SHOW`; checkout uses `{ status: "COMPLETED" }`, no-show uses `{ status: "NO_SHOW" }`; queries by both `hotelId` and `bookingId`; returns updated booking DTO; `COMPLETED` includes `checkedOutAt`; `NO_SHOW` has no `noShowAt` |
+| PATCH | `/hotels/:hotelId/bookings/:bookingId/cancel` | Staff/admin cancel eligible bookings; queries by both `hotelId` and `bookingId`; customer cancellation is limited to owned unpaid `PENDING` bookings; does not accept/store cancellation reason in first migration; returns updated booking DTO with `status: "CANCELLED"` |
+| GET | `/bookings/me` | My bookings; query supports `status`, `page`, `offset`, and `limit`; `offset` wins over `page`; ordered by `createdAt desc`; `limit` defaults to `10` and caps at `100` |
+| GET | `/bookings/me/:bookingId` | My booking detail; queries by both `bookingId` and current `userId`; non-owned mismatch returns `404 Booking not found` |
+| PATCH | `/bookings/me/:bookingId/cancel` | Customer cancel owned unpaid `PENDING` booking; queries by both `bookingId` and current `userId`; returns updated booking DTO |
+| POST | `/bookings/:bookingId/payments/vnpay` | Create or reuse VNPAY payment URL; Vite sends no body by default; optional `{ locale, bankCode }` is accepted for future bank selection; returns `{ paymentId, merchantTxnRef, paymentUrl }` |
+| GET | Payment result redirect | VNPAY return keeps query params `payment_status` and `booking_id`; `success` only when booking is confirmed, `failed` for normal provider failure, `requires_review` for `LATE_SUCCEEDED` such as success after customer cancellation |
+| POST | `/hotels/:hotelId/bookings/:bookingId/check-in` | Canonical check-in mutation; queries by both `hotelId` and `bookingId`; cross-hotel mismatch returns `404 Booking not found`; returns updated booking DTO with `status: "CHECKED_IN"` and latest check-in summary/detail |
+| POST | `/bookings/:bookingId/check-in` | Temporary source/Vite compatibility alias for check-in mutation; resolves booking first, then enforces the same hotel owner/member/admin access checks |
+| GET | `/hotels/:hotelId/bookings/:bookingId/check-in` | Canonical full check-in detail and guest list; queries by both `hotelId` and `bookingId`; cross-hotel mismatch returns `404 Booking not found` |
+| GET | `/bookings/:bookingId/check-in` | Temporary source/Vite compatibility alias for full check-in detail; resolves booking first, then enforces the same hotel owner/member/admin access checks |
+
+Booking DTO notes:
+- `checkedOutAt` is top-level when populated.
+- Vite booking creation should call canonical `POST /hotels/:hotelId/bookings`; Spring treats the route `hotelId` as the authority for hotel, room type, inventory, and active-hotel validation even if the DTO still contains `hotelId` during adapter migration.
+- After successful customer booking creation, Vite should immediately call `POST /bookings/:bookingId/payments/vnpay` and redirect to the returned `paymentUrl`; it should not show the pending booking as confirmed or send the user home.
+- Hotel/admin booking detail, status, cancel, check-in, checkout, and no-show operations return `404 Booking not found` when the booking does not belong to the route `hotelId`.
+- Vite hotel/admin booking list and detail adapters should call canonical `GET /hotels/:hotelId/bookings` and `GET /hotels/:hotelId/bookings/:bookingId`; global `/bookings/all` plus client-side filtering is not a valid target for the migrated authorization model.
+- Canonical check-in mutation is `POST /hotels/:hotelId/bookings/:bookingId/check-in`; `POST /bookings/:bookingId/check-in` remains a temporary compatibility alias.
+- Vite check-in adapters should call the canonical hotel-scoped mutation/detail routes; the global `/bookings/:bookingId/check-in` routes are backend-only temporary aliases for older/source-shaped callers.
+- Check-in mutation payload is source/Vite-compatible `{ note?, primary, companions? }`; `primary` is required, `companions` defaults to `[]`, `note` is trimmed, stored blank as `null`, and capped at 1000 characters, guest fields are trimmed, optional guest `userId` must reference an existing user when provided, and total guests cannot exceed `sum(items.quantity * roomType.max_guests)`. Guest `userId` is not an authorization source.
+- Check-in edits replace the full guest list by deleting and recreating `booking_guests` in submitted order; guest row IDs are not stable across edits.
+- Check-in guests require only `fullName`; optional strings are trimmed and stored as `null` when blank; non-blank `email` must be valid, `gender` must be `MALE`, `FEMALE`, or `OTHER`, and `dateOfBirth` must be `yyyy-MM-dd`.
+- Check-in detail returns `{ checkIn, guests }` with the primary guest first, then companions in submitted order; `isPrimary` and `sortOrder` are internal in the first migration.
+- Check-in detail keeps `checkIn.checkedInBy` as the source-compatible user ID string and adds detail-only `checkIn.checkedInByUser: { id, email, firstName, lastName }`.
+- Canonical check-in detail is `GET /hotels/:hotelId/bookings/:bookingId/check-in`; `GET /bookings/:bookingId/check-in` remains a temporary compatibility alias.
+- Checkout and no-show do not have dedicated routes in the first migration; they stay behind `PATCH /hotels/:hotelId/bookings/:bookingId/status`.
+- Vite status adapters should call canonical `PATCH /hotels/:hotelId/bookings/:bookingId/status`; any global `/bookings/update/:bookingId` route is a legacy/current-Spring compatibility concern, not the migrated frontend target.
+- Customer-facing booking detail and customer booking actions return `404 Booking not found` when the booking does not belong to the current user.
+- Vite customer booking adapters should call canonical `GET /bookings/me` and `GET /bookings/me/:bookingId`; `/users/get-user-bookings` is a legacy/current-Spring compatibility concern, not the migrated frontend target.
+- Vite customer cancellation should call canonical `PATCH /bookings/me/:bookingId/cancel`; hotel/admin cancellation stays on `PATCH /hotels/:hotelId/bookings/:bookingId/cancel`.
+- Cancellation reason is deferred; first-migration cancellation endpoints and Vite adapters should not send, accept, or silently ignore `reason`. Vite should consume the updated booking DTO from the appropriate customer or hotel/admin cancel route. Future support should add explicit `cancellationReason`.
+- Vite exports the correctly spelled `cancelBooking`; the old misspelled `cancleBooking` export is a temporary compatibility alias only.
+- Paginated booking lists do not include nested `checkIn`.
+- Hotel/admin booking list `q` searches `guestName`, `guestEmail`, and `guestPhone` case-insensitively.
+- Customer-facing `/bookings/me` does not support `from`, `to`, or `q` in the first migration.
+- Booking lists do not support `sortBy` or `order` in the first migration.
+- Booking detail and mutation responses may expose only compact nested `checkIn: { id, checkedInBy, checkedInAt, note, guestCount }`, not the full guest list and not duplicated as top-level `checkedInAt` or `checkedInBy`.
+- `checkIn.guestCount` is derived from `booking_guests` for projections, not stored as independent check-in state.
+- Full `{ checkIn, guests }` data and `checkedInByUser` are returned only by the dedicated check-in detail routes.
+- Booking lists and details include compact `hotel: { id, name, address }` plus `hotelId`; they do not include full hotel images, policies, reviews, or amenities.
+- Booking lists and details include compact `items[]`: `id`, `roomTypeId`, `quantity`, `unitPrice`, `lineTotal`, and `roomType: { id, name }`; booking item projections do not include room type images or amenities.
+- Customer-facing `/bookings/me` responses expose `userId` plus guest/contact fields only; they do not include nested `user`.
+- Hotel/admin booking lists and details include compact `user: { id, email, firstName, lastName }` plus `userId`.
+- Booking contact fields stay flat as `guestName`, `guestEmail`, and `guestPhone` on create, list, detail, and mutation responses; all three are required on booking creation.
+- `guestPhone` validation is intentionally loose: trim, require non-blank, max 30 characters, reject control characters, and do not enforce a country-specific phone regex.
+- Booking notes use source-compatible `note`; Spring trims it, stores blank as `null`, caps it at 1000 characters, and does not introduce `specialRequests` in the first migration.
+- Vite booking creation should trim `guestName`, `guestEmail`, `guestPhone`, and `note` before sending; Spring remains the authoritative validator/trimmer.
+- Vite booking creation should omit `promotionCode` when the form value is blank after trimming, rather than sending an empty string.
+- Booking lists and details expose only stable discount snapshot fields: `promotionId`, `promotionCode`, and `discountAmount`; they do not embed the full promotion object.
+- Customer-facing `/bookings/me` responses do not expose commission fields.
+- Hotel/admin booking detail and report-oriented DTOs expose stable commission snapshot fields: `commissionRate`, `commissionAmount`, and `commissionPackageCode`.
+- Booking lists and details include a compact safe `payments[]` projection: `id`, `bookingId`, `amount`, `method`, `provider`, `status`, `merchantTxnRef`, `vnpTransactionNo`, `bankCode`, `responseCode`, `transactionStatus`, `payDate`, `createdAt`, and `updatedAt`.
+- Booking DTOs never include `paymentUrl`; use `POST /bookings/:bookingId/payments/vnpay` for a fresh or reusable live payment URL.
+- Vite payment creation adapters should call canonical `POST /bookings/:bookingId/payments/vnpay`; mock mode may return a source-shaped placeholder DTO, but it must not fake a successful provider payment.
+- Vite payment creation should send no request body in the first migration. Spring defaults missing `locale` to `vn`; `bankCode` is only sent when the UI adds an explicit bank selector.
+- Vite payment result pages must render `payment_status=requires_review` as a distinct review state and must not show normal success, normal failure, or retry-payment messaging for that state.
 
 ## amenities
 

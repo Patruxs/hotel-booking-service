@@ -15,6 +15,7 @@ import {
 import { useHotelDetailQuery } from "@/features/hotels/queries";
 import { useQueryRoomTypesAvailable } from "@/features/room-types/queries";
 import { useCreateBookingMutation } from "@/features/bookings/mutations";
+import { createPayment as createVnpayPayment } from "@/features/bookings/api";
 import { boookingFormSchema, BoookingFormValues } from "@/features/bookings/validator";
 import { CreateBookingDto, CreateBookingItemDto } from "@/features/bookings/types";
 import { RoomType } from "@/features/room-types/types";
@@ -59,7 +60,9 @@ export default function BookingPayment() {
     return items;
   }, [roomsParam, availableRoomTypes]);
   // 4. Booking Mutation
-  const { mutate: createBooking, isPending } = useCreateBookingMutation(hotel_id || '');
+  const { mutateAsync: createBooking, isPending } = useCreateBookingMutation(hotel_id || '');
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const isSubmitting = isPending || isCreatingPayment;
   // 5. Form Setup
   const form = useForm<BoookingFormValues>({
     resolver: zodResolver(boookingFormSchema),
@@ -101,8 +104,10 @@ export default function BookingPayment() {
      return discount;
   }, [selectedPromotion, rawTotal]);
   const finalTotal = rawTotal - discountAmount;
-  const onSubmit = (values: BoookingFormValues) => {
+  const onSubmit = async (values: BoookingFormValues) => {
     if (!hotel_id) return;
+    const promotionCode = values.promotionCode?.trim();
+    const note = values.note?.trim() || "";
     const items: CreateBookingItemDto[] = bookedRooms.map(r => ({
       roomTypeId: r.type.id,
       quantity: r.quantity
@@ -111,26 +116,42 @@ export default function BookingPayment() {
       hotelId: hotel_id,
       checkIn: format(checkIn, "yyyy-MM-dd"),
       checkOut: format(checkOut, "yyyy-MM-dd"),
-      guestName: values.guestName,
-      guestEmail: values.guestEmail,
-      guestPhone: values.guestPhone,
-      note: values.note || "",
-      promotionCode: values.promotionCode,
+      guestName: values.guestName.trim(),
+      guestEmail: values.guestEmail.trim(),
+      guestPhone: values.guestPhone.trim(),
+      note,
       totalAmount: finalTotal, // Use final/discounted total
       items
     };
-    createBooking(payload, {
-      onSuccess: (data) => {
-        // Redirect to success page or history
-        // For now, redirect to home or show success
-        alert("Booking created successfully!");
-        router.push("/");
-      },
-      onError: (error) => {
-        console.error(error);
-        alert("Failed to create booking. Please try again.");
+    if (promotionCode) {
+      payload.promotionCode = promotionCode;
+    }
+    let createdBooking: any;
+    try {
+      createdBooking = await createBooking(payload);
+      const bookingId = createdBooking?.id;
+      if (!bookingId) {
+        throw new Error("Booking response did not include an id.");
       }
-    });
+
+      setIsCreatingPayment(true);
+      const payment: any = await createVnpayPayment(bookingId);
+      if (!payment?.paymentUrl) {
+        throw new Error("Payment response did not include a paymentUrl.");
+      }
+
+      window.location.href = payment.paymentUrl;
+    } catch (error) {
+      console.error(error);
+      if (createdBooking?.id) {
+        alert("Booking created, but payment could not be started. You can retry payment from booking details.");
+        router.push(`/me/my-bookings/${createdBooking.id}`);
+        return;
+      }
+      alert("Failed to create booking. Please try again.");
+    } finally {
+      setIsCreatingPayment(false);
+    }
   };
   const handleApplyPromotion = (promo: Promotion) => {
       form.setValue('promotionCode', promo.code);
@@ -300,7 +321,7 @@ export default function BookingPayment() {
                       finalPrice={finalTotal}
                       discountAmount={discountAmount}
                       onConfirm={form.handleSubmit(onSubmit)}
-                      isPending={isPending}
+                      isPending={isSubmitting}
                   />
                   {selectedPromotion && (
                       <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">

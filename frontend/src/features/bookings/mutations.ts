@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { cancleBooking, createBooking, createPayment, updateBookingStatus } from "./api"
+import { cancelBooking, cancelMyBooking, checkInBooking, createBooking, createPayment, updateBookingStatus } from "./api"
 import { BookingStatus, CreateBookingDto } from "./types"
 export const useCreateBookingMutation = (hotelId: string) => {
     return useMutation({
@@ -24,11 +24,21 @@ export const useUpdateBookingStatusMutation = (hotelId: string, bookingId: strin
 export const useCancelBookingMutation = (hotelId: string, bookingId: string) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ()=> cancleBooking(hotelId, bookingId),
+        mutationFn: ()=> cancelBooking(hotelId, bookingId),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ['bookings', hotelId],
             });
+        },
+    })
+}
+export const useCancelMyBookingMutation = (bookingId: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: () => cancelMyBooking(bookingId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['my-booking', bookingId] });
+            queryClient.invalidateQueries({ queryKey: ['my-bookings'] });
         },
     })
 }
@@ -40,7 +50,7 @@ export const useCreatePaymentMutation = (bookingId: string) => {
 export const useCheckInBookingMutation = (hotelId: string, bookingId: string) => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (payload: any) => import("./api").then(mod => mod.checkInBooking(bookingId, payload)),
+        mutationFn: (payload: any) => checkInBooking(hotelId, bookingId, payload),
         onSuccess: () => {
              queryClient.invalidateQueries({ queryKey: ['bookings', hotelId] });
              queryClient.invalidateQueries({ queryKey: ['booking', hotelId, bookingId] });

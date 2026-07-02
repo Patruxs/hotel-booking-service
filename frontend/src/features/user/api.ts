@@ -9,7 +9,11 @@ export const userApi: any = {
   update: (_id: string, body: unknown) => mockOrRequest(mockApi.users.list()[0], () => api.put("/users/update", body)),
   remove: (_id: string) => mockOnly({ ok: true }),
   me: async () => toUser(await mockOrRequest(getMockCurrentUser(), () => api.get("/users/get-logged-in-profile-info"))),
-  bookings: async () => (await mockOrRequest(mockApi.bookings.list(), () => api.get("/users/get-user-bookings"))).map(toBooking),
+  bookings: async () => {
+    const response: any = await mockOrRequest({ data: mockApi.bookings.list() }, () => api.get("/bookings/me"));
+    const rows = Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : [];
+    return rows.map(toBooking);
+  },
   updateMe: (body: unknown) => mockOrRequest(getMockCurrentUser(), () => api.put("/users/update", body)),
   changePassword: (body: unknown) => mockOrRequest({ ok: true }, () => api.put("/users/change-password", body)),
   uploadAvatar: (_formData: FormData) => mockOnly({ avatarUrl: "/globe.svg" }),

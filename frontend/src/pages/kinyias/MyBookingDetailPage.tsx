@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { ConfirmDialog } from "@/components/common/CofirmDialog";
 import { useMyBookingByIdQuery } from "@/features/bookings/queries";
-import { useCancelBookingMutation, useCreatePaymentMutation } from "@/features/bookings/mutations";
+import { useCancelMyBookingMutation, useCreatePaymentMutation } from "@/features/bookings/mutations";
 import { formatCurrency } from "@/utils/currency";
 export default function MyBookingDetailPage() {
   const params = useParams();
@@ -58,7 +58,7 @@ export default function MyBookingDetailPage() {
       }
   }
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { mutate: cancelBooking, isPending: isCancelling } = useCancelBookingMutation((booking as any)?.hotel?.id, bookingId);
+  const { mutate: cancelBooking, isPending: isCancelling } = useCancelMyBookingMutation(bookingId);
   const { mutate: createPayment, isPending: isCreatingPayment } = useCreatePaymentMutation(bookingId);
   const queryClient = useQueryClient();
   const handleCreatePayment = () => {

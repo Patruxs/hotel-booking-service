@@ -30,8 +30,8 @@ import { useBookingByIdQuery, useCheckInQuery } from "@/features/bookings/querie
 import { formatCurrency } from "@/utils/currency";
 import { UpdateStatusBookingDialog } from "@/features/bookings/components/UpdateStatusBookingDialog";
 import { BookingCheckInInfo } from "@/features/bookings/components/BookingCheckInInfo";
-function BookingCheckInInfoWrapper({ bookingId }: { bookingId: string }) {
-    const { data: checkInData, isLoading } = useCheckInQuery(bookingId);
+function BookingCheckInInfoWrapper({ hotelId, bookingId }: { hotelId: string; bookingId: string }) {
+    const { data: checkInData, isLoading } = useCheckInQuery(hotelId, bookingId);
     if (isLoading || !checkInData?.data) return null;
     return <BookingCheckInInfo checkIn={checkInData.data.checkIn} guests={checkInData.data.guests} />;
 }
@@ -262,7 +262,7 @@ export default function BookingDetailPage() {
       </div>
       {}
       <div className="mt-6">
-         <BookingCheckInInfoWrapper bookingId={bookingId} />
+         <BookingCheckInInfoWrapper hotelId={hotelId} bookingId={bookingId} />
       </div>
       <UpdateStatusBookingDialog
         hotelId={hotelId}
