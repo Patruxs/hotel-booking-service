@@ -48,7 +48,7 @@ public interface HotelApi {
 
     @Operation(summary = "Xem chi tiết khách sạn", description = "API Public.")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tìm thấy", content = @Content) })
-    @GetMapping("/{hotelId}")
+    @GetMapping("/{hotelId:\\d+}")
     ApiResponse<HotelResponse> getHotelById(@PathVariable Integer hotelId);
 
     @Operation(summary = "Lấy danh sách khách sạn của tôi", description = "Xem danh sách khách sạn do user đang đăng nhập quản lý.")
@@ -68,6 +68,6 @@ public interface HotelApi {
 
     @Operation(summary = "Lấy danh sách phòng theo Hotel ID", description = "Xem tất cả các phòng thuộc một khách sạn cụ thể.")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content) })
-    @GetMapping("/{hotelId}/rooms")
+    @GetMapping("/{hotelId:\\d+}/rooms")
     ApiResponse<List<RoomResponse>> getRoomsByHotelId(@PathVariable Integer hotelId);
 }

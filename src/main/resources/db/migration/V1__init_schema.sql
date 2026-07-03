@@ -542,7 +542,12 @@ insert into api_actions (id, key, http_method, path, description, enabled, is_sy
     ('00000000-0000-4002-8000-000000000009', 'bookings.status.update', 'PATCH', '/api/v1/hotels/{hotelId}/bookings/{bookingId}/status', 'Update hotel booking status.', true, true),
     ('00000000-0000-4002-8000-000000000010', 'bookings.check_in', 'POST', '/api/v1/hotels/{hotelId}/bookings/{bookingId}/check-in', 'Record booking check-in.', true, true),
     ('00000000-0000-4002-8000-000000000011', 'reports.dashboard', 'GET', '/api/v1/dashboard', 'View platform dashboard.', true, true),
-    ('00000000-0000-4002-8000-000000000012', 'content.manage', 'POST', '/api/v1/admin/news', 'Manage public content.', true, true);
+    ('00000000-0000-4002-8000-000000000012', 'content.manage', 'POST', '/api/v1/admin/news', 'Manage public content.', true, true),
+    ('00000000-0000-4002-8000-000000000013', 'hotels.status.update', 'PATCH', '/api/v1/hotels/{hotelId}/status', 'Update hotel lifecycle status.', true, true),
+    ('00000000-0000-4002-8000-000000000014', 'hotel.members.manage', 'POST', '/api/v1/hotels/{hotelId}/members', 'Manage hotel membership.', true, true),
+    ('00000000-0000-4002-8000-000000000015', 'room_types.manage', 'POST', '/api/v1/hotels/{hotelId}/room-types', 'Manage hotel room types.', true, true),
+    ('00000000-0000-4002-8000-000000000016', 'rooms.manage', 'POST', '/api/v1/hotels/{hotelId}/rooms', 'Manage hotel physical rooms.', true, true),
+    ('00000000-0000-4002-8000-000000000017', 'inventory.manage', 'PUT', '/api/v1/hotels/{hotelId}/room-types/{roomTypeId}/inventory', 'Manage room type inventory.', true, true);
 
 insert into role_permissions (role_id, permission_id)
 select r.id, p.id
@@ -590,7 +595,18 @@ from (
         ('10000000-0000-4003-8000-000000000009'::uuid, 'permissions.list', 'security.manage', 'GLOBAL'),
         ('10000000-0000-4003-8000-000000000010'::uuid, 'reports.dashboard', 'reports.view', 'GLOBAL'),
         ('10000000-0000-4003-8000-000000000011'::uuid, 'roles.assign', 'security.manage', 'GLOBAL'),
-        ('10000000-0000-4003-8000-000000000012'::uuid, 'roles.list', 'security.manage', 'GLOBAL')
+        ('10000000-0000-4003-8000-000000000012'::uuid, 'roles.list', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000013'::uuid, 'hotels.status.update', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000014'::uuid, 'hotels.status.update', 'hotels.manage', 'HOTEL_OWNER'),
+        ('10000000-0000-4003-8000-000000000015'::uuid, 'hotel.members.manage', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000016'::uuid, 'hotel.members.manage', 'hotels.manage', 'HOTEL_OWNER'),
+        ('10000000-0000-4003-8000-000000000017'::uuid, 'room_types.manage', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000018'::uuid, 'room_types.manage', 'hotels.manage', 'HOTEL_OWNER'),
+        ('10000000-0000-4003-8000-000000000019'::uuid, 'rooms.manage', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000020'::uuid, 'rooms.manage', 'hotels.manage', 'HOTEL_OWNER'),
+        ('10000000-0000-4003-8000-000000000021'::uuid, 'inventory.manage', 'security.manage', 'GLOBAL'),
+        ('10000000-0000-4003-8000-000000000022'::uuid, 'inventory.manage', 'hotels.manage', 'HOTEL_OWNER'),
+        ('10000000-0000-4003-8000-000000000023'::uuid, 'hotels.manage', 'security.manage', 'GLOBAL')
 ) as seed(id, action_key, permission_key, scope)
 join api_actions a on a.key = seed.action_key
 join permissions p on p.key = seed.permission_key;

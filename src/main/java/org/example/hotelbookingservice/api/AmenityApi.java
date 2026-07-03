@@ -36,7 +36,7 @@ public interface AmenityApi {
 
     @Operation(summary = "Xem chi tiết tiện ích")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Tiện ích không tồn tại", content = @Content) })
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     ApiResponse<AmenityResponse> getAmenityById(@PathVariable Integer id);
 
     @Operation(summary = "Tạo tiện ích mới (ADMIN)")

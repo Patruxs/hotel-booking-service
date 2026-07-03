@@ -56,6 +56,11 @@ public class SecurtyFilter {
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/hotels",
+                                "/api/v1/hotels/*",
+                                "/api/v1/hotels/*/room-types",
+                                "/api/v1/hotels/*/room-types/*",
+                                "/api/v1/hotels/*/room-types/available",
                                 "/api/v1/hotels/all",
                                 "/api/v1/hotels/search",
                                 "/api/v1/hotels/{hotelId}",
@@ -66,11 +71,13 @@ public class SecurtyFilter {
                                 "/api/v1/rooms/all",
                                 "/api/v1/rooms/all-available-rooms",
                                 "/api/v1/rooms/search",
-                                "/api/v1/rooms/types",
+                                "/api/v1/rooms/legacy-types",
                                 "/api/v1/rooms/{roomId}"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/amenities",
+                                "/api/v1/amenities/*",
                                 "/api/v1/amenities/{id}",
                                 "/api/v1/amenities/all",
                                 "/api/v1/amenities/hotel/{hotelId}/room/{roomId}"

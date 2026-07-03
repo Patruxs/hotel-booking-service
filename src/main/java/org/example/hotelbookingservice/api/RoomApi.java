@@ -43,7 +43,7 @@ public interface RoomApi {
 
     @Operation(summary = "Xem chi tiết phòng", description = "Lấy thông tin phòng theo ID.")
     @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng", content = @Content) })
-    @GetMapping("/{roomId}")
+    @GetMapping("/{roomId:\\d+}")
     ApiResponse<RoomResponse> getRoomById(@PathVariable Integer roomId);
 
     @Operation(summary = "Xóa phòng (ADMIN)", description = "Xóa phòng khỏi hệ thống.")
@@ -59,7 +59,7 @@ public interface RoomApi {
     ApiResponse<List<RoomResponse>> getAvailableRooms(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate, @RequestParam(required = false) String roomType);
 
     @Operation(summary = "Lấy danh sách loại phòng", description = "Trả về các enum loại phòng (SINGLE, DOUBLE, SUIT, TRIPLE).")
-    @GetMapping("/types")
+    @GetMapping("/legacy-types")
     ApiResponse<List<RoomType>> getRoomTypes();
 
     @Operation(summary = "Tìm kiếm phòng chung", description = "Tìm kiếm phòng theo từ khóa (Tên, mô tả, giá...).")

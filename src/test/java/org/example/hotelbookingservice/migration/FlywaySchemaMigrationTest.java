@@ -86,7 +86,7 @@ class FlywaySchemaMigrationTest {
         assertThat(adminRoleId).isEqualTo(UUID.fromString("00000000-0000-4000-8000-000000000001"));
         assertThat(allRolesAreSystem).isTrue();
         assertThat(adminPermissionCount).isEqualTo(8);
-        assertThat(actionPolicyCount).isEqualTo(12);
+        assertThat(actionPolicyCount).isEqualTo(23);
     }
 
     @Test
