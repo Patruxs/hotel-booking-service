@@ -689,21 +689,24 @@ public class Milestone6Service {
         ReportScope scope = reportScope(hotelId, user);
         boolean admin = isAdmin(user);
         MapSqlParameterSource params = scope.params();
-        return jdbcTemplate.queryForObject("""
+        String totalUsersSql = admin ? "(select count(*) from accounts)" : "0";
+        String activeHotelsSql = admin ? "(select count(*) from hotels h where h.status = 'ACTIVE' and h.deleted_at is null)" : "0";
+        String sql = """
                 select
-                    """ + (admin ? "(select count(*) from accounts)" : "0") + """ total_users,
-                    (select count(*) from bookings b """ + scope.where("b") + """
+                    %s total_users,
+                    (select count(*) from bookings b %s
                     ) total_bookings,
                     (select coalesce(sum(b.total_amount), 0)
                      from bookings b
-                     where """ + scope.condition("b") + """
+                     where %s
                        and exists (
                            select 1
                            from payments p
                            where p.booking_id = b.id and p.status in ('SUCCEEDED', 'REFUNDED', 'LATE_SUCCEEDED')
                        )) revenue,
-                    """ + (admin ? "(select count(*) from hotels h where h.status = 'ACTIVE' and h.deleted_at is null)" : "0") + """ active_hotels
-                """, params, (rs, rowNum) -> new DashboardStatsResponse(
+                    %s active_hotels
+                """.formatted(totalUsersSql, scope.where("b"), scope.condition("b"), activeHotelsSql);
+        return jdbcTemplate.queryForObject(sql, params, (rs, rowNum) -> new DashboardStatsResponse(
                 rs.getLong("total_users"),
                 rs.getLong("total_bookings"),
                 rs.getBigDecimal("revenue"),
