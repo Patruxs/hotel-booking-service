@@ -8,10 +8,13 @@ import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.Book
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingStatusRequest;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInDetailResponse;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInRequest;
+import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartRequest;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartResponse;
+import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.VnpayIpnResponse;
 import org.example.hotelbookingservice.dto.operations.HotelOperationsDtos.PaginatedResponse;
 import org.example.hotelbookingservice.services.BookingOperationsService;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +23,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.view.RedirectView;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -166,12 +171,24 @@ public class BookingOperationsController {
     @PostMapping("/bookings/{bookingId}/payments/vnpay")
     public ApiResponse<PaymentStartResponse> startPayment(
             @PathVariable UUID bookingId,
+            @RequestBody(required = false) PaymentStartRequest request,
             Authentication authentication
     ) {
         return ApiResponse.<PaymentStartResponse>builder()
                 .status(201)
                 .message("Payment started successfully")
-                .data(bookingOperationsService.startPayment(bookingId, authentication))
+                .data(bookingOperationsService.startPayment(bookingId, request, authentication))
                 .build();
+    }
+
+    @GetMapping("/payments/vnpay/return")
+    public RedirectView vnpayReturn(@RequestParam Map<String, String> params) {
+        return new RedirectView(bookingOperationsService.handleVnpayReturn(params));
+    }
+
+    @RequestMapping(path = "/payments/vnpay/ipn", method = {RequestMethod.GET, RequestMethod.POST})
+    public VnpayIpnResponse vnpayIpn(@RequestParam Map<String, String> params) {
+        Map<String, String> response = bookingOperationsService.handleVnpayIpn(params);
+        return new VnpayIpnResponse(response.get("RspCode"), response.get("Message"));
     }
 }

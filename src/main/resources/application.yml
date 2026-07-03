@@ -32,3 +32,12 @@ logging:
   level:
     root: INFO
     web: INFO
+
+app:
+  frontend:
+    payment-result-url: ${FRONTEND_PAYMENT_RESULT_URL:http://localhost:5173/payment-result}
+  vnpay:
+    pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+    tmn-code: ${VNPAY_TMN_CODE:DEMO}
+    hash-secret: ${VNPAY_HASH_SECRET:DEMO_SECRET}
+    return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/v1/payments/vnpay/return}

@@ -1,6 +1,7 @@
 package org.example.hotelbookingservice.dto.operations;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
@@ -189,6 +190,20 @@ public final class BookingOperationsDtos {
             UUID paymentId,
             String merchantTxnRef,
             String paymentUrl
+    ) {
+    }
+
+    public record PaymentStartRequest(
+            String locale,
+            String bankCode
+    ) {
+    }
+
+    public record VnpayIpnResponse(
+            @JsonProperty("RspCode")
+            String RspCode,
+            @JsonProperty("Message")
+            String Message
     ) {
     }
 }

@@ -55,6 +55,11 @@ public class SecurtyFilter {
 
                         .requestMatchers("/api/v1/auth/**").permitAll()
 
+                        .requestMatchers(
+                                "/api/v1/payments/vnpay/return",
+                                "/api/v1/payments/vnpay/ipn"
+                        ).permitAll()
+
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/hotels",
                                 "/api/v1/hotels/*",

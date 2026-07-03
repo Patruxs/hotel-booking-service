@@ -1,5 +1,8 @@
 package org.example.hotelbookingservice.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingCreateRequest;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingGuestResponse;
@@ -12,6 +15,7 @@ import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.Chec
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInSummary;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CommissionSummary;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.HotelSummary;
+import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartRequest;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartResponse;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentSummary;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PromotionSummary;
@@ -20,13 +24,20 @@ import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.User
 import org.example.hotelbookingservice.dto.operations.HotelOperationsDtos.PageMeta;
 import org.example.hotelbookingservice.dto.operations.HotelOperationsDtos.PaginatedResponse;
 import org.example.hotelbookingservice.security.AccountAuthUser;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -39,24 +50,47 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class BookingOperationsService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final int PENDING_EXPIRY_MINUTES = 15;
     private static final Set<String> BOOKING_STATUSES = Set.of("PENDING", "CONFIRMED", "CHECKED_IN", "COMPLETED", "CANCELLED", "NO_SHOW");
     private static final Set<String> ACTIVE_PAYMENT_STATUSES = Set.of("INIT", "PENDING");
+    private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(BUSINESS_ZONE);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final Clock clock;
+    private final PlatformTransactionManager transactionManager;
+
+    @Value("${app.vnpay.pay-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")
+    private String vnpayPayUrl;
+
+    @Value("${app.vnpay.tmn-code:DEMO}")
+    private String vnpayTmnCode;
+
+    @Value("${app.vnpay.hash-secret:DEMO_SECRET}")
+    private String vnpayHashSecret;
+
+    @Value("${app.vnpay.return-url:http://localhost:8080/api/v1/payments/vnpay/return}")
+    private String vnpayReturnUrl;
+
+    @Value("${app.frontend.payment-result-url:http://localhost:5173/payment-result}")
+    private String frontendPaymentResultUrl;
 
     @Transactional
     public BookingResponse createBooking(UUID hotelId, BookingCreateRequest request, Authentication authentication) {
@@ -321,10 +355,14 @@ public class BookingOperationsService {
         return new CheckInDetailResponse(checkIn, loadGuests(checkIn.id(), bookingId));
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public PaymentStartResponse startPayment(UUID bookingId, Authentication authentication) {
+        return startPayment(bookingId, null, authentication);
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public PaymentStartResponse startPayment(UUID bookingId, PaymentStartRequest request, Authentication authentication) {
         CurrentUser user = requireUser(authentication);
-        expireBookingIfDue(bookingId);
         BookingForUpdate booking = lockBooking(bookingId);
         if (!booking.accountId().equals(user.accountId())) {
             throw notFound("Booking not found");
@@ -332,37 +370,289 @@ public class BookingOperationsService {
         if (!"PENDING".equals(booking.status())) {
             throw badRequest("Only pending bookings can start payment");
         }
-        List<PaymentStartResponse> active = jdbcTemplate.query("""
-                select id, merchant_txn_ref, payment_url
-                from payments
-                where booking_id = :bookingId
-                  and status in (:statuses)
-                  and (expires_at is null or expires_at > now())
-                order by created_at desc
-                limit 1
-                """, new MapSqlParameterSource("bookingId", bookingId).addValue("statuses", ACTIVE_PAYMENT_STATUSES),
-                (rs, rowNum) -> new PaymentStartResponse(
-                        (UUID) rs.getObject("id"),
-                        rs.getString("merchant_txn_ref"),
-                        rs.getString("payment_url")
-                ));
-        if (!active.isEmpty()) {
-            return active.getFirst();
+        if (booking.pendingExpiresAt() != null && !booking.pendingExpiresAt().isAfter(now())) {
+            transitionToCancelled(booking, !hasSuccessfulPayment(bookingId));
+            throw conflict("Booking payment window has expired");
+        }
+        List<PaymentForUpdate> active = lockActivePayments(bookingId);
+        for (PaymentForUpdate payment : active) {
+            if (payment.paymentUrl() != null && payment.expiresAt() != null && payment.expiresAt().isAfter(now())) {
+                return new PaymentStartResponse(payment.id(), payment.merchantTxnRef(), payment.paymentUrl());
+            }
+        }
+        for (PaymentForUpdate payment : active) {
+            cancelPaymentAttempt(payment.id(), "PAYMENT_ATTEMPT_CANCELED_BEFORE_RETRY", Map.of(
+                    "reason", "expired_or_unsafe_to_reuse",
+                    "merchantTxnRef", payment.merchantTxnRef()
+            ));
         }
         UUID paymentId = UUID.randomUUID();
-        String merchantTxnRef = "BK_" + bookingId + "_" + now().toEpochMilli();
-        String paymentUrl = "/payment-result?payment_status=pending&booking_id=" + bookingId;
+        String merchantTxnRef = generateMerchantTxnRef(bookingId);
+        Instant paymentExpiresAt = booking.pendingExpiresAt() == null
+                ? now().plus(PENDING_EXPIRY_MINUTES, ChronoUnit.MINUTES)
+                : booking.pendingExpiresAt();
+        String paymentUrl = buildVnpayPaymentUrl(booking, merchantTxnRef, paymentExpiresAt, request);
         jdbcTemplate.update("""
                 insert into payments (id, booking_id, status, amount, merchant_txn_ref, payment_url, expires_at)
-                values (:id, :bookingId, 'INIT', :amount, :merchantTxnRef, :paymentUrl, :expiresAt)
+                values (:id, :bookingId, 'PENDING', :amount, :merchantTxnRef, :paymentUrl, :expiresAt)
                 """, new MapSqlParameterSource()
                 .addValue("id", paymentId)
                 .addValue("bookingId", bookingId)
                 .addValue("amount", booking.totalAmount())
                 .addValue("merchantTxnRef", merchantTxnRef)
                 .addValue("paymentUrl", paymentUrl)
-                .addValue("expiresAt", timestamp(booking.pendingExpiresAt())));
+                .addValue("expiresAt", timestamp(paymentExpiresAt)));
+        recordPaymentEvent(paymentId, "VNPAY_PAYMENT_URL_CREATED", Map.of(
+                "merchantTxnRef", merchantTxnRef,
+                "expiresAt", paymentExpiresAt.toString()
+        ));
         return new PaymentStartResponse(paymentId, merchantTxnRef, paymentUrl);
+    }
+
+    @Transactional
+    public String handleVnpayReturn(Map<String, String> params) {
+        PaymentCallbackResult result = processVnpayCallback(params, "VNPAY_RETURN");
+        return UriComponentsBuilder.fromUriString(frontendPaymentResultUrl)
+                .queryParam("payment_status", result.frontendStatus())
+                .queryParamIfPresent("booking_id", java.util.Optional.ofNullable(result.bookingId()).map(UUID::toString))
+                .build()
+                .toUriString();
+    }
+
+    @Transactional
+    public Map<String, String> handleVnpayIpn(Map<String, String> params) {
+        PaymentCallbackResult result = processVnpayCallback(params, "VNPAY_IPN");
+        return Map.of("RspCode", result.rspCode(), "Message", result.message());
+    }
+
+    private String buildVnpayPaymentUrl(
+            BookingForUpdate booking,
+            String merchantTxnRef,
+            Instant expiresAt,
+            PaymentStartRequest request
+    ) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("vnp_Version", "2.1.0");
+        params.put("vnp_Command", "pay");
+        params.put("vnp_TmnCode", vnpayTmnCode);
+        params.put("vnp_Amount", toVnpayAmount(booking.totalAmount()).toPlainString());
+        params.put("vnp_CurrCode", "VND");
+        String bankCode = request == null ? null : trimToNull(request.bankCode());
+        if (bankCode != null) {
+            params.put("vnp_BankCode", bankCode);
+        }
+        params.put("vnp_TxnRef", merchantTxnRef);
+        params.put("vnp_OrderInfo", "Payment for booking " + booking.id());
+        params.put("vnp_OrderType", "other");
+        params.put("vnp_Locale", defaultLocale(request == null ? null : request.locale()));
+        params.put("vnp_ReturnUrl", vnpayReturnUrl);
+        params.put("vnp_IpAddr", "127.0.0.1");
+        params.put("vnp_CreateDate", VNPAY_DATE_FORMAT.format(now()));
+        params.put("vnp_ExpireDate", VNPAY_DATE_FORMAT.format(expiresAt));
+        return VnpaySigner.buildPaymentUrl(vnpayPayUrl, params, vnpayHashSecret);
+    }
+
+    private String generateMerchantTxnRef(UUID bookingId) {
+        long epochMillis = now().toEpochMilli();
+        while (true) {
+            String candidate = "BK_" + bookingId + "_" + epochMillis;
+            Boolean exists = jdbcTemplate.queryForObject("""
+                    select exists (select 1 from payments where merchant_txn_ref = :merchantTxnRef)
+                    """, new MapSqlParameterSource("merchantTxnRef", candidate), Boolean.class);
+            if (!Boolean.TRUE.equals(exists)) {
+                return candidate;
+            }
+            epochMillis++;
+        }
+    }
+
+    private PaymentCallbackResult processVnpayCallback(Map<String, String> params, String eventType) {
+        String merchantTxnRef = trimToNull(params.get("vnp_TxnRef"));
+        if (merchantTxnRef == null) {
+            return new PaymentCallbackResult(null, "failed", "01", "Order not found");
+        }
+        PaymentForCallback payment = lockPaymentByMerchantTxnRef(merchantTxnRef);
+        if (payment == null) {
+            return new PaymentCallbackResult(null, "failed", "01", "Order not found");
+        }
+        if (!VnpaySigner.verify(params, vnpayHashSecret)) {
+            recordPaymentEvent(payment.id(), eventType + "_INVALID_CHECKSUM", callbackPayload(params));
+            return new PaymentCallbackResult(payment.bookingId(), "failed", "97", "Invalid checksum");
+        }
+
+        recordPaymentEvent(payment.id(), eventType, callbackPayload(params));
+        BigDecimal callbackAmount = parseVnpayAmount(params.get("vnp_Amount"));
+        if (callbackAmount == null || callbackAmount.compareTo(toVnpayAmount(payment.amount())) != 0) {
+            recordPaymentEvent(payment.id(), "VNPAY_AMOUNT_MISMATCH", Map.of(
+                    "expected", toVnpayAmount(payment.amount()).toPlainString(),
+                    "actual", params.getOrDefault("vnp_Amount", "")
+            ));
+            return new PaymentCallbackResult(payment.bookingId(), "failed", "04", "Invalid amount");
+        }
+
+        boolean providerSuccess = isProviderSuccess(params);
+        if (providerSuccess) {
+            if ("SUCCEEDED".equals(payment.status())) {
+                recordPaymentEvent(payment.id(), "VNPAY_DUPLICATE_CALLBACK", Map.of("status", payment.status()));
+                return new PaymentCallbackResult(payment.bookingId(), "success", "02", "Order already confirmed");
+            }
+            if ("LATE_SUCCEEDED".equals(payment.status())) {
+                recordPaymentEvent(payment.id(), "VNPAY_DUPLICATE_CALLBACK", Map.of("status", payment.status()));
+                return new PaymentCallbackResult(payment.bookingId(), "requires_review", "02", "Order already confirmed");
+            }
+            if (isPaymentPayable(payment)) {
+                markPaymentSucceeded(payment, params);
+                return new PaymentCallbackResult(payment.bookingId(), "success", "00", "Confirm Success");
+            }
+            markPaymentLateSucceeded(payment, params);
+            return new PaymentCallbackResult(payment.bookingId(), "requires_review", "02", "Order already confirmed");
+        }
+
+        if (ACTIVE_PAYMENT_STATUSES.contains(payment.status())) {
+            jdbcTemplate.update("""
+                    update payments
+                    set status = 'FAILED',
+                        provider_transaction_no = :providerTransactionNo,
+                        updated_at = now()
+                    where id = :paymentId
+                    """, new MapSqlParameterSource("paymentId", payment.id())
+                    .addValue("providerTransactionNo", trimToNull(params.get("vnp_TransactionNo"))));
+            recordPaymentEvent(payment.id(), "VNPAY_PAYMENT_FAILED", callbackPayload(params));
+            return new PaymentCallbackResult(payment.bookingId(), "failed", "00", "Confirm Success");
+        }
+
+        recordPaymentEvent(payment.id(), "VNPAY_DUPLICATE_CALLBACK", Map.of("status", payment.status()));
+        return new PaymentCallbackResult(payment.bookingId(), frontendStatusFor(payment.status()), "02", "Order already confirmed");
+    }
+
+    private void markPaymentSucceeded(PaymentForCallback payment, Map<String, String> params) {
+        int updated = jdbcTemplate.update("""
+                update payments
+                set status = 'SUCCEEDED',
+                    provider_transaction_no = :providerTransactionNo,
+                    paid_at = coalesce(paid_at, now()),
+                    updated_at = now()
+                where id = :paymentId
+                  and status in (:statuses)
+                """, new MapSqlParameterSource("paymentId", payment.id())
+                .addValue("providerTransactionNo", trimToNull(params.get("vnp_TransactionNo")))
+                .addValue("statuses", ACTIVE_PAYMENT_STATUSES));
+        if (updated == 0) {
+            recordPaymentEvent(payment.id(), "VNPAY_DUPLICATE_CALLBACK", Map.of("status", payment.status()));
+            return;
+        }
+        jdbcTemplate.update("""
+                update bookings
+                set status = 'CONFIRMED', updated_at = now()
+                where id = :bookingId
+                  and status = 'PENDING'
+                """, new MapSqlParameterSource("bookingId", payment.bookingId()));
+        recordPaymentEvent(payment.id(), "VNPAY_PAYMENT_SUCCEEDED", callbackPayload(params));
+        afterCommit(() -> sendPaymentSuccessMail(payment));
+    }
+
+    private void markPaymentLateSucceeded(PaymentForCallback payment, Map<String, String> params) {
+        jdbcTemplate.update("""
+                update payments
+                set status = 'LATE_SUCCEEDED',
+                    provider_transaction_no = :providerTransactionNo,
+                    paid_at = coalesce(paid_at, now()),
+                    updated_at = now()
+                where id = :paymentId
+                  and status <> 'SUCCEEDED'
+                """, new MapSqlParameterSource("paymentId", payment.id())
+                .addValue("providerTransactionNo", trimToNull(params.get("vnp_TransactionNo"))));
+        recordPaymentEvent(payment.id(), "LATE_SUCCEEDED_RECONCILIATION_CREATED", callbackPayload(params));
+        createLatePaymentReconciliationNotifications(payment);
+    }
+
+    private void sendPaymentSuccessMail(PaymentForCallback payment) {
+        try {
+            log.info("Payment success email for booking {} to {}", payment.bookingId(), payment.guestEmail());
+            recordPaymentEventInNewTransaction(payment.id(), "MAIL_PAYMENT_SUCCEEDED",
+                    Map.of(
+                            "bookingId", payment.bookingId().toString(),
+                            "guestEmail", payment.guestEmail()
+                    ));
+        } catch (Exception exception) {
+            log.warn("Payment success mail failed for booking {}", payment.bookingId(), exception);
+            recordPaymentEventInNewTransaction(payment.id(), "MAIL_PAYMENT_FAILED",
+                    Map.of(
+                            "bookingId", payment.bookingId().toString(),
+                            "error", exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage()
+                    ));
+        }
+    }
+
+    private void createLatePaymentReconciliationNotifications(PaymentForCallback payment) {
+        List<UUID> adminIds = jdbcTemplate.query("""
+                select distinct a.id
+                from accounts a
+                join account_roles ar on ar.account_id = a.id
+                join roles r on r.id = ar.role_id
+                where r.name = 'ADMIN'
+                """, new MapSqlParameterSource(), (rs, rowNum) -> (UUID) rs.getObject("id"));
+        for (UUID adminId : adminIds) {
+            jdbcTemplate.update("""
+                    insert into notifications (id, recipient_account_id, type, title, body, link_url)
+                    values (:id, :recipientAccountId, 'SYSTEM', :title, :body, :linkUrl)
+                    """, new MapSqlParameterSource()
+                    .addValue("id", UUID.randomUUID())
+                    .addValue("recipientAccountId", adminId)
+                    .addValue("title", "Payment reconciliation required")
+                    .addValue("body", "VNPAY reported a late successful payment for booking " + payment.bookingReference())
+                    .addValue("linkUrl", "/admin/hotels/" + payment.hotelId() + "/bookings/" + payment.bookingId()));
+        }
+    }
+
+    private boolean isPaymentPayable(PaymentForCallback payment) {
+        if (!ACTIVE_PAYMENT_STATUSES.contains(payment.status())) {
+            return false;
+        }
+        if (!"PENDING".equals(payment.bookingStatus())) {
+            return false;
+        }
+        if (payment.expiresAt() != null && !payment.expiresAt().isAfter(now())) {
+            return false;
+        }
+        return payment.pendingExpiresAt() == null || payment.pendingExpiresAt().isAfter(now());
+    }
+
+    private boolean isProviderSuccess(Map<String, String> params) {
+        String responseCode = params.get("vnp_ResponseCode");
+        String transactionStatus = params.get("vnp_TransactionStatus");
+        return "00".equals(responseCode) && (transactionStatus == null || "00".equals(transactionStatus));
+    }
+
+    private String frontendStatusFor(String paymentStatus) {
+        return switch (paymentStatus) {
+            case "SUCCEEDED" -> "success";
+            case "LATE_SUCCEEDED" -> "requires_review";
+            default -> "failed";
+        };
+    }
+
+    private Map<String, Object> callbackPayload(Map<String, String> params) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("params", new LinkedHashMap<>(params));
+        return payload;
+    }
+
+    private BigDecimal toVnpayAmount(BigDecimal amount) {
+        return amount.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal parseVnpayAmount(String amount) {
+        try {
+            return trimToNull(amount) == null ? null : new BigDecimal(amount.trim());
+        } catch (NumberFormatException exception) {
+            return null;
+        }
+    }
+
+    private String defaultLocale(String locale) {
+        String trimmed = trimToNull(locale);
+        return trimmed == null ? "vn" : trimmed;
     }
 
     @Scheduled(fixedDelayString = "${app.bookings.expiry-fixed-delay-ms:60000}")
@@ -791,12 +1081,37 @@ public class BookingOperationsService {
     }
 
     private void cancelActivePayments(UUID bookingId) {
-        jdbcTemplate.update("""
-                update payments
-                set status = 'CANCELED', updated_at = now()
+        List<PaymentForUpdate> active = lockActivePayments(bookingId);
+        for (PaymentForUpdate payment : active) {
+            cancelPaymentAttempt(payment.id(), "PAYMENT_ATTEMPT_CANCELED", Map.of(
+                    "bookingId", bookingId.toString(),
+                    "merchantTxnRef", payment.merchantTxnRef()
+            ));
+        }
+    }
+
+    private List<PaymentForUpdate> lockActivePayments(UUID bookingId) {
+        return jdbcTemplate.query("""
+                select id, booking_id, status, amount, merchant_txn_ref, payment_url, provider_transaction_no, expires_at
+                from payments
                 where booking_id = :bookingId
                   and status in (:statuses)
-                """, new MapSqlParameterSource("bookingId", bookingId).addValue("statuses", ACTIVE_PAYMENT_STATUSES));
+                order by created_at desc
+                for update
+                """, new MapSqlParameterSource("bookingId", bookingId).addValue("statuses", ACTIVE_PAYMENT_STATUSES),
+                (rs, rowNum) -> mapPaymentForUpdate(rs));
+    }
+
+    private void cancelPaymentAttempt(UUID paymentId, String eventType, Map<String, ?> payload) {
+        int updated = jdbcTemplate.update("""
+                update payments
+                set status = 'CANCELED', updated_at = now()
+                where id = :paymentId
+                  and status in (:statuses)
+                """, new MapSqlParameterSource("paymentId", paymentId).addValue("statuses", ACTIVE_PAYMENT_STATUSES));
+        if (updated > 0) {
+            recordPaymentEvent(paymentId, eventType, payload);
+        }
     }
 
     private boolean hasSuccessfulPayment(UUID bookingId) {
@@ -856,6 +1171,89 @@ public class BookingOperationsService {
                 rs.getBigDecimal("total_amount"),
                 toInstant(rs, "pending_expires_at")
         );
+    }
+
+    private PaymentForUpdate mapPaymentForUpdate(ResultSet rs) throws SQLException {
+        return new PaymentForUpdate(
+                (UUID) rs.getObject("id"),
+                (UUID) rs.getObject("booking_id"),
+                rs.getString("status"),
+                rs.getBigDecimal("amount"),
+                rs.getString("merchant_txn_ref"),
+                rs.getString("payment_url"),
+                rs.getString("provider_transaction_no"),
+                toInstant(rs, "expires_at")
+        );
+    }
+
+    private PaymentForCallback lockPaymentByMerchantTxnRef(String merchantTxnRef) {
+        return jdbcTemplate.query("""
+                select p.id,
+                       p.booking_id,
+                       p.status,
+                       p.amount,
+                       p.merchant_txn_ref,
+                       p.payment_url,
+                       p.provider_transaction_no,
+                       p.expires_at,
+                       b.hotel_id,
+                       b.status as booking_status,
+                       b.booking_reference,
+                       b.guest_email,
+                       b.pending_expires_at
+                from payments p
+                join bookings b on b.id = p.booking_id
+                where p.merchant_txn_ref = :merchantTxnRef
+                for update of p, b
+                """, new MapSqlParameterSource("merchantTxnRef", merchantTxnRef), (rs, rowNum) -> new PaymentForCallback(
+                (UUID) rs.getObject("id"),
+                (UUID) rs.getObject("booking_id"),
+                (UUID) rs.getObject("hotel_id"),
+                rs.getString("status"),
+                rs.getBigDecimal("amount"),
+                rs.getString("merchant_txn_ref"),
+                rs.getString("payment_url"),
+                rs.getString("provider_transaction_no"),
+                toInstant(rs, "expires_at"),
+                rs.getString("booking_status"),
+                rs.getString("booking_reference"),
+                rs.getString("guest_email"),
+                toInstant(rs, "pending_expires_at")
+        )).stream().findFirst().orElse(null);
+    }
+
+    private void recordPaymentEvent(UUID paymentId, String eventType, Map<String, ?> payload) {
+        try {
+            jdbcTemplate.update("""
+                    insert into payment_events (id, payment_id, event_type, payload)
+                    values (:id, :paymentId, :eventType, cast(:payload as jsonb))
+                    """, new MapSqlParameterSource()
+                    .addValue("id", UUID.randomUUID())
+                    .addValue("paymentId", paymentId)
+                    .addValue("eventType", eventType)
+                    .addValue("payload", JSON.writeValueAsString(payload)));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Could not serialize payment event payload", exception);
+        }
+    }
+
+    private void recordPaymentEventInNewTransaction(UUID paymentId, String eventType, Map<String, ?> payload) {
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        transactionTemplate.executeWithoutResult(status -> recordPaymentEvent(paymentId, eventType, payload));
+    }
+
+    private void afterCommit(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                action.run();
+            }
+        });
     }
 
     private UUID existingCheckInId(UUID bookingId) {
@@ -1098,6 +1496,43 @@ public class BookingOperationsService {
             LocalDate checkOut,
             BigDecimal totalAmount,
             Instant pendingExpiresAt
+    ) {
+    }
+
+    private record PaymentForUpdate(
+            UUID id,
+            UUID bookingId,
+            String status,
+            BigDecimal amount,
+            String merchantTxnRef,
+            String paymentUrl,
+            String providerTransactionNo,
+            Instant expiresAt
+    ) {
+    }
+
+    private record PaymentForCallback(
+            UUID id,
+            UUID bookingId,
+            UUID hotelId,
+            String status,
+            BigDecimal amount,
+            String merchantTxnRef,
+            String paymentUrl,
+            String providerTransactionNo,
+            Instant expiresAt,
+            String bookingStatus,
+            String bookingReference,
+            String guestEmail,
+            Instant pendingExpiresAt
+    ) {
+    }
+
+    private record PaymentCallbackResult(
+            UUID bookingId,
+            String frontendStatus,
+            String rspCode,
+            String message
     ) {
     }
 }

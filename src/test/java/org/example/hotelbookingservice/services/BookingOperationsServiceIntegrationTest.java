@@ -5,6 +5,8 @@ import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.Book
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingResponse;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInGuestRequest;
 import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInRequest;
+import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartRequest;
+import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartResponse;
 import org.example.hotelbookingservice.security.AccountAuthUser;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -28,11 +30,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -51,6 +58,7 @@ class BookingOperationsServiceIntegrationTest {
     private static final UUID OTHER_HOTEL_ID = UUID.fromString("30000000-0000-4000-8000-000000000005");
     private static final UUID ROOM_TYPE_ID = UUID.fromString("30000000-0000-4000-8000-000000000006");
     private static final UUID PROMOTION_ID = UUID.fromString("30000000-0000-4000-8000-000000000007");
+    private static final UUID ADMIN_ID = UUID.fromString("30000000-0000-4000-8000-000000000010");
     private static final LocalDate CHECK_IN = LocalDate.of(2027, 7, 1);
     private static final LocalDate CHECK_OUT = LocalDate.of(2027, 7, 3);
 
@@ -294,6 +302,133 @@ class BookingOperationsServiceIntegrationTest {
         assertThat(promotionUsedCount()).isEqualTo(1);
     }
 
+    @Test
+    void vnpayPaymentCreationSignsUrlDefaultsLocaleAndReusesActiveAttempt() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+        PaymentStartResponse reused = service.startPayment(booking.id(), new PaymentStartRequest(null, null), customerAuth());
+        Map<String, String> query = parseQuery(payment.paymentUrl());
+
+        assertThat(payment.paymentId()).isEqualTo(reused.paymentId());
+        assertThat(payment.paymentUrl()).startsWith("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?");
+        assertThat(payment.merchantTxnRef()).startsWith("BK_" + booking.id() + "_");
+        assertThat(query).containsEntry("vnp_TxnRef", payment.merchantTxnRef());
+        assertThat(query).containsEntry("vnp_Locale", "vn");
+        assertThat(query).doesNotContainKey("vnp_BankCode");
+        assertThat(VnpaySigner.verify(query, "DEMO_SECRET")).isTrue();
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("PENDING");
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_PAYMENT_URL_CREATED")).isEqualTo(1);
+    }
+
+    @Test
+    void expiredPaymentAttemptIsCanceledBeforeReplacement() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse first = service.startPayment(booking.id(), null, customerAuth());
+        jdbc.update("update payments set expires_at = now() - interval '1 minute' where id = ?", first.paymentId());
+
+        PaymentStartResponse replacement = service.startPayment(booking.id(), new PaymentStartRequest("en", "NCB"), customerAuth());
+        Map<String, String> query = parseQuery(replacement.paymentUrl());
+
+        assertThat(replacement.paymentId()).isNotEqualTo(first.paymentId());
+        assertThat(replacement.merchantTxnRef()).isNotEqualTo(first.merchantTxnRef());
+        assertThat(paymentStatus(first.paymentId())).isEqualTo("CANCELED");
+        assertThat(paymentEventCount(first.paymentId(), "PAYMENT_ATTEMPT_CANCELED_BEFORE_RETRY")).isEqualTo(1);
+        assertThat(query).containsEntry("vnp_Locale", "en");
+        assertThat(query).containsEntry("vnp_BankCode", "NCB");
+    }
+
+    @Test
+    void normalVnpaySuccessConfirmsBookingOnceAndRecordsMailEventAfterCommit() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+
+        Map<String, String> ipn = service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+        Map<String, String> duplicate = service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+
+        assertThat(ipn).containsEntry("RspCode", "00").containsEntry("Message", "Confirm Success");
+        assertThat(duplicate).containsEntry("RspCode", "02");
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("SUCCEEDED");
+        assertThat(bookingStatus(booking.id())).isEqualTo("CONFIRMED");
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_PAYMENT_SUCCEEDED")).isEqualTo(1);
+        assertThat(paymentEventCount(payment.paymentId(), "MAIL_PAYMENT_SUCCEEDED")).isEqualTo(1);
+    }
+
+    @Test
+    void providerFailureDoesNotConfirmBooking() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+
+        Map<String, String> ipn = service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "24"));
+
+        assertThat(ipn).containsEntry("RspCode", "00");
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("FAILED");
+        assertThat(bookingStatus(booking.id())).isEqualTo("PENDING");
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_PAYMENT_FAILED")).isEqualTo(1);
+    }
+
+    @Test
+    void lateSuccessRequiresReviewAndCreatesAdminReconciliationNotification() {
+        insertAccount(ADMIN_ID, "admin-payments@example.com", true);
+        assignRole(ADMIN_ID, "ADMIN");
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+        service.cancelMine(booking.id(), customerAuth());
+
+        String redirect = service.handleVnpayReturn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+        Map<String, String> duplicate = service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+
+        assertThat(redirect).contains("payment_status=requires_review").contains("booking_id=" + booking.id());
+        assertThat(duplicate).containsEntry("RspCode", "02");
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("LATE_SUCCEEDED");
+        assertThat(bookingStatus(booking.id())).isEqualTo("CANCELLED");
+        assertThat(paymentEventCount(payment.paymentId(), "LATE_SUCCEEDED_RECONCILIATION_CREATED")).isEqualTo(1);
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_DUPLICATE_CALLBACK")).isEqualTo(1);
+        assertThat(notificationCount(ADMIN_ID)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentSuccessfulCallbacksOnlyConfirmAndSendMailOnce() throws Exception {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+        CountDownLatch start = new CountDownLatch(1);
+        var executor = Executors.newFixedThreadPool(2);
+        var first = executor.submit(() -> {
+            await(start);
+            service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+        });
+        var second = executor.submit(() -> {
+            await(start);
+            service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "20000", "00"));
+        });
+
+        start.countDown();
+        executor.shutdown();
+        assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        first.get();
+        second.get();
+
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("SUCCEEDED");
+        assertThat(bookingStatus(booking.id())).isEqualTo("CONFIRMED");
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_PAYMENT_SUCCEEDED")).isEqualTo(1);
+        assertThat(paymentEventCount(payment.paymentId(), "MAIL_PAYMENT_SUCCEEDED")).isEqualTo(1);
+        assertThat(paymentEventCount(payment.paymentId(), "VNPAY_DUPLICATE_CALLBACK")).isEqualTo(1);
+    }
+
+    @Test
+    void invalidVnpayChecksumOrderAndAmountUseProviderResponseCodes() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        PaymentStartResponse payment = service.startPayment(booking.id(), null, customerAuth());
+
+        Map<String, String> badChecksum = signedCallback(payment.merchantTxnRef(), "20000", "00");
+        badChecksum.put("vnp_Amount", "99999");
+
+        assertThat(service.handleVnpayIpn(badChecksum)).containsEntry("RspCode", "97");
+        assertThat(service.handleVnpayIpn(signedCallback("BK_missing_1", "20000", "00"))).containsEntry("RspCode", "01");
+        assertThat(service.handleVnpayIpn(signedCallback(payment.merchantTxnRef(), "19999", "00"))).containsEntry("RspCode", "04");
+        assertThat(paymentStatus(payment.paymentId())).isEqualTo("PENDING");
+    }
+
     private static String guestName(org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingGuestResponse guest) {
         return guest.fullName();
     }
@@ -356,6 +491,47 @@ class BookingOperationsServiceIntegrationTest {
 
     private String paymentStatus(UUID paymentId) {
         return jdbc.queryForObject("select status from payments where id = ?", String.class, paymentId);
+    }
+
+    private String bookingStatus(UUID bookingId) {
+        return jdbc.queryForObject("select status from bookings where id = ?", String.class, bookingId);
+    }
+
+    private int paymentEventCount(UUID paymentId, String eventType) {
+        return jdbc.queryForObject("""
+                select count(*)
+                from payment_events
+                where payment_id = ? and event_type = ?
+                """, Integer.class, paymentId, eventType);
+    }
+
+    private int notificationCount(UUID recipientAccountId) {
+        return jdbc.queryForObject("select count(*) from notifications where recipient_account_id = ?", Integer.class, recipientAccountId);
+    }
+
+    private Map<String, String> signedCallback(String merchantTxnRef, String amount, String responseCode) {
+        Map<String, String> params = new LinkedHashMap<>();
+        params.put("vnp_Amount", amount);
+        params.put("vnp_BankCode", "NCB");
+        params.put("vnp_ResponseCode", responseCode);
+        params.put("vnp_TmnCode", "DEMO");
+        params.put("vnp_TransactionNo", "14123456");
+        params.put("vnp_TransactionStatus", responseCode);
+        params.put("vnp_TxnRef", merchantTxnRef);
+        params.put("vnp_SecureHash", VnpaySigner.hmacSha512("DEMO_SECRET", VnpaySigner.canonicalize(params)));
+        return params;
+    }
+
+    private Map<String, String> parseQuery(String url) {
+        Map<String, String> query = new LinkedHashMap<>();
+        String rawQuery = URI.create(url).getRawQuery();
+        for (String pair : rawQuery.split("&")) {
+            String[] parts = pair.split("=", 2);
+            String key = URLDecoder.decode(parts[0], StandardCharsets.UTF_8);
+            String value = parts.length == 1 ? "" : URLDecoder.decode(parts[1], StandardCharsets.UTF_8);
+            query.put(key, value);
+        }
+        return query;
     }
 
     private Authentication customerAuth() {
