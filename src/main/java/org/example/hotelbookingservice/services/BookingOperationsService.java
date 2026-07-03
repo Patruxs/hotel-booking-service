@@ -33,6 +33,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Clock;
 import java.time.Instant;
@@ -124,7 +125,7 @@ public class BookingOperationsService {
                 .addValue("commissionPackageCode", commission.packageCode())
                 .addValue("commissionRate", commission.rate())
                 .addValue("commissionAmount", commission.amount())
-                .addValue("pendingExpiresAt", now().plus(PENDING_EXPIRY_MINUTES, ChronoUnit.MINUTES)));
+                .addValue("pendingExpiresAt", timestamp(now().plus(PENDING_EXPIRY_MINUTES, ChronoUnit.MINUTES))));
 
         for (BookingLine line : lines) {
             jdbcTemplate.update("""
@@ -360,7 +361,7 @@ public class BookingOperationsService {
                 .addValue("amount", booking.totalAmount())
                 .addValue("merchantTxnRef", merchantTxnRef)
                 .addValue("paymentUrl", paymentUrl)
-                .addValue("expiresAt", booking.pendingExpiresAt()));
+                .addValue("expiresAt", timestamp(booking.pendingExpiresAt())));
         return new PaymentStartResponse(paymentId, merchantTxnRef, paymentUrl);
     }
 
@@ -1042,6 +1043,10 @@ public class BookingOperationsService {
 
     private LocalDate today() {
         return LocalDate.now(clock.withZone(BUSINESS_ZONE));
+    }
+
+    private Timestamp timestamp(Instant instant) {
+        return instant == null ? null : Timestamp.from(instant);
     }
 
     private Instant toInstant(ResultSet rs, String column) throws SQLException {
