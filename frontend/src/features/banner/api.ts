@@ -1,5 +1,6 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 import { BannerLinkType, type Banner } from "@/features/banner/types";
 
 const fallbackImages = ["/hero-bg.jpg", "/hero-bg-2.jpg", "/hero-bg-3.jpg"];
@@ -60,11 +61,11 @@ function listMockBanners(): Banner[] {
 }
 
 export const bannerApi: any = {
-  listPublic: () => mockOnly(listMockBanners()),
-  listAdmin: () => mockOnly(listMockBanners()),
-  create: (_body: unknown) => mockOnly({ ok: true }),
-  update: (_id: string, _body: unknown) => mockOnly({ ok: true }),
-  remove: (_id: string) => mockOnly({ ok: true }),
+  listPublic: () => mockOrRequest(listMockBanners(), () => api.get("/banners")).then((items) => items.map(toBanner)),
+  listAdmin: () => mockOrRequest(listMockBanners(), () => api.get("/admin/banners")).then((items) => items.map(toBanner)),
+  create: (body: unknown) => mockOrRequest({ ok: true }, () => api.post("/admin/banners", body)),
+  update: (id: string, body: unknown) => mockOrRequest({ ok: true }, () => api.put(`/admin/banners/${id}`, body)),
+  remove: (id: string) => mockOrRequest({ ok: true }, () => api.delete(`/admin/banners/${id}`)),
 };
 
 export const getPublicBanners = () => bannerApi.listPublic();

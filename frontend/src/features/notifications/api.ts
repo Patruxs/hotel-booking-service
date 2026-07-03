@@ -1,13 +1,14 @@
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 
 const notifications = [{ id: "nt-1", title: "Mock notification", read: false }];
 
 export const notificationsApi: any = {
-  list: (_params?: unknown) => mockOnly({ data: notifications }),
-  unreadCount: () => mockOnly({ count: 1 }),
-  markRead: (_id: string) => mockOnly({ ok: true }),
-  markAllRead: () => mockOnly({ ok: true }),
-  remove: (_id: string) => mockOnly({ ok: true }),
+  list: (params?: unknown) => mockOrRequest({ data: notifications }, () => api.get("/notifications", { params })),
+  unreadCount: () => mockOrRequest({ count: 1 }, () => api.get("/notifications/unread-count")),
+  markRead: (id: string) => mockOrRequest({ ok: true }, () => api.patch(`/notifications/${id}/read`)),
+  markAllRead: () => mockOrRequest({ ok: true }, () => api.patch("/notifications/read-all")),
+  remove: (id: string) => mockOrRequest({ ok: true }, () => api.delete(`/notifications/${id}`)),
 };
 
 export const getNotifications = (page?: number, limit?: number) => notificationsApi.list({ page, limit });

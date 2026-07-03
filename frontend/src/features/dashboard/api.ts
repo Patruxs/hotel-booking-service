@@ -1,11 +1,12 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 
 export const dashboardApi: any = {
-  stats: (_params?: unknown) => mockOnly(mockApi.dashboard.summary()),
-  revenueChart: (_params?: unknown) => mockOnly([{ month: "Jun", revenue: mockApi.dashboard.summary().revenue }]),
-  latestReviews: (_params?: unknown) => mockOnly(mockApi.reviews.list()),
-  newestBookings: (_params?: unknown) => mockOnly(mockApi.bookings.list()),
+  stats: (params?: unknown) => mockOrRequest(mockApi.dashboard.summary(), () => api.get("/dashboard/stats", { params })),
+  revenueChart: (params?: unknown) => mockOrRequest([{ month: "Jun", revenue: mockApi.dashboard.summary().revenue }], () => api.get("/dashboard/revenue-chart", { params })),
+  latestReviews: (params?: unknown) => mockOrRequest(mockApi.reviews.list(), () => api.get("/dashboard/latest-reviews", { params })),
+  newestBookings: (params?: unknown) => mockOrRequest(mockApi.bookings.list(), () => api.get("/dashboard/newest-bookings", { params })),
 };
 
 export const getDashboardStats = (hotelId?: string) => dashboardApi.stats({ hotelId });

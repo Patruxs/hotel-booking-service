@@ -1,13 +1,14 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 
 export const policiesApi: any = {
-  listAdmin: (hotelId: string) => mockOnly(mockApi.policies.list(hotelId)),
-  getAdmin: (hotelId: string, _policyId: string) => mockOnly(mockApi.policies.list(hotelId)[0]),
-  create: (_hotelId: string, _body: unknown) => mockOnly({ ok: true }),
-  update: (_hotelId: string, _policyId: string, _body: unknown) => mockOnly({ ok: true }),
-  remove: (_hotelId: string, _policyId: string) => mockOnly({ ok: true }),
-  listPublic: (hotelId: string) => mockOnly(mockApi.policies.list(hotelId)),
+  listAdmin: (hotelId: string) => mockOrRequest(mockApi.policies.list(hotelId), () => api.get(`/admin/hotels/${hotelId}/policies`)),
+  getAdmin: (hotelId: string, policyId: string) => mockOrRequest(mockApi.policies.list(hotelId)[0], () => api.get(`/admin/hotels/${hotelId}/policies/${policyId}`)),
+  create: (hotelId: string, body: unknown) => mockOrRequest({ ok: true }, () => api.post(`/admin/hotels/${hotelId}/policies`, body)),
+  update: (hotelId: string, policyId: string, body: unknown) => mockOrRequest({ ok: true }, () => api.put(`/admin/hotels/${hotelId}/policies/${policyId}`, body)),
+  remove: (hotelId: string, policyId: string) => mockOrRequest({ ok: true }, () => api.delete(`/admin/hotels/${hotelId}/policies/${policyId}`)),
+  listPublic: (hotelId: string) => mockOrRequest(mockApi.policies.list(hotelId), () => api.get(`/hotels/${hotelId}/policies`)),
 };
 
 export const getPoliciesByHotel = (hotelId: string) => policiesApi.listAdmin(hotelId);

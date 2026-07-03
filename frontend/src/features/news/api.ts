@@ -1,5 +1,6 @@
 import { mockApi } from "@/mocks/mockApi";
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 import { NewsStatus, type News, type NewsListParams, type NewsListResponse } from "@/features/news/types";
 
 function slugify(value: string) {
@@ -60,14 +61,24 @@ function getMockNews(idOrSlug: string): News {
   );
 }
 
+function normalizeList(payload: any): NewsListResponse {
+  if (Array.isArray(payload?.data) && !payload.items) {
+    return { page: payload.page ?? 1, limit: payload.limit ?? payload.data.length, total: payload.total ?? payload.data.length, items: payload.data.map(toNews) };
+  }
+  if (Array.isArray(payload?.items)) {
+    return { ...payload, items: payload.items.map(toNews) };
+  }
+  return listMockNews();
+}
+
 export const newsApi: any = {
-  listAdmin: (params?: NewsListParams) => mockOnly(listMockNews(params)),
-  getAdmin: (id: string) => mockOnly(getMockNews(id)),
-  create: (_body: unknown) => mockOnly(getMockNews("")),
-  update: (id: string, _body: unknown) => mockOnly(getMockNews(id)),
-  remove: (_id: string) => mockOnly({ ok: true }),
-  listPublic: (params?: NewsListParams) => mockOnly(listMockNews(params)),
-  getPublic: (slug: string) => mockOnly(getMockNews(slug)),
+  listAdmin: (params?: NewsListParams) => mockOrRequest(listMockNews(params), () => api.get("/admin/news", { params })).then(normalizeList),
+  getAdmin: (id: string) => mockOrRequest(getMockNews(id), () => api.get(`/admin/news/${id}`)).then((item) => toNews(item, 0)),
+  create: (body: unknown) => mockOrRequest(getMockNews(""), () => api.post("/admin/news", body)).then((item) => toNews(item, 0)),
+  update: (id: string, body: unknown) => mockOrRequest(getMockNews(id), () => api.put(`/admin/news/${id}`, body)).then((item) => toNews(item, 0)),
+  remove: (id: string) => mockOrRequest({ ok: true }, () => api.delete(`/admin/news/${id}`)),
+  listPublic: (params?: NewsListParams) => mockOrRequest(listMockNews(params), () => api.get("/news", { params })).then(normalizeList),
+  getPublic: (slug: string) => mockOrRequest(getMockNews(slug), () => api.get(`/news/${slug}`)).then((item) => toNews(item, 0)),
 };
 
 export const getNewsList = (params?: unknown) => newsApi.listAdmin(params);

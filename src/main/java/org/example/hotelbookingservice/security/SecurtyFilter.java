@@ -57,12 +57,21 @@ public class SecurtyFilter {
 
                         .requestMatchers(
                                 "/api/v1/payments/vnpay/return",
-                                "/api/v1/payments/vnpay/ipn"
+                                "/api/v1/payments/vnpay/ipn",
+                                "/api/v1/contact",
+                                "/api/v1/contacts"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.GET,
+                                "/api/v1/uploads/local/*",
+                                "/api/v1/news",
+                                "/api/v1/news/*",
+                                "/api/v1/banners",
                                 "/api/v1/hotels",
                                 "/api/v1/hotels/*",
+                                "/api/v1/hotels/*/policies",
+                                "/api/v1/hotels/*/reviews",
+                                "/api/v1/hotels/*/reviews/summary",
                                 "/api/v1/hotels/*/room-types",
                                 "/api/v1/hotels/*/room-types/*",
                                 "/api/v1/hotels/*/room-types/available",

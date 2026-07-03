@@ -58,7 +58,7 @@ class FlywaySchemaMigrationTest {
                 Integer.class
         );
 
-        assertThat(migrations).isEqualTo(1);
+        assertThat(migrations).isEqualTo(2);
         assertThat(applicationTables).isEqualTo(9);
     }
 

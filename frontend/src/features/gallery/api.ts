@@ -1,10 +1,14 @@
-import { mockOnly } from "@/features/shared/apiClient";
+import { mockOrRequest } from "@/features/shared/apiClient";
+import api from "@/lib/axios";
 
 export const galleryApi: any = {
-  folders: () => mockOnly([{ id: "mock-folder", name: "hotel-gallery" }]),
-  images: (_folderId: string) => mockOnly([]),
-  createFolder: (folderName: string) => mockOnly({ id: "mock-folder", folderName }),
-  uploadImage: (_folderName: string, _formData: FormData) => mockOnly({ url: "/globe.svg" }),
+  folders: () => mockOrRequest([{ id: "mock-folder", name: "hotel-gallery" }], () => api.get("/gallery/folders")),
+  images: (folderId: string) => mockOrRequest([], () => api.get(`/gallery/folders/${folderId}/images`)),
+  createFolder: (folderName: string) => mockOrRequest({ id: "mock-folder", folderName }, () => api.post("/gallery/folders", { folderName })),
+  uploadImage: (folderName: string, formData: FormData) =>
+    mockOrRequest({ url: "/globe.svg" }, () =>
+      api.post(`/gallery/folders/${folderName}/images`, formData, { headers: { "Content-Type": "multipart/form-data" } }),
+    ),
 };
 
 export const getFoldersGallery = () => galleryApi.folders();
