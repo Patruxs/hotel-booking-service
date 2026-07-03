@@ -109,13 +109,13 @@ public class Milestone6Controller {
     public ResponseEntity<byte[]> localPlaceholder(@PathVariable UUID id) {
         String color = Integer.toHexString(id.hashCode()).replace("-", "");
         color = (color + "6f7f8f").substring(0, 6);
-        String svg = """
-                <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
-                  <rect width="1200" height="800" fill="#%s"/>
-                  <path d="M0 650 L260 470 L430 590 L690 330 L1200 720 L1200 800 L0 800 Z" fill="#ffffff" opacity=".34"/>
-                  <circle cx="880" cy="210" r="90" fill="#ffffff" opacity=".42"/>
-                </svg>
-                """.formatted(color);
+        String svg = String.format(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1200\" height=\"800\" viewBox=\"0 0 1200 800\">"
+                        + "<rect width=\"1200\" height=\"800\" fill=\"#%s\"/>"
+                        + "<path d=\"M0 650 L260 470 L430 590 L690 330 L1200 720 L1200 800 L0 800 Z\" fill=\"#ffffff\" opacity=\".34\"/>"
+                        + "<circle cx=\"880\" cy=\"210\" r=\"90\" fill=\"#ffffff\" opacity=\".42\"/>"
+                        + "</svg>",
+                color);
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("image/svg+xml"))
                 .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic())
