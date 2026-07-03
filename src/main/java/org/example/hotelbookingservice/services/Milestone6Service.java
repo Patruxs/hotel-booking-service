@@ -76,6 +76,8 @@ public class Milestone6Service {
     private static final Set<String> CONTACT_STATUSES = Set.of("NEW", "IN_PROGRESS", "RESOLVED", "SPAM");
     private static final Set<String> POLICY_TYPES = Set.of("CHECK_IN", "CANCELLATION", "PAYMENT", "CHILDREN", "PET", "SMOKING", "GENERAL");
     private static final Set<String> LINK_TYPES = Set.of("URL", "HOTEL", "NEWS");
+    private static final long MAX_IMAGE_BYTES = 2L * 1024 * 1024;
+    private static final int MAX_GALLERY_UPLOAD_FILES = 20;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final IFileStorageService fileStorageService;
@@ -108,6 +110,7 @@ public class Milestone6Service {
     @Transactional
     public ImageAssetResponse uploadAvatar(MultipartFile file, Authentication authentication) {
         CurrentUser user = requireUser(authentication);
+        ImageAssetResponse oldAvatar = currentAvatarImage(user.accountId());
         ImageAssetResponse image = createImageAsset(file, user.accountId());
         jdbcTemplate.update("""
                 update accounts
@@ -115,17 +118,20 @@ public class Milestone6Service {
                 where id = :accountId
                 """, new MapSqlParameterSource("avatarUrl", image.secureUrl() == null ? image.url() : image.secureUrl())
                 .addValue("accountId", user.accountId()));
+        cleanupProviderImage(oldAvatar);
         return image;
     }
 
     @Transactional
     public void deleteAvatar(Authentication authentication) {
         CurrentUser user = requireUser(authentication);
+        ImageAssetResponse oldAvatar = currentAvatarImage(user.accountId());
         jdbcTemplate.update("""
                 update accounts
                 set avatar_url = null, updated_at = now()
                 where id = :accountId
                 """, new MapSqlParameterSource("accountId", user.accountId()));
+        cleanupProviderImage(oldAvatar);
     }
 
     public List<ImageAssetResponse> listProviderAssets(Authentication authentication) {
@@ -154,22 +160,19 @@ public class Milestone6Service {
     @Transactional
     public GalleryFolderResponse createGalleryFolder(String folderName, Authentication authentication) {
         CurrentUser user = requireUser(authentication);
-        String normalized = trimRequired(folderName, "Folder name is required");
+        String normalized = normalizeFolderName(folderName);
         UUID id = UUID.randomUUID();
-        jdbcTemplate.update("""
-                insert into gallery_folders (id, owner_account_id, folder_name)
-                values (:id, :ownerId, :folderName)
-                on conflict (owner_account_id, folder_name)
-                do update set updated_at = gallery_folders.updated_at
-                """, new MapSqlParameterSource("id", id)
-                .addValue("ownerId", user.accountId())
-                .addValue("folderName", normalized));
-        return jdbcTemplate.queryForObject("""
-                select *
-                from gallery_folders
-                where owner_account_id = :ownerId and folder_name = :folderName
-                """, new MapSqlParameterSource("ownerId", user.accountId()).addValue("folderName", normalized),
-                (rs, rowNum) -> mapGalleryFolder(rs));
+        try {
+            jdbcTemplate.update("""
+                    insert into gallery_folders (id, owner_account_id, folder_name)
+                    values (:id, :ownerId, :folderName)
+                    """, new MapSqlParameterSource("id", id)
+                    .addValue("ownerId", user.accountId())
+                    .addValue("folderName", normalized));
+        } catch (DuplicateKeyException ex) {
+            throw conflict("Gallery folder name already exists");
+        }
+        return queryGalleryFolder(user.accountId(), normalized);
     }
 
     public List<ImageAssetResponse> listGalleryImages(UUID folderId, Authentication authentication) {
@@ -186,7 +189,9 @@ public class Milestone6Service {
 
     @Transactional
     public List<ImageAssetResponse> uploadGalleryImages(String folderName, List<MultipartFile> files, Authentication authentication) {
-        GalleryFolderResponse folder = createGalleryFolder(folderName, authentication);
+        CurrentUser user = requireUser(authentication);
+        validateGalleryUploadBatch(files);
+        GalleryFolderResponse folder = getOrCreateGalleryFolder(normalizeFolderName(folderName), user.accountId());
         List<ImageAssetResponse> uploaded = uploadMany(files, authentication);
         for (ImageAssetResponse image : uploaded) {
             jdbcTemplate.update("""
@@ -273,7 +278,7 @@ public class Milestone6Service {
                     .addValue("rating", request.rating())
                     .addValue("comment", trimToNull(request.comment())));
         } catch (DuplicateKeyException ex) {
-            throw conflict("Booking already has a review");
+            throw conflict("This booking has already been reviewed");
         }
         insertReviewImages(reviewId, request.imageIds(), user);
         notifyHotelOperators(hotelId, "REVIEW_CREATED", "New review received", "A customer left a review.", "/admin/hotels/" + hotelId + "/reviews");
@@ -302,6 +307,7 @@ public class Milestone6Service {
         if (!current.accountId().equals(user.accountId())) {
             throw forbidden("Cannot edit another customer's review");
         }
+        requireReviewWritableHotel(current.hotelId());
         jdbcTemplate.update("""
                 update reviews
                 set rating = coalesce(:rating, rating),
@@ -351,7 +357,14 @@ public class Milestone6Service {
         return jdbcTemplate.queryForObject("""
                 select coalesce(round(avg(rating), 1), 0) average_rating, count(*) review_count
                 from reviews
-                where hotel_id = :hotelId and visible and deleted_at is null
+                where hotel_id = :hotelId
+                  and visible
+                  and deleted_at is null
+                  and exists (
+                      select 1
+                      from hotels h
+                      where h.id = reviews.hotel_id and h.status = 'ACTIVE' and h.deleted_at is null
+                  )
                 """, new MapSqlParameterSource("hotelId", hotelId), (rs, rowNum) ->
                 new RatingSummaryResponse(rs.getBigDecimal("average_rating"), rs.getLong("review_count")));
     }
@@ -674,10 +687,11 @@ public class Milestone6Service {
     public DashboardStatsResponse dashboardStats(UUID hotelId, Authentication authentication) {
         CurrentUser user = requireUser(authentication);
         ReportScope scope = reportScope(hotelId, user);
+        boolean admin = isAdmin(user);
         MapSqlParameterSource params = scope.params();
         return jdbcTemplate.queryForObject("""
                 select
-                    (select count(*) from accounts) total_users,
+                    """ + (admin ? "(select count(*) from accounts)" : "0") + """ total_users,
                     (select count(*) from bookings b """ + scope.where("b") + """
                     ) total_bookings,
                     (select coalesce(sum(b.total_amount), 0)
@@ -688,7 +702,7 @@ public class Milestone6Service {
                            from payments p
                            where p.booking_id = b.id and p.status in ('SUCCEEDED', 'REFUNDED', 'LATE_SUCCEEDED')
                        )) revenue,
-                    (select count(*) from hotels h where h.status = 'ACTIVE' and h.deleted_at is null) active_hotels
+                    """ + (admin ? "(select count(*) from hotels h where h.status = 'ACTIVE' and h.deleted_at is null)" : "0") + """ active_hotels
                 """, params, (rs, rowNum) -> new DashboardStatsResponse(
                 rs.getLong("total_users"),
                 rs.getLong("total_bookings"),
@@ -850,6 +864,7 @@ public class Milestone6Service {
     }
 
     public Object commissionRevenue(UUID hotelId, Integer year, LocalDate from, LocalDate to, Authentication authentication) {
+        requireAdmin(authentication);
         CurrentUser user = requireUser(authentication);
         ReportScope scope = reportScope(hotelId, user);
         if (from != null && to != null) {
@@ -861,11 +876,8 @@ public class Milestone6Service {
                     from bookings b
                     where """ + scope.condition("b") + """
                       and b.created_at::date between :from and :to
-                      and exists (
-                          select 1
-                          from payments p
-                          where p.booking_id = b.id and p.status in ('SUCCEEDED', 'REFUNDED', 'LATE_SUCCEEDED')
-                      )
+                      and b.status = 'COMPLETED'
+                      and b.commission_amount is not null
                     group by revenue_date
                     order by revenue_date
                     """, params, (rs, rowNum) -> Map.of(
@@ -881,11 +893,8 @@ public class Milestone6Service {
                 left join bookings b on extract(month from b.created_at) = months.month_number
                     and extract(year from b.created_at) = :year
                     and """ + scope.condition("b") + """
-                    and exists (
-                        select 1
-                        from payments p
-                        where p.booking_id = b.id and p.status in ('SUCCEEDED', 'REFUNDED', 'LATE_SUCCEEDED')
-                    )
+                    and b.status = 'COMPLETED'
+                    and b.commission_amount is not null
                 group by months.month_number
                 order by months.month_number
                 """, scope.params().addValue("year", selectedYear), (rs, rowNum) -> rs.getBigDecimal("revenue"));
@@ -894,8 +903,14 @@ public class Milestone6Service {
     public List<PolicyResponse> listPoliciesPublic(UUID hotelId) {
         return jdbcTemplate.query("""
                 select *
-                from hotel_policies
-                where hotel_id = :hotelId and enabled and deleted_at is null
+                from hotel_policies hp
+                where hp.hotel_id = :hotelId
+                  and hp.enabled
+                  and exists (
+                      select 1
+                      from hotels h
+                      where h.id = hp.hotel_id and h.status = 'ACTIVE' and h.deleted_at is null
+                  )
                 order by sort_order
                 """, new MapSqlParameterSource("hotelId", hotelId), (rs, rowNum) -> mapPolicy(rs));
     }
@@ -906,7 +921,7 @@ public class Milestone6Service {
         return jdbcTemplate.query("""
                 select *
                 from hotel_policies
-                where hotel_id = :hotelId and deleted_at is null
+                where hotel_id = :hotelId
                 order by sort_order
                 """, new MapSqlParameterSource("hotelId", hotelId), (rs, rowNum) -> mapPolicy(rs));
     }
@@ -928,7 +943,7 @@ public class Milestone6Service {
                     values (:id, :hotelId, :type, :title, :content, :enabled, :sortOrder)
                     """, policyParams(id, hotelId, request, null));
         } catch (DataIntegrityViolationException ex) {
-            throw badRequest("Policy type or order already exists for this hotel");
+            throw policyCollision(ex, request.sortOrder());
         }
         return queryPolicy(hotelId, id);
     }
@@ -950,7 +965,7 @@ public class Milestone6Service {
                     where id = :id and hotel_id = :hotelId
                     """, policyParams(policyId, hotelId, request, current));
         } catch (DataIntegrityViolationException ex) {
-            throw badRequest("Policy type or order already exists for this hotel");
+            throw policyCollision(ex, request.sortOrder() == null ? current.order() : request.sortOrder());
         }
         return queryPolicy(hotelId, policyId);
     }
@@ -959,20 +974,20 @@ public class Milestone6Service {
     public PolicyResponse deletePolicy(UUID hotelId, UUID policyId, Authentication authentication) {
         CurrentUser user = requireUser(authentication);
         requireCanManageHotel(hotelId, user);
+        PolicyResponse current = queryPolicy(hotelId, policyId);
         jdbcTemplate.update("""
-                update hotel_policies
-                set deleted_at = now(), updated_at = now()
-                where id = :id and hotel_id = :hotelId and deleted_at is null
+                delete from hotel_policies
+                where id = :id and hotel_id = :hotelId
                 """, new MapSqlParameterSource("id", policyId).addValue("hotelId", hotelId));
-        return queryPolicyIncludingDeleted(hotelId, policyId);
+        return current;
     }
 
     private ImageAssetResponse createImageAsset(MultipartFile file, UUID ownerId) {
         validateImageFile(file);
         UUID id = UUID.randomUUID();
         String provider = "CLOUDINARY".equalsIgnoreCase(uploadMode) ? "CLOUDINARY" : "LOCAL";
-        String url = "LOCAL".equals(provider) ? "/api/v1/uploads/local/" + id : fileStorageService.uploadFile(file);
         String publicId = provider.toLowerCase(Locale.ROOT) + "/" + id;
+        String url = "LOCAL".equals(provider) ? "/api/v1/uploads/local/" + id : fileStorageService.uploadFile(file, publicId);
         jdbcTemplate.update("""
                 insert into image_assets (id, owner_account_id, provider, public_id, url, secure_url, width, height, bytes)
                 values (:id, :ownerId, :provider, :publicId, :url, :secureUrl, :width, :height, :bytes)
@@ -996,8 +1011,8 @@ public class Milestone6Service {
         if (contentType == null || !Set.of("image/png", "image/jpeg", "image/webp", "image/gif").contains(contentType)) {
             throw badRequest("Only png, jpeg, webp, and gif images are supported");
         }
-        if (file.getSize() > 10 * 1024 * 1024) {
-            throw badRequest("Image file must be 10MB or smaller");
+        if (file.getSize() > MAX_IMAGE_BYTES) {
+            throw badRequest("Image file must be 2MB or smaller");
         }
     }
 
@@ -1055,15 +1070,67 @@ public class Milestone6Service {
         if (imageIds == null) {
             return;
         }
-        List<ImageAssetResponse> images = requireOwnedImages(imageIds, user);
+        List<BannerImageSource> images = resolveNewsImages(newsId, imageIds, user);
         jdbcTemplate.update("delete from news_images where news_id = :newsId", new MapSqlParameterSource("newsId", newsId));
         int order = 0;
-        for (ImageAssetResponse image : images) {
+        for (BannerImageSource image : images) {
             jdbcTemplate.update("""
                     insert into news_images (id, news_id, image_asset_id, url, sort_order)
                     values (:id, :newsId, :imageAssetId, :url, :sortOrder)
-                    """, snapshotParams("newsId", newsId, image, order++));
+                    """, new MapSqlParameterSource("id", UUID.randomUUID())
+                    .addValue("newsId", newsId)
+                    .addValue("imageAssetId", image.imageAssetId())
+                    .addValue("url", normalizeImageUrl(image.url()))
+                    .addValue("sortOrder", order++));
         }
+    }
+
+    private List<BannerImageSource> resolveNewsImages(UUID newsId, List<UUID> imageIds, CurrentUser user) {
+        if (imageIds == null) {
+            return List.of();
+        }
+        if (imageIds.size() > Math.max(1, maxImageCount)) {
+            throw badRequest("Too many images");
+        }
+        Set<UUID> unique = new HashSet<>();
+        for (UUID imageId : imageIds) {
+            if (imageId == null || !unique.add(imageId)) {
+                throw badRequest("Image IDs must be non-null and unique");
+            }
+        }
+        if (unique.isEmpty()) {
+            return List.of();
+        }
+        List<NewsImageSource> existing = jdbcTemplate.query("""
+                select id, image_asset_id, url
+                from news_images
+                where news_id = :newsId and id in (:ids)
+                """, new MapSqlParameterSource("newsId", newsId).addValue("ids", unique), (rs, rowNum) ->
+                new NewsImageSource(rs.getObject("id", UUID.class), rs.getObject("image_asset_id", UUID.class), rs.getString("url")));
+        Set<UUID> existingIds = new HashSet<>();
+        for (NewsImageSource image : existing) {
+            existingIds.add(image.id());
+        }
+        Set<UUID> galleryIds = new HashSet<>(unique);
+        galleryIds.removeAll(existingIds);
+        List<ImageAssetResponse> owned = galleryIds.isEmpty() ? List.of() : requireOwnedImages(new ArrayList<>(galleryIds), user);
+        List<BannerImageSource> resolved = new ArrayList<>();
+        for (UUID imageId : imageIds) {
+            NewsImageSource existingImage = existing.stream()
+                    .filter(candidate -> candidate.id().equals(imageId))
+                    .findFirst()
+                    .orElse(null);
+            if (existingImage != null) {
+                resolved.add(new BannerImageSource(existingImage.imageAssetId(), existingImage.url()));
+                continue;
+            }
+            ImageAssetResponse galleryImage = owned.stream()
+                    .filter(candidate -> candidate.id().equals(imageId))
+                    .findFirst()
+                    .orElseThrow(() -> badRequest("Image IDs must reference images you own"));
+            resolved.add(new BannerImageSource(galleryImage.id(), galleryImage.secureUrl() == null ? galleryImage.url() : galleryImage.secureUrl()));
+        }
+        return resolved;
     }
 
     private void replaceBannerImages(UUID bannerId, List<BannerImageSource> images) {
@@ -1104,6 +1171,13 @@ public class Milestone6Service {
                   and hotel_id = :hotelId
                   and account_id = :accountId
                   and status = 'COMPLETED'
+                  and exists (
+                      select 1
+                      from hotels h
+                      where h.id = bookings.hotel_id
+                        and h.deleted_at is null
+                        and h.status in ('ACTIVE', 'SUSPENDED')
+                  )
                 """, new MapSqlParameterSource("bookingId", bookingId).addValue("hotelId", hotelId).addValue("accountId", accountId),
                 rs -> {
                     if (!rs.next()) {
@@ -1124,7 +1198,14 @@ public class Milestone6Service {
                 where (cast(:hotelId as uuid) is null or r.hotel_id = :hotelId)
                   and (cast(:accountId as uuid) is null or r.account_id = :accountId)
                   and r.deleted_at is null
-                """ + (visibleOnly ? " and r.visible\n" : "");
+                """ + (visibleOnly ? """
+                  and r.visible
+                  and exists (
+                      select 1
+                      from hotels h
+                      where h.id = r.hotel_id and h.status = 'ACTIVE' and h.deleted_at is null
+                  )
+                """ : "");
         long total = jdbcTemplate.queryForObject("select count(*) from reviews r " + where, params, Long.class);
         List<ReviewResponse> data = jdbcTemplate.query("""
                 select r.*, a.email, a.first_name, a.last_name, a.avatar_url
@@ -1407,19 +1488,6 @@ public class Milestone6Service {
         return jdbcTemplate.query("""
                 select *
                 from hotel_policies
-                where hotel_id = :hotelId and id = :id and deleted_at is null
-                """, new MapSqlParameterSource("hotelId", hotelId).addValue("id", policyId), rs -> {
-            if (!rs.next()) {
-                throw notFound("Policy not found");
-            }
-            return mapPolicy(rs);
-        });
-    }
-
-    private PolicyResponse queryPolicyIncludingDeleted(UUID hotelId, UUID policyId) {
-        return jdbcTemplate.query("""
-                select *
-                from hotel_policies
                 where hotel_id = :hotelId and id = :id
                 """, new MapSqlParameterSource("hotelId", hotelId).addValue("id", policyId), rs -> {
             if (!rs.next()) {
@@ -1440,7 +1508,7 @@ public class Milestone6Service {
                 rs.getInt("sort_order"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
-                instantOrNull(rs, "deleted_at")
+                null
         );
     }
 
@@ -1488,6 +1556,38 @@ public class Milestone6Service {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant()
         );
+    }
+
+    private GalleryFolderResponse queryGalleryFolder(UUID ownerId, String folderName) {
+        return jdbcTemplate.queryForObject("""
+                select *
+                from gallery_folders
+                where owner_account_id = :ownerId and folder_name = :folderName
+                """, new MapSqlParameterSource("ownerId", ownerId).addValue("folderName", folderName),
+                (rs, rowNum) -> mapGalleryFolder(rs));
+    }
+
+    private GalleryFolderResponse getOrCreateGalleryFolder(String folderName, UUID ownerId) {
+        List<GalleryFolderResponse> existing = jdbcTemplate.query("""
+                select *
+                from gallery_folders
+                where owner_account_id = :ownerId and folder_name = :folderName
+                """, new MapSqlParameterSource("ownerId", ownerId).addValue("folderName", folderName),
+                (rs, rowNum) -> mapGalleryFolder(rs));
+        if (!existing.isEmpty()) {
+            return existing.getFirst();
+        }
+        try {
+            jdbcTemplate.update("""
+                    insert into gallery_folders (id, owner_account_id, folder_name)
+                    values (:id, :ownerId, :folderName)
+                    """, new MapSqlParameterSource("id", UUID.randomUUID())
+                    .addValue("ownerId", ownerId)
+                    .addValue("folderName", folderName));
+        } catch (DuplicateKeyException ignored) {
+            return queryGalleryFolder(ownerId, folderName);
+        }
+        return queryGalleryFolder(ownerId, folderName);
     }
 
     private ImageSnapshotResponse mapSnapshot(ResultSet rs) throws SQLException {
@@ -1572,8 +1672,50 @@ public class Milestone6Service {
             }
             return ReportScope.global();
         }
-        requireCanManageHotel(hotelId, user);
+        requireAction(user, "reports.hotel.view", hotelId);
         return ReportScope.hotel(hotelId);
+    }
+
+    private void requireAction(CurrentUser user, String actionKey, UUID hotelId) {
+        Boolean allowed = jdbcTemplate.queryForObject("""
+                select exists (
+                    select 1
+                    from api_actions a
+                    join action_policies ap on ap.action_id = a.id
+                    join role_permissions rp on rp.permission_id = ap.permission_id
+                    join account_roles ar on ar.role_id = rp.role_id
+                    where a.key = :actionKey
+                      and a.enabled
+                      and ar.account_id = :accountId
+                      and (
+                          ap.scope = 'GLOBAL'
+                          or ap.scope = 'SELF'
+                          or (
+                              cast(:hotelId as uuid) is not null
+                              and ap.scope = 'HOTEL_MEMBER'
+                              and exists (
+                                  select 1
+                                  from hotel_members hm
+                                  where hm.hotel_id = :hotelId and hm.account_id = :accountId
+                              )
+                          )
+                          or (
+                              cast(:hotelId as uuid) is not null
+                              and ap.scope = 'HOTEL_OWNER'
+                              and exists (
+                                  select 1
+                                  from hotels h
+                                  where h.id = :hotelId and h.owner_id = :accountId
+                              )
+                          )
+                      )
+                )
+                """, new MapSqlParameterSource("actionKey", actionKey)
+                .addValue("accountId", user.accountId())
+                .addValue("hotelId", hotelId, Types.OTHER), Boolean.class);
+        if (!Boolean.TRUE.equals(allowed)) {
+            throw forbidden("Action not allowed: " + actionKey);
+        }
     }
 
     private void requireFolderOwner(UUID folderId, UUID accountId) {
@@ -1601,6 +1743,21 @@ public class Milestone6Service {
         }
     }
 
+    private void requireReviewWritableHotel(UUID hotelId) {
+        Boolean exists = jdbcTemplate.queryForObject("""
+                select exists(
+                    select 1
+                    from hotels
+                    where id = :hotelId
+                      and deleted_at is null
+                      and status in ('ACTIVE', 'SUSPENDED')
+                )
+                """, new MapSqlParameterSource("hotelId", hotelId), Boolean.class);
+        if (!Boolean.TRUE.equals(exists)) {
+            throw conflict("Reviews are not allowed for this hotel");
+        }
+    }
+
     private void notifyAdmins(String type, String title, String body, String linkUrl) {
         List<UUID> admins = jdbcTemplate.query("""
                 select ar.account_id
@@ -1615,11 +1772,13 @@ public class Milestone6Service {
 
     private void notifyContactRecipients(String type, String title, String body, String linkUrl) {
         List<UUID> recipients = jdbcTemplate.query("""
-                select distinct ar.account_id
-                from account_roles ar
+                select distinct a.id
+                from accounts a
+                join account_roles ar on ar.account_id = a.id
                 join roles r on r.id = ar.role_id
-                where r.name in ('ADMIN', 'OWNER', 'STAFF')
-                """, (rs, rowNum) -> rs.getObject("account_id", UUID.class));
+                where r.name = 'ADMIN'
+                  and a.email_verified
+                """, (rs, rowNum) -> rs.getObject("id", UUID.class));
         for (UUID recipientId : recipients) {
             createNotification(recipientId, type, title, body, linkUrl);
         }
@@ -1646,6 +1805,63 @@ public class Milestone6Service {
                 .addValue("title", title)
                 .addValue("body", body)
                 .addValue("linkUrl", linkUrl));
+    }
+
+    private ImageAssetResponse currentAvatarImage(UUID accountId) {
+        List<ImageAssetResponse> images = jdbcTemplate.query("""
+                select ia.*
+                from accounts a
+                join image_assets ia on ia.owner_account_id = a.id
+                    and (ia.url = a.avatar_url or ia.secure_url = a.avatar_url)
+                where a.id = :accountId
+                order by ia.created_at desc
+                limit 1
+                """, new MapSqlParameterSource("accountId", accountId), (rs, rowNum) -> mapImageAsset(rs));
+        return images.isEmpty() ? null : images.getFirst();
+    }
+
+    private void cleanupProviderImage(ImageAssetResponse image) {
+        if (image == null || !"CLOUDINARY".equalsIgnoreCase(image.provider()) || trimToNull(image.publicId()) == null) {
+            return;
+        }
+        try {
+            fileStorageService.deleteFile(image.publicId());
+        } catch (RuntimeException ex) {
+            log.warn("Provider cleanup failed for image asset {}", image.id(), ex);
+        }
+    }
+
+    private void validateGalleryUploadBatch(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            throw badRequest("At least one file is required");
+        }
+        if (files.size() > MAX_GALLERY_UPLOAD_FILES) {
+            throw badRequest("At most 20 images can be uploaded at once");
+        }
+    }
+
+    private String normalizeFolderName(String folderName) {
+        String normalized = trimRequired(folderName, "Folder name is required");
+        if (normalized.length() > 80) {
+            throw badRequest("Folder name must be 80 characters or fewer");
+        }
+        if (".".equals(normalized) || "..".equals(normalized)
+                || normalized.contains("/") || normalized.contains("\\")
+                || normalized.chars().anyMatch(Character::isISOControl)) {
+            throw badRequest("Folder name is invalid");
+        }
+        return normalized;
+    }
+
+    private ResponseStatusException policyCollision(DataIntegrityViolationException ex, Integer sortOrder) {
+        String message = ex.getMostSpecificCause() == null ? "" : ex.getMostSpecificCause().getMessage();
+        if (message.contains("hotel_policies_type")) {
+            return conflict("Policy type already exists for this hotel");
+        }
+        if (message.contains("hotel_policies_order") || message.contains("sort_order")) {
+            return badRequest("Order " + (sortOrder == null ? 0 : sortOrder) + " is already taken in this hotel");
+        }
+        return badRequest("Policy type or order already exists for this hotel");
     }
 
     private String uniqueSlug(String table, String base) {
@@ -1837,6 +2053,9 @@ public class Milestone6Service {
     }
 
     private record BannerImageSource(UUID imageAssetId, String url) {
+    }
+
+    private record NewsImageSource(UUID id, UUID imageAssetId, String url) {
     }
 
     private record ReportScope(UUID hotelId) {

@@ -5,7 +5,6 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,19 +24,11 @@ public class CloudinaryConfig implements InitializingBean {
     @Value("${app.upload.mode:LOCAL}")
     private String uploadMode;
 
-    private final Environment environment;
-
-    public CloudinaryConfig(Environment environment) {
-        this.environment = environment;
-    }
-
     @Override
     public void afterPropertiesSet() {
         boolean cloudinaryMode = "CLOUDINARY".equalsIgnoreCase(uploadMode);
-        boolean prodProfile = java.util.Arrays.stream(environment.getActiveProfiles())
-                .anyMatch(profile -> profile.equalsIgnoreCase("prod"));
-        if ((cloudinaryMode || prodProfile) && (isBlank(cloudName) || isBlank(apiKey) || isBlank(apiSecret))) {
-            throw new IllegalStateException("Cloudinary credentials are required when app.upload.mode=CLOUDINARY or prod/dev profile is active");
+        if (cloudinaryMode && (isBlank(cloudName) || isBlank(apiKey) || isBlank(apiSecret))) {
+            throw new IllegalStateException("Cloudinary credentials are required when app.upload.mode=CLOUDINARY");
         }
     }
 

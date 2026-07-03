@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -23,6 +24,8 @@ public class DemoBootstrapData implements CommandLineRunner {
     private static final UUID ROOM_ID = UUID.fromString("30000000-0000-4000-8000-000000000301");
     private static final UUID IMAGE_ID = UUID.fromString("30000000-0000-4000-8000-000000000401");
     private static final UUID BOOKING_ID = UUID.fromString("30000000-0000-4000-8000-000000000501");
+    private static final UUID BASIC_PARTNER_PACKAGE_ID = UUID.fromString("30000000-0000-4000-8000-000000000a01");
+    private static final UUID PREMIUM_GROWTH_PACKAGE_ID = UUID.fromString("30000000-0000-4000-8000-000000000a02");
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
@@ -35,6 +38,7 @@ public class DemoBootstrapData implements CommandLineRunner {
         assignRole(ADMIN_ID, "ADMIN");
         assignRole(CUSTOMER_ID, "CUSTOMER");
         assignRole(OPERATOR_ID, "MANAGER");
+        seedCommissionPackages();
         upsertHotel();
         seedOperationsData();
     }
@@ -71,6 +75,12 @@ public class DemoBootstrapData implements CommandLineRunner {
                 do update set status = 'ACTIVE', updated_at = now()
                 """, params().addValue("id", HOTEL_ID).addValue("ownerId", ADMIN_ID));
         jdbcTemplate.update("""
+                insert into hotel_commission_packages (hotel_id, commission_package_id)
+                values (:hotelId, :packageId)
+                on conflict (hotel_id)
+                do update set commission_package_id = excluded.commission_package_id, assigned_at = now()
+                """, params().addValue("hotelId", HOTEL_ID).addValue("packageId", BASIC_PARTNER_PACKAGE_ID));
+        jdbcTemplate.update("""
                 insert into hotel_members (hotel_id, account_id)
                 values (:hotelId, :accountId)
                 on conflict do nothing
@@ -99,6 +109,29 @@ public class DemoBootstrapData implements CommandLineRunner {
                     .addValue("roomTypeId", ROOM_TYPE_ID)
                     .addValue("date", date));
         }
+    }
+
+    private void seedCommissionPackages() {
+        upsertCommissionPackage(BASIC_PARTNER_PACKAGE_ID, "BASIC_PARTNER", "Basic Partner", "Default demo partner package.", new BigDecimal("0.080000"));
+        upsertCommissionPackage(PREMIUM_GROWTH_PACKAGE_ID, "PREMIUM_GROWTH", "Premium Growth", "Higher-touch demo growth package.", new BigDecimal("0.120000"));
+    }
+
+    private void upsertCommissionPackage(UUID id, String code, String name, String description, BigDecimal rate) {
+        jdbcTemplate.update("""
+                insert into commission_packages (id, code, name, description, commission_rate, active)
+                values (:id, :code, :name, :description, :rate, true)
+                on conflict (code)
+                do update set name = excluded.name,
+                              description = excluded.description,
+                              commission_rate = excluded.commission_rate,
+                              active = true,
+                              updated_at = now()
+                """, params()
+                .addValue("id", id)
+                .addValue("code", code)
+                .addValue("name", name)
+                .addValue("description", description)
+                .addValue("rate", rate));
     }
 
     private void seedOperationsData() {

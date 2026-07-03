@@ -186,7 +186,7 @@ public class Milestone6Controller {
     }
 
     @PatchMapping("/reviews/{reviewId}/mine")
-    public ApiResponse<ReviewResponse> updateMyReview(@PathVariable UUID reviewId, @RequestBody ReviewUpdateRequest request, Authentication authentication) {
+    public ApiResponse<ReviewResponse> updateMyReview(@PathVariable UUID reviewId, @RequestBody @Valid ReviewUpdateRequest request, Authentication authentication) {
         return response(HttpStatus.OK, "Review updated", service.updateMyReview(reviewId, request, authentication));
     }
 
@@ -398,12 +398,12 @@ public class Milestone6Controller {
     }
 
     @PostMapping("/admin/hotels/{hotelId}/policies")
-    public ApiResponse<PolicyResponse> createPolicy(@PathVariable UUID hotelId, @RequestBody PolicyMutationRequest request, Authentication authentication) {
+    public ApiResponse<PolicyResponse> createPolicy(@PathVariable UUID hotelId, @RequestBody @Valid PolicyMutationRequest request, Authentication authentication) {
         return response(HttpStatus.CREATED, "Policy created", service.createPolicy(hotelId, request, authentication));
     }
 
     @RequestMapping(path = "/admin/hotels/{hotelId}/policies/{policyId}", method = {RequestMethod.PUT, RequestMethod.PATCH})
-    public ApiResponse<PolicyResponse> updatePolicy(@PathVariable UUID hotelId, @PathVariable UUID policyId, @RequestBody PolicyMutationRequest request, Authentication authentication) {
+    public ApiResponse<PolicyResponse> updatePolicy(@PathVariable UUID hotelId, @PathVariable UUID policyId, @RequestBody @Valid PolicyMutationRequest request, Authentication authentication) {
         return response(HttpStatus.OK, "Policy updated", service.updatePolicy(hotelId, policyId, request, authentication));
     }
 

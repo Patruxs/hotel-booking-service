@@ -24,9 +24,15 @@ public class CloudinaryStorageServiceImpl implements IFileStorageService {
 
     @Override
     public String uploadFile(MultipartFile file) {
+        return uploadFile(file, null);
+    }
+
+    @Override
+    public String uploadFile(MultipartFile file, String publicId) {
         validateImageFile(file);
         try {
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
+            Map uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    publicId == null || publicId.isBlank() ? ObjectUtils.emptyMap() : ObjectUtils.asMap("public_id", publicId));
             return (String) uploadResult.get("secure_url");
         } catch (IOException e) {
             log.error("Error uploading file to Cloudinary", e);
@@ -47,6 +53,18 @@ public class CloudinaryStorageServiceImpl implements IFileStorageService {
             urls.add(uploadFile(file));
         }
         return urls;
+    }
+
+    @Override
+    public void deleteFile(String publicId) {
+        if (publicId == null || publicId.isBlank()) {
+            return;
+        }
+        try {
+            cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+        } catch (IOException e) {
+            log.warn("Error deleting Cloudinary file {}", publicId, e);
+        }
     }
 
     @Override

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -290,7 +291,7 @@ public final class Milestone6Dtos {
     }
 
     public record PolicyMutationRequest(
-            String type,
+            @NotBlank @Pattern(regexp = "CHECKIN|CANCELLATION|PAYMENT|CHILDREN|PET|SMOKING|GENERAL") String type,
             @NotBlank @Size(max = 200) String title,
             @NotBlank @Size(max = 5000) String content,
             Boolean enabled,

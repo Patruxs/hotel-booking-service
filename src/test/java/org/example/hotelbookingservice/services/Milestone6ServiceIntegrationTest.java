@@ -139,7 +139,7 @@ class Milestone6ServiceIntegrationTest {
         assertThat(service.visibleRatingSummary(HOTEL_ID).reviewCount()).isEqualTo(1);
         assertThatThrownBy(() -> service.createReview(HOTEL_ID, new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(5), "Again", List.of()), customerAuth()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Booking already has a review");
+                .hasMessageContaining("This booking has already been reviewed");
 
         service.moderateReview(HOTEL_ID, review.id(), new ReviewModerationRequest(false), ownerAuth());
         assertThat(service.listPublicReviews(HOTEL_ID, 1, 10).data()).isEmpty();
@@ -179,8 +179,10 @@ class Milestone6ServiceIntegrationTest {
         assertThat(policy.type()).isEqualTo("CHECKIN");
         assertThatThrownBy(() -> service.createPolicy(HOTEL_ID, new PolicyMutationRequest("PAYMENT", "Payment", "Pay now", true, 1), ownerAuth()))
                 .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Policy type or order already exists");
-        assertThat(service.deletePolicy(HOTEL_ID, policy.id(), ownerAuth()).deletedAt()).isNotNull();
+                .hasMessageContaining("Order 1 is already taken in this hotel");
+        assertThat(service.deletePolicy(HOTEL_ID, policy.id(), ownerAuth()).deletedAt()).isNull();
+        assertThat(service.createPolicy(HOTEL_ID, new PolicyMutationRequest("CHECKIN", "Check-in again", "From 15:00", true, 1), ownerAuth()).id())
+                .isNotEqualTo(policy.id());
     }
 
     private void insertAccount(UUID id, String email) {

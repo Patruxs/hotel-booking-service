@@ -179,6 +179,7 @@ public class BookingOperationsService {
                     .addValue("lineTotal", line.lineTotal()));
         }
 
+        notifyHotelOperators(hotelId, "BOOKING_CREATED", "New booking received", "A customer created booking " + "BK-" + bookingId + ".", "/admin/hotels/" + hotelId + "/bookings/" + bookingId);
         return bookingDetail(bookingId, Audience.CUSTOMER, user.accountId());
     }
 
@@ -300,6 +301,7 @@ public class BookingOperationsService {
         CurrentUser user = requireUser(authentication);
         requireAction(user.accountId(), "bookings.check_in", hotelId);
         BookingForUpdate booking = lockHotelBooking(hotelId, bookingId);
+        boolean firstCheckIn = "CONFIRMED".equals(booking.status());
         if (!"CONFIRMED".equals(booking.status()) && !"CHECKED_IN".equals(booking.status())) {
             throw badRequest("Only confirmed or checked-in bookings can be checked in");
         }
@@ -340,6 +342,9 @@ public class BookingOperationsService {
                 set status = 'CHECKED_IN', updated_at = now()
                 where id = :bookingId
                 """, new MapSqlParameterSource("bookingId", bookingId));
+        if (firstCheckIn) {
+            notifyHotelOperators(hotelId, "BOOKING_CHECKED_IN", "Booking checked in", "A guest stay has checked in.", "/admin/hotels/" + hotelId + "/bookings/" + bookingId);
+        }
         return scopedHotelBookingDetail(hotelId, bookingId);
     }
 
@@ -548,6 +553,7 @@ public class BookingOperationsService {
                   and status = 'PENDING'
                 """, new MapSqlParameterSource("bookingId", payment.bookingId()));
         recordPaymentEvent(payment.id(), "VNPAY_PAYMENT_SUCCEEDED", callbackPayload(params));
+        notifyHotelOperators(payment.hotelId(), "BOOKING_CONFIRMED", "Booking confirmed", "Payment confirmed booking " + payment.bookingReference() + ".", "/admin/hotels/" + payment.hotelId() + "/bookings/" + payment.bookingId());
         afterCommit(() -> sendPaymentSuccessMail(payment));
     }
 
@@ -602,6 +608,26 @@ public class BookingOperationsService {
                     .addValue("title", "Payment reconciliation required")
                     .addValue("body", "VNPAY reported a late successful payment for booking " + payment.bookingReference())
                     .addValue("linkUrl", "/admin/hotels/" + payment.hotelId() + "/bookings/" + payment.bookingId()));
+        }
+    }
+
+    private void notifyHotelOperators(UUID hotelId, String type, String title, String body, String linkUrl) {
+        List<UUID> recipients = jdbcTemplate.query("""
+                select owner_id account_id from hotels where id = :hotelId
+                union
+                select account_id from hotel_members where hotel_id = :hotelId
+                """, new MapSqlParameterSource("hotelId", hotelId), (rs, rowNum) -> (UUID) rs.getObject("account_id"));
+        for (UUID recipientId : recipients) {
+            jdbcTemplate.update("""
+                    insert into notifications (id, recipient_account_id, type, title, body, link_url)
+                    values (:id, :recipientAccountId, :type, :title, :body, :linkUrl)
+                    """, new MapSqlParameterSource()
+                    .addValue("id", UUID.randomUUID())
+                    .addValue("recipientAccountId", recipientId)
+                    .addValue("type", type)
+                    .addValue("title", title)
+                    .addValue("body", body)
+                    .addValue("linkUrl", linkUrl));
         }
     }
 
@@ -711,6 +737,7 @@ public class BookingOperationsService {
             restorePromotionUsage(booking.promotionId());
         }
         cancelActivePayments(booking.id());
+        notifyHotelOperators(booking.hotelId(), "BOOKING_CANCELLED", "Booking cancelled", "Booking " + booking.id() + " was cancelled.", "/admin/hotels/" + booking.hotelId() + "/bookings/" + booking.id());
     }
 
     private void completeCheckout(BookingForUpdate booking) {
@@ -731,6 +758,7 @@ public class BookingOperationsService {
                 set status = 'COMPLETED', completed_at = coalesce(completed_at, now()), updated_at = now()
                 where id = :bookingId
                 """, new MapSqlParameterSource("bookingId", booking.id()));
+        notifyHotelOperators(booking.hotelId(), "BOOKING_CHECKED_OUT", "Booking checked out", "A guest stay has checked out.", "/admin/hotels/" + booking.hotelId() + "/bookings/" + booking.id());
     }
 
     private void markNoShow(BookingForUpdate booking) {
