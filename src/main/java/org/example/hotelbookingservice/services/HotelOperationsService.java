@@ -740,7 +740,7 @@ public class HotelOperationsService {
                 from room_type_amenities rta
                 join amenities a on a.id = rta.amenity_id
                 where rta.room_type_id = :roomTypeId
-                """ + (publicOnly ? " and a.active" : "") + """
+                """ + (publicOnly ? " and a.active\n" : "") + """
                 order by a.name
                 """, new MapSqlParameterSource("roomTypeId", roomTypeId), (rs, rowNum) -> mapAmenity(rs));
     }
@@ -825,7 +825,7 @@ public class HotelOperationsService {
                       and (
                           ap.scope = 'GLOBAL'
                           or (
-                              :hotelId is not null
+                              cast(:hotelId as uuid) is not null
                               and ap.scope = 'HOTEL_MEMBER'
                               and exists (
                                   select 1
@@ -835,7 +835,7 @@ public class HotelOperationsService {
                               )
                           )
                           or (
-                              :hotelId is not null
+                              cast(:hotelId as uuid) is not null
                               and ap.scope = 'HOTEL_OWNER'
                               and exists (
                                   select 1
