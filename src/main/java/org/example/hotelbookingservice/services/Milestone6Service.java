@@ -552,11 +552,15 @@ public class Milestone6Service {
     @Transactional
     public ContactCreateResponse createContact(ContactCreateRequest request, String ipAddress, String userAgent, Authentication authentication) {
         UUID id = UUID.randomUUID();
+        UUID accountId = null;
+        if (authentication != null && authentication.getPrincipal() instanceof org.example.hotelbookingservice.security.AccountAuthUser account) {
+            accountId = account.getAccountId();
+        }
         jdbcTemplate.update("""
                 insert into contact_messages (id, account_id, name, email, phone, subject, message, ip_address, user_agent)
                 values (:id, :accountId, :name, :email, :phone, :subject, :message, :ip, :userAgent)
                 """, new MapSqlParameterSource("id", id)
-                .addValue("accountId", null)
+                .addValue("accountId", accountId)
                 .addValue("name", trimRequired(request.name(), "Name is required"))
                 .addValue("email", trimToNull(request.email()))
                 .addValue("phone", trimToNull(request.phone()))

@@ -9,27 +9,29 @@ import java.time.LocalDate;
 import java.util.List;
 
 public interface HotelRepository extends JpaRepository<Hotel, Integer> {
-    boolean existsByNameAndLocation(String name,String location);
+    @Query(value = "SELECT COUNT(*) > 0 FROM hotel WHERE name = :name AND location = :location", nativeQuery = true)
+    boolean existsByNameAndLocation(@Param("name") String name, @Param("location") String location);
 
-    List<Hotel> findByUserId(Integer userId);
+    @Query(value = "SELECT * FROM hotel WHERE UserId = :userId", nativeQuery = true)
+    List<Hotel> findByUserId(@Param("userId") Integer userId);
 
     // Find new hotel
-    @Query("""
-                SELECT h 
-                FROM Hotel h 
-                JOIN h.rooms r 
-                WHERE LOWER(h.location) LIKE LOWER(CONCAT('%', :location, '%')) 
+    @Query(value = """
+                SELECT h.*
+                FROM hotel h
+                JOIN room r ON r.hotel_id = h.id
+                WHERE LOWER(h.location) LIKE LOWER(CONCAT('%', :location, '%'))
                 AND (:capacity IS NULL OR r.capacity >= :capacity)
                 AND r.id NOT IN (
-                    SELECT br.room.id 
-                    FROM Booking b 
-                    JOIN b.bookingrooms br 
-                    WHERE b.status IN ('BOOKED', 'CHECKED_IN') 
+                    SELECT br.room_id
+                    FROM booking b
+                    JOIN booking_room br ON br.booking_id = b.id
+                    WHERE b.status IN ('BOOKED', 'CHECKED_IN')
                     AND (:checkInDate < b.checkoutDate AND :checkOutDate > b.checkinDate)
                 )
                 GROUP BY h.id
-                HAVING COUNT(DISTINCT r.id) >= :roomQuantity 
-            """)
+                HAVING COUNT(DISTINCT r.id) >= :roomQuantity
+            """, nativeQuery = true)
     List<Hotel> findAvailableHotels(
             @Param("location") String location,
             @Param("checkInDate") LocalDate checkInDate,

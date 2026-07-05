@@ -1,6 +1,5 @@
 package org.example.hotelbookingservice.services.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotelbookingservice.dto.request.booking.BookingCreateRequest;
@@ -25,6 +24,7 @@ import org.example.hotelbookingservice.services.IBookingService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,6 +46,7 @@ public class BookingServiceImpl implements IBookingService {
 
 
     @Override
+    @Transactional(readOnly = true)
     public List<BookingResponse> getAllBookings() {
         List<Booking> bookingList = bookingRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
 
@@ -135,6 +136,7 @@ public class BookingServiceImpl implements IBookingService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public BookingResponse findBookingByReferenceNo(String bookingReference) {
         Booking booking = bookingRepository.findByBookingReference(bookingReference)
                 .orElseThrow(() -> new NotFoundException("Booking with reference No: " + bookingReference + "Not found"));
@@ -215,6 +217,7 @@ public class BookingServiceImpl implements IBookingService {
     }
 
     @Override
+    @Transactional
     public void cancelBooking(Integer bookingId, String cancelReason) {
 
         //1. Find booking id

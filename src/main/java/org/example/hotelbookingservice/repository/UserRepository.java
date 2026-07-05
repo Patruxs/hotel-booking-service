@@ -8,10 +8,13 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Integer> {
-    @Query("SELECT u FROM User u " +
-            "LEFT JOIN FETCH u.userRoles ur " +
-            "LEFT JOIN FETCH ur.role " +
-            "WHERE u.email = :email")
+    @Query(value = """
+            SELECT DISTINCT u.*
+            FROM "user" u
+            LEFT JOIN user_role ur ON ur.user_id = u.id
+            LEFT JOIN role r ON r.id = ur.role_id
+            WHERE u.email = :email
+            """, nativeQuery = true)
     Optional<User> findByEmail(@Param("email") String email);
 
 

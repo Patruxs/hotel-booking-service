@@ -129,7 +129,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 ApiResponse.<String>builder()
                         .status(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode())
-                        .message("Internal Server Error: " + ex.getMessage())
+                        .message("Internal Server Error")
                         .build()
         );
     }

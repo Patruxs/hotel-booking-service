@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: hotel-booking-service
+  mvc:
+    problemdetails:
+      enabled: true
   profiles:
     active: @spring.profiles.active@
   datasource:
@@ -21,6 +24,8 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          batch_size: 50
 
 management:
   endpoints:

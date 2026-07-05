@@ -3,21 +3,18 @@ package org.example.hotelbookingservice.mapper;
 import org.example.hotelbookingservice.dto.request.room.RoomCreateRequest;
 import org.example.hotelbookingservice.dto.response.AmenityResponse;
 import org.example.hotelbookingservice.dto.response.RoomResponse;
+import org.example.hotelbookingservice.entity.Amenity;
 import org.example.hotelbookingservice.entity.Image;
 import org.example.hotelbookingservice.entity.Room;
 import org.example.hotelbookingservice.entity.Roomamenity;
 import org.mapstruct.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = {AmenityMapper.class}, injectionStrategy = InjectionStrategy.CONSTRUCTOR)
 public abstract class RoomMapper {
-
-    @Autowired
-    protected AmenityMapper amenityMapper;
 
     //Response
     @Mapping(target = "roomImages", source = "images", qualifiedByName = "mapImages")
@@ -66,8 +63,10 @@ public abstract class RoomMapper {
     protected List<AmenityResponse> mapAmenities(Set<Roomamenity> roomAmenities) {
         if (roomAmenities == null || roomAmenities.isEmpty()) return null;
         return roomAmenities.stream()
-                .map(ra -> amenityMapper.toAmenityResponse(ra.getAmenity()))
+                .map(ra -> toAmenityResponse(ra.getAmenity()))
                 .collect(Collectors.toList());
     }
+
+    protected abstract AmenityResponse toAmenityResponse(Amenity amenity);
 
 }

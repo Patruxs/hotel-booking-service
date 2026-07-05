@@ -1,6 +1,5 @@
 package org.example.hotelbookingservice.services.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.entity.Amenity;
 import org.example.hotelbookingservice.entity.Hotel;
@@ -13,6 +12,7 @@ import org.example.hotelbookingservice.repository.HotelRepository;
 import org.example.hotelbookingservice.repository.HotelamenityRepository;
 import org.example.hotelbookingservice.services.IHotelAmenityService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -52,6 +52,7 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
     }
 
     @Override
+    @Transactional
     public void removeAmenityFromHotel(Integer hotelId, Integer amenityId) {
         HotelamenityId id = new HotelamenityId();
         id.setAmenityId(hotelId);
@@ -65,6 +66,7 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Hotelamenity> getAmenitiesByHotelId(Integer hotelId) {
         return hotelamenityRepository.findByIdHotelId(hotelId);
     }

@@ -99,7 +99,7 @@ public class AuthAccountService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh session mismatch");
         }
 
-        if (!passwordEncoder.matches(refreshToken, session.refreshTokenHash())) {
+        if (!sha256(refreshToken).equals(session.refreshTokenHash())) {
             revokeAllSessions(accountId);
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token reuse detected");
         }
@@ -407,7 +407,7 @@ public class AuthAccountService {
                         .addValue("id", UUID.randomUUID())
                         .addValue("accountId", accountId)
                         .addValue("jti", refreshJti)
-                        .addValue("refreshTokenHash", passwordEncoder.encode(refreshToken))
+                        .addValue("refreshTokenHash", sha256(refreshToken))
                         .addValue("ip", clientIp(request))
                         .addValue("userAgent", request == null ? null : request.getHeader("User-Agent"))
                         .addValue("expiresAt", Date.from(refreshExpiresAt)));

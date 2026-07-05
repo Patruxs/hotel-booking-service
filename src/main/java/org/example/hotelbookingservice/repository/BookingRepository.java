@@ -11,74 +11,84 @@ import java.util.List;
 import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
-    List<Booking> findByUserId(Long userId); // Fetch all bookings for a specific user
+    @Query(value = "SELECT * FROM booking WHERE user_id = :userId", nativeQuery = true)
+    List<Booking> findByUserId(@Param("userId") Long userId); // Fetch all bookings for a specific user
 
 
-    Optional<Booking> findByBookingReference(String bookingReference);
+    @Query(value = "SELECT * FROM booking WHERE \"bookingReference\" = :bookingReference", nativeQuery = true)
+    Optional<Booking> findByBookingReference(@Param("bookingReference") String bookingReference);
 
 
-    @Query("""
-               SELECT CASE WHEN COUNT(b) = 0 THEN true ELSE false END
-                FROM Booking b
-                JOIN b.bookingrooms br
-                WHERE br.room.id = :roomId
+    @Query(value = """
+               SELECT COUNT(*) = 0
+                FROM booking b
+                JOIN booking_room br ON br.booking_id = b.id
+                WHERE br.room_id = :roomId
                   AND :checkInDate <= b.checkoutDate
                   AND :checkOutDate >= b.checkinDate
                   AND b.status IN ('BOOKED', 'CHECKED_IN')
-            """)
+            """, nativeQuery = true)
     boolean isRoomAvailable(@Param("roomId") Long roomId,
                             @Param("checkInDate") LocalDate checkinDate,
                             @Param("checkOutDate") LocalDate checkoutDate);
 
-    @Query("""
-        SELECT h.id, h.name, MONTH(b.checkoutDate), COUNT(b), SUM(b.totalPrice)
-        FROM Booking b
-        JOIN b.bookingrooms br
-        JOIN br.room r
-        JOIN r.hotel h
+    @Query(value = """
+        SELECT h.id, h.name, CAST(EXTRACT(MONTH FROM b.checkoutDate) AS integer), COUNT(*), SUM(b.totalPrice)
+        FROM booking b
+        JOIN booking_room br ON br.booking_id = b.id
+        JOIN room r ON r.id = br.room_id
+        JOIN hotel h ON h.id = r.hotel_id
         WHERE b.status = 'CHECKED_OUT'
-        AND YEAR(b.checkoutDate) = :year
-        GROUP BY h.id, h.name, MONTH(b.checkoutDate)
-    """)
+        AND EXTRACT(YEAR FROM b.checkoutDate) = :year
+        GROUP BY h.id, h.name, EXTRACT(MONTH FROM b.checkoutDate)
+    """, nativeQuery = true)
     List<Object[]> getRevenueStatistics(@Param("year") int year);
 
-    @Query("""
-        SELECT COUNT(b)
-        FROM Booking b
-        JOIN b.bookingrooms br
-        WHERE br.room.id = :roomId
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM booking b
+        JOIN booking_room br ON br.booking_id = b.id
+        WHERE br.room_id = :roomId
           AND b.status IN ('BOOKED', 'CHECKED_IN')
           AND :checkInDate < b.checkoutDate
           AND :checkOutDate > b.checkinDate
-    """)
+    """, nativeQuery = true)
     Long countBookedRooms(@Param("roomId") Integer roomId,
                           @Param("checkInDate") LocalDate checkInDate,
                           @Param("checkOutDate") LocalDate checkOutDate);
 
-    @Query("""
-        SELECT COUNT(b) > 0 
-        FROM Booking b 
-        WHERE b.roomNumber = :roomNumber 
-          AND b.status = 'CHECKED_IN' 
+    @Query(value = """
+        SELECT COUNT(*) > 0
+        FROM booking b
+        WHERE b.room_number = :roomNumber
+          AND b.status = 'CHECKED_IN'
           AND b.id <> :currentBookingId
-    """)
+    """, nativeQuery = true)
     boolean isRoomOccupied(@Param("roomNumber") String roomNumber,
                            @Param("currentBookingId") Integer currentBookingId);
 
-    @Query("""
-        SELECT h.id, h.name, COUNT(b), SUM(b.totalPrice)
-        FROM Booking b
-        JOIN b.bookingrooms br
-        JOIN br.room r
-        JOIN r.hotel h
+    @Query(value = """
+        SELECT h.id, h.name, COUNT(*), SUM(b.totalPrice)
+        FROM booking b
+        JOIN booking_room br ON br.booking_id = b.id
+        JOIN room r ON r.id = br.room_id
+        JOIN hotel h ON h.id = r.hotel_id
         WHERE b.status = 'CHECKED_OUT'
         AND b.checkoutDate BETWEEN :startDate AND :endDate
         GROUP BY h.id, h.name
-    """)
+    """, nativeQuery = true)
     List<Object[]> getRevenueStatisticsByDateRange(
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
 
-    List<Booking> findByStatusAndCheckoutDateBetween(BookingStatus status, LocalDate startDate, LocalDate endDate);
+    @Query(value = """
+        SELECT *
+        FROM booking
+        WHERE status = :#{#status?.name()}
+        AND checkoutDate BETWEEN :startDate AND :endDate
+    """, nativeQuery = true)
+    List<Booking> findByStatusAndCheckoutDateBetween(@Param("status") BookingStatus status,
+                                                     @Param("startDate") LocalDate startDate,
+                                                     @Param("endDate") LocalDate endDate);
 }

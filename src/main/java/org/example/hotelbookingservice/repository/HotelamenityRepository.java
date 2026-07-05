@@ -1,22 +1,25 @@
 package org.example.hotelbookingservice.repository;
 
-import jakarta.transaction.Transactional;
 import org.example.hotelbookingservice.entity.Hotelamenity;
 import org.example.hotelbookingservice.entity.HotelamenityId;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 public interface HotelamenityRepository extends JpaRepository<Hotelamenity, HotelamenityId> {
-    List<Hotelamenity> findByIdHotelId(Integer hotelId);
+    @Query(value = "SELECT * FROM hotel_amenity WHERE hotel_id = :hotelId", nativeQuery = true)
+    List<Hotelamenity> findByIdHotelId(@Param("hotelId") Integer hotelId);
 
-    boolean existsByIdAmenityId(Integer amenityId);
+    @Query(value = "SELECT COUNT(*) > 0 FROM hotel_amenity WHERE amenity_id = :amenityId", nativeQuery = true)
+    boolean existsByIdAmenityId(@Param("amenityId") Integer amenityId);
 
     @Modifying
     @Transactional
-    @Query("DELETE FROM Hotelamenity ha WHERE ha.id.hotelId = :hotelId")
-    void deleteByHotelId(Integer hotelId);
+    @Query(value = "DELETE FROM hotel_amenity WHERE hotel_id = :hotelId", nativeQuery = true)
+    void deleteByHotelId(@Param("hotelId") Integer hotelId);
 
 }

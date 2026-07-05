@@ -8,17 +8,19 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Integer> {
-    List<Review> findByHotelId(Integer hotelId);
+    @Query(value = "SELECT * FROM review WHERE hotel_id = :hotelId", nativeQuery = true)
+    List<Review> findByHotelId(@Param("hotelId") Integer hotelId);
 
 
-    @Query("""
-        SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END
-        FROM Booking b
-        JOIN b.bookingrooms br
-        WHERE b.user.id = :userId 
-        AND br.room.hotel.id = :hotelId 
+    @Query(value = """
+        SELECT COUNT(*) > 0
+        FROM booking b
+        JOIN booking_room br ON br.booking_id = b.id
+        JOIN room r ON r.id = br.room_id
+        WHERE b.user_id = :userId
+        AND r.hotel_id = :hotelId
         AND b.status = 'CHECKED_OUT'
-    """)
-    boolean canUserReviewHotel(Integer userId, Integer hotelId);
+    """, nativeQuery = true)
+    boolean canUserReviewHotel(@Param("userId") Integer userId, @Param("hotelId") Integer hotelId);
 }
 

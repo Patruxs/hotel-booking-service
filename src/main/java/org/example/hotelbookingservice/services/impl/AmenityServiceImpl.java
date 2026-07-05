@@ -1,6 +1,5 @@
 package org.example.hotelbookingservice.services.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.request.amenity.AmenityRequest;
 import org.example.hotelbookingservice.dto.response.AmenityResponse;
@@ -14,6 +13,7 @@ import org.example.hotelbookingservice.repository.*;
 import org.example.hotelbookingservice.services.IAmenityService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -48,6 +48,7 @@ public class AmenityServiceImpl implements IAmenityService {
 
 
     @Override
+    @Transactional(readOnly = true)
     public List<AmenityResponse> getHotelAmenitiesByHotelId(Integer hotelId) {
         Hotel targetHotel = getHotelIfOwnedByCurrentUser(hotelId);
 
@@ -59,6 +60,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RoomResponse> getRoomAmenitiesByHotelId(Integer hotelId) {
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -69,12 +71,14 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<AmenityResponse> getAllAmenities() {
         List<Amenity> amenities = amenityRepository.findAll();
         return amenityMapper.toAmenityResponseList(amenities);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AmenityResponse getAmenityById(Integer id) {
         Amenity amenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -82,6 +86,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional
     public AmenityResponse createAmenity(AmenityRequest request) {
         if (amenityRepository.existsByName(request.getName())) {
             throw new AppException(ErrorCode.AMENITY_EXISTED);
@@ -94,6 +99,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional
     public AmenityResponse updateAmenity(Integer id, AmenityRequest request) {
         Amenity existingAmenity = amenityRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -111,6 +117,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional
     public void deleteAmenity(Integer id) {
         if (!amenityRepository.existsById(id)) {
             throw new AppException(ErrorCode.NOT_FOUND_AMENITY);
@@ -158,6 +165,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional
     public void removeAmenitiesFromRoom(Integer hotelId, Integer roomId, List<Integer> amenityIds) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
@@ -195,6 +203,7 @@ public class AmenityServiceImpl implements IAmenityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<AmenityResponse> getAmenitiesByRoomId(Integer hotelId, Integer roomId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));

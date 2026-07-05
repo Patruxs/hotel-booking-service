@@ -2,7 +2,6 @@ package org.example.hotelbookingservice.services.impl;
 
 
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.request.room.RoomCreateRequest;
 import org.example.hotelbookingservice.dto.response.AmenityResponse;
@@ -26,13 +25,13 @@ import org.example.hotelbookingservice.services.IUserService;
 import org.example.hotelbookingservice.services.IFileStorageService;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,10 +45,15 @@ public class RoomServiceImpl implements IRoomService {
     private final IRoomAmenityService roomAmenityService;
     private final IFileStorageService fileStorageService;
     private final AmenityMapper amenityMapper;
+    private final TransactionTemplate transactionTemplate;
 
     @Override
-    @Transactional
     public RoomResponse addRoom(RoomCreateRequest roomCreateRequest, MultipartFile imageFile) {
+        String imageUrl = uploadImage(imageFile);
+        return transactionTemplate.execute(status -> addRoomInTransaction(roomCreateRequest, imageUrl));
+    }
+
+    private RoomResponse addRoomInTransaction(RoomCreateRequest roomCreateRequest, String imageUrl) {
 
         //Get current user (admin)
         User currentUser = userService.getCurrentLoggedInUser();
@@ -75,9 +79,7 @@ public class RoomServiceImpl implements IRoomService {
 
         RoomResponse response = roomMapper.toRoomResponse(savedRoom);
 
-        if (imageFile != null && !imageFile.isEmpty()) {
-            String imageUrl = fileStorageService.uploadFile(imageFile);
-
+        if (imageUrl != null) {
             Image image = new Image();
             image.setPath(imageUrl);
             image.setRoom(savedRoom);
@@ -109,12 +111,15 @@ public class RoomServiceImpl implements IRoomService {
 
     @Override
     public RoomResponse updateRoom(RoomCreateRequest roomCreateRequest, MultipartFile imageFile) {
+        String imagePath = uploadImage(imageFile);
+        return transactionTemplate.execute(status -> updateRoomInTransaction(roomCreateRequest, imagePath));
+    }
+
+    private RoomResponse updateRoomInTransaction(RoomCreateRequest roomCreateRequest, String imagePath) {
         Room existingRoom = roomRepository.findById(roomCreateRequest.getId())
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
-        if (imageFile != null && !imageFile.isEmpty()){
-            String imagePath = fileStorageService.uploadFile(imageFile);
-
+        if (imagePath != null){
             Image image = new Image();
             image.setPath(imagePath);
             image.setRoom(existingRoom);
@@ -130,7 +135,15 @@ public class RoomServiceImpl implements IRoomService {
         return roomMapper.toRoomResponse(existingRoom);
     }
 
+    private String uploadImage(MultipartFile imageFile) {
+        if (imageFile == null || imageFile.isEmpty()) {
+            return null;
+        }
+        return fileStorageService.uploadFile(imageFile);
+    }
+
     @Override
+    @Transactional(readOnly = true)
     public List<RoomResponse> getAllRooms() {
         List<Room> roomList = roomRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
 
@@ -141,6 +154,7 @@ public class RoomServiceImpl implements IRoomService {
 
 
     @Override
+    @Transactional(readOnly = true)
     public RoomResponse getRoomById(Integer id) {
         Room room = roomRepository.findById(id)
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
@@ -152,6 +166,7 @@ public class RoomServiceImpl implements IRoomService {
 
 
     @Override
+    @Transactional
     public void deleteRoom(Integer id) {
         if (!roomRepository.existsById(id)){
             throw new AppException(ErrorCode.NOT_FOUND_ROOM);
@@ -160,6 +175,7 @@ public class RoomServiceImpl implements IRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RoomResponse> getAvailableRooms(LocalDate checkInDate, LocalDate checkOutDate, RoomType roomType) {
         //validation: Ensure the check-in date is not before today
         if (checkInDate.isBefore(LocalDate.now())){
@@ -188,6 +204,7 @@ public class RoomServiceImpl implements IRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RoomResponse> searchRoom(String input) {
         List<Room> roomList = roomRepository.searchRooms(input);
 
@@ -195,6 +212,7 @@ public class RoomServiceImpl implements IRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RoomResponse> getAvailableRoomsByHotelId(Integer hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
         //validate
         if (checkInDate == null || checkOutDate == null) {

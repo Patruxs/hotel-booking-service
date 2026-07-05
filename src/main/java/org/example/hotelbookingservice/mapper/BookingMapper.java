@@ -9,22 +9,17 @@ import org.example.hotelbookingservice.dto.response.HotelResponse;
 import org.example.hotelbookingservice.dto.response.RoomResponse;
 import org.example.hotelbookingservice.entity.Booking;
 import org.example.hotelbookingservice.entity.GuestDetail;
+import org.example.hotelbookingservice.entity.Hotel;
+import org.example.hotelbookingservice.entity.Room;
 import org.mapstruct.*;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 
-@Mapper(componentModel = "spring", uses = {UserMapper.class})
+@Mapper(componentModel = "spring", uses = {HotelMapper.class, RoomMapper.class, UserMapper.class}, injectionStrategy = InjectionStrategy.CONSTRUCTOR)
 public abstract class BookingMapper {
-
-    @Autowired
-    protected RoomMapper roomMapper;
-
-    @Autowired
-    protected HotelMapper hotelMapper;
 
     // 1. Entity -> Response (Output)
     @Mapping(target = "customerEmail", source = "user.email")
@@ -77,7 +72,7 @@ public abstract class BookingMapper {
     protected HotelResponse mapHotel(Booking booking) {
         if (booking.getBookingrooms() != null && !booking.getBookingrooms().isEmpty()) {
             var hotel = booking.getBookingrooms().iterator().next().getRoom().getHotel();
-            HotelResponse response = hotelMapper.toHotelResponse(hotel);
+            HotelResponse response = toHotelResponse(hotel);
             response.setRooms(null);
             return response;
         }
@@ -89,9 +84,13 @@ public abstract class BookingMapper {
             return null;
         }
         return booking.getBookingrooms().stream()
-                .map(br -> roomMapper.toRoomResponse(br.getRoom()))
+                .map(br -> toRoomResponse(br.getRoom()))
                 .collect(Collectors.toList());
     }
+
+    protected abstract HotelResponse toHotelResponse(Hotel hotel);
+
+    protected abstract RoomResponse toRoomResponse(Room room);
 
     @Named("mapGuestDetails")
     protected List<GuestDetailResponse> mapGuestDetails(Set<GuestDetail> guestDetails) {

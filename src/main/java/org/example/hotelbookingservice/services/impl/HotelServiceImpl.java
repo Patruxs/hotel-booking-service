@@ -2,7 +2,6 @@ package org.example.hotelbookingservice.services.impl;
 
 
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.hotelbookingservice.dto.request.hotel.HotelCreateRequest;
@@ -22,14 +21,13 @@ import org.example.hotelbookingservice.services.IHotelService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.example.hotelbookingservice.services.IFileStorageService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -43,15 +41,22 @@ public class HotelServiceImpl implements IHotelService {
     private final IFileStorageService fileStorageService;
     private final IHotelAmenityService hotelAmenityService;
     private final RoomMapper roomMapper;
+    private final TransactionTemplate transactionTemplate;
 
 
     @Override
-    @Transactional
     public HotelResponse addHotel(HotelCreateRequest hotelCreateRequest, List<MultipartFile> imageFile) {
 
         if (imageFile == null || imageFile.isEmpty()) {
             throw new AppException(ErrorCode.IMAGE_REQUIRED);
         }
+
+        List<String> imageUrls = uploadImages(imageFile);
+
+        return transactionTemplate.execute(status -> addHotelInTransaction(hotelCreateRequest, imageUrls));
+    }
+
+    private HotelResponse addHotelInTransaction(HotelCreateRequest hotelCreateRequest, List<String> imageUrls) {
 
         User currentUser = userService.getCurrentLoggedInUser();
 
@@ -73,10 +78,9 @@ public class HotelServiceImpl implements IHotelService {
 
         Hotel savedHotel = hotelRepository.save(hotel);
 
-        if (imageFile != null && !imageFile.isEmpty()) {
+        if (!imageUrls.isEmpty()) {
             List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFile ) {
-                String imageUrl = fileStorageService.uploadFile(file);
+            for (String imageUrl : imageUrls) {
                 Image image = new Image();
                 image.setPath(imageUrl);
                 image.setHotel(savedHotel);
@@ -97,8 +101,12 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
-    @Transactional
     public HotelResponse updateHotel(Integer id, HotelUpdateRequest hotelUpdateRequest, List<MultipartFile> imageFiles) {
+        List<String> imageUrls = uploadImages(imageFiles);
+        return transactionTemplate.execute(status -> updateHotelInTransaction(id, hotelUpdateRequest, imageUrls));
+    }
+
+    private HotelResponse updateHotelInTransaction(Integer id, HotelUpdateRequest hotelUpdateRequest, List<String> imageUrls) {
         Hotel existingHotel = hotelRepository.findById(id)
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
@@ -109,10 +117,9 @@ public class HotelServiceImpl implements IHotelService {
 
         hotelMapper.updateHotelFromRequest(hotelUpdateRequest, existingHotel);
 
-        if (imageFiles != null && !imageFiles.isEmpty()) {
+        if (!imageUrls.isEmpty()) {
             List<Image> imagesToSave = new ArrayList<>();
-            for (MultipartFile file : imageFiles ) {
-                String imageUrl = fileStorageService.uploadFile(file);
+            for (String imageUrl : imageUrls) {
                 Image image = new Image();
                 image.setPath(imageUrl);
                 image.setHotel(existingHotel);
@@ -127,8 +134,19 @@ public class HotelServiceImpl implements IHotelService {
         return hotelMapper.toHotelResponse(existingHotel);
     }
 
+    private List<String> uploadImages(List<MultipartFile> imageFiles) {
+        if (imageFiles == null || imageFiles.isEmpty()) {
+            return List.of();
+        }
+        List<String> imageUrls = new ArrayList<>();
+        for (MultipartFile file : imageFiles) {
+            imageUrls.add(fileStorageService.uploadFile(file));
+        }
+        return imageUrls;
+    }
+
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public HotelResponse getHotelById(Integer id) {
         Hotel hotel = hotelRepository.findById(id)
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -136,12 +154,14 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HotelResponse> getAllHotels() {
        List<Hotel> hotelList = hotelRepository.findAll();
        return hotelMapper.toHotelResponseList(hotelList);
     }
 
     @Override
+    @Transactional
     public void deleteHotel(Integer id) {
         Hotel hotel = hotelRepository.findById(id)
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -155,6 +175,7 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HotelResponse> getMyHotels() {
        User currentUser = userService.getCurrentLoggedInUser();
 
@@ -163,6 +184,7 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HotelResponse> searchHotels(String location, LocalDate checkInDate, LocalDate checkOutDate, Integer capacity, Integer roomQuantity) {
         if (checkInDate != null && checkOutDate != null) {
             if (checkInDate.isBefore(LocalDate.now())) {
@@ -195,7 +217,7 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<RoomResponse> getRoomsByHotelId(Integer hotelId) {
         Hotel hotel = hotelRepository.findById(hotelId)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));

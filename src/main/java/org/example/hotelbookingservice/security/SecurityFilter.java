@@ -23,7 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 @EnableWebSecurity
 @RequiredArgsConstructor
-public class SecurtyFilter {
+public class SecurityFilter {
 
 
 
@@ -77,8 +77,7 @@ public class SecurtyFilter {
                                 "/api/v1/hotels/*/room-types/available",
                                 "/api/v1/hotels/all",
                                 "/api/v1/hotels/search",
-                                "/api/v1/hotels/{hotelId}",
-                                "/api/v1/hotels/my-hotels"
+                                "/api/v1/hotels/{hotelId}"
                         ).permitAll()
 
                         .requestMatchers(HttpMethod.GET,

@@ -14,6 +14,7 @@ import org.example.hotelbookingservice.repository.PhysicalRoomRepository;
 import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.IPhysicalRoomService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,6 +28,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     private final RoomRepository roomRepository;
 
     @Override
+    @Transactional
     public PhysicalRoomResponse createPhysicalRoom(PhysicalRoomCreateRequest request) {
         Room room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
@@ -47,6 +49,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional
     public PhysicalRoomResponse updatePhysicalRoom(Integer id, PhysicalRoomCreateRequest request) {
         PhysicalRoom existing = physicalRoomRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -63,6 +66,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional
     public PhysicalRoomResponse updateStatus(Integer id, PhysicalRoomUpdateStatusRequest request) {
         PhysicalRoom existing = physicalRoomRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -75,6 +79,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional
     public void deletePhysicalRoom(Integer id) {
         if (!physicalRoomRepository.existsById(id)) {
             throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
@@ -83,6 +88,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PhysicalRoomResponse getById(Integer id) {
         PhysicalRoom physicalRoom = physicalRoomRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
@@ -90,6 +96,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PhysicalRoomResponse> getByRoomId(Integer roomId) {
         return physicalRoomRepository.findByRoomId(roomId).stream()
                 .map(this::toResponse)
@@ -97,6 +104,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PhysicalRoomResponse> getByCondition(RoomCondition condition) {
         return physicalRoomRepository.findByRoomCondition(condition).stream()
                 .map(this::toResponse)
@@ -104,6 +112,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PhysicalRoomResponse> getAll() {
         return physicalRoomRepository.findAll().stream()
                 .map(this::toResponse)

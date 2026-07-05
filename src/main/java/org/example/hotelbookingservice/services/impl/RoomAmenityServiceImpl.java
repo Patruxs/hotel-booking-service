@@ -13,6 +13,7 @@ import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.repository.RoomamenityRepository;
 import org.example.hotelbookingservice.services.IRoomAmenityService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +26,7 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
     private final AmenityRepository amenityRepository;
 
     @Override
+    @Transactional
     public void addAmenitiesToRoom(Integer roomId, List<Integer> amenityIds) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
@@ -66,6 +68,7 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
     }
 
     @Override
+    @Transactional
     public void removeAmenityFromRoom(Integer roomId, Integer amenityId) {
         RoomamenityId id = new RoomamenityId();
         id.setRoomId(roomId);
@@ -79,6 +82,7 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Roomamenity> getAmenitiesByRoomId(Integer roomId) {
         return roomAmenityRepository.findByIdRoomId(roomId);
     }

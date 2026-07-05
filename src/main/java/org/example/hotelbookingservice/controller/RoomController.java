@@ -11,8 +11,10 @@ import org.example.hotelbookingservice.enums.RoomType;
 import org.example.hotelbookingservice.services.IRoomService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.util.List;
@@ -62,11 +64,7 @@ public class RoomController implements RoomApi {
         }
         RoomType type = null;
         if (roomType != null && !roomType.isEmpty()) {
-            try {
-                type = RoomType.valueOf(roomType.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return ApiResponse.<List<RoomResponse>>builder().status(400).message("Invalid room type").build();
-            }
+            type = parseRoomType(roomType);
         }
         return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.getAvailableRooms(checkInDate, checkOutDate, type)).build();
     }
@@ -84,5 +82,13 @@ public class RoomController implements RoomApi {
     @Override
     public ApiResponse<List<RoomResponse>> getAvailableRoomsByHotel(@PathVariable Integer hotelId, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate) {
         return ApiResponse.<List<RoomResponse>>builder().status(200).message("Success").data(roomService.getAvailableRoomsByHotelId(hotelId, checkInDate, checkOutDate)).build();
+    }
+
+    private RoomType parseRoomType(String roomType) {
+        try {
+            return RoomType.valueOf(roomType.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid room type");
+        }
     }
 }
