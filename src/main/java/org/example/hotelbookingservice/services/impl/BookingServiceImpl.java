@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -68,28 +69,19 @@ public class BookingServiceImpl implements IBookingService {
             throw new AppException(ErrorCode.ROOM_NOT_BELONG_TO_HOTEL);
         }
 
-        // Count the number of rooms booked during this date range
         Long currentBookingsCount = bookingRepository.countBookedRooms(
                 room.getId(),
                 bookingRequest.getCheckinDate(),
                 bookingRequest.getCheckoutDate()
         );
+        long totalPhysicalRooms = physicalRoomRepository.countByRoom_IdAndActiveTrue(room.getUuid());
 
-        // Calculate the number of rooms you want to book (default is 1 if null)
         int quantityToBook = bookingRequest.getRoomQuantity() != null ? bookingRequest.getRoomQuantity() : 1;
 
-        // Check: Does (Booked + Want to book) exceed (Total number of rooms)
-        //Room Amount = 5. Booked = 3. Want to book 3 more => Total 6 > 5 => Error.
-        if (currentBookingsCount + quantityToBook > room.getAmount()) {
+        if (currentBookingsCount + quantityToBook > totalPhysicalRooms) {
             throw new InvalidBookingStateAndDateException(
                     "Room is fully booked for the selected dates. Only "
-                            + (room.getAmount() - currentBookingsCount) + " rooms left.");
-        }
-
-        //validate room availability
-        boolean isAvailable = bookingRepository.isRoomAvailable(Long.valueOf(room.getId()), bookingRequest.getCheckinDate(), bookingRequest.getCheckoutDate());
-        if (!isAvailable) {
-            throw new InvalidBookingStateAndDateException("Room is not available for the selected date ranges");
+                            + Math.max(0, totalPhysicalRooms - currentBookingsCount) + " rooms left.");
         }
 
         //calculate the total price needed to pay for the stay
@@ -111,7 +103,7 @@ public class BookingServiceImpl implements IBookingService {
 
         // Create BookingRoom and link instantly
         Bookingroom bookingRoom = new Bookingroom();
-        bookingRoom.setBooking(booking); // Link chiều BookingRoom -> Booking
+        bookingRoom.setBooking(booking); // Link from BookingRoom -> Booking
         bookingRoom.setRoom(room);
 
         // Link Booking -> BookingRoom (IMPORTANT FOR CASCADE TO WORK)
@@ -171,18 +163,13 @@ public class BookingServiceImpl implements IBookingService {
 
                 // Update PhysicalRoom status to DIRTY
                 if (existingBooking.getRoomNumber() != null && !existingBooking.getRoomNumber().isBlank()) {
-                    try {
-                        Integer roomNumber = Integer.parseInt(existingBooking.getRoomNumber());
-                        physicalRoomRepository.findByRoomNumber(roomNumber)
-                                .ifPresent(physicalRoom -> {
-                                    physicalRoom.setRoomCondition(RoomCondition.DIRTY);
-                                    physicalRoomRepository.save(physicalRoom);
-                                    log.info("Physical room {} marked as DIRTY after checkout", roomNumber);
-                                });
-                    } catch (NumberFormatException e) {
-                        log.warn("Could not parse room number '{}' to update PhysicalRoom status",
-                                existingBooking.getRoomNumber());
-                    }
+                    String roomNumber = existingBooking.getRoomNumber();
+                    physicalRoomRepository.findByRoomNumber(roomNumber)
+                            .ifPresent(physicalRoom -> {
+                                physicalRoom.setRoomCondition(RoomCondition.DIRTY);
+                                physicalRoomRepository.save(physicalRoom);
+                                log.info("Physical room {} marked as DIRTY after checkout", roomNumber);
+                            });
                 }
             }
 
@@ -276,5 +263,9 @@ public class BookingServiceImpl implements IBookingService {
         if (request.getCheckinDate().isEqual(request.getCheckoutDate())) {
             throw new InvalidBookingStateAndDateException("Check-in date cannot be same as check-out date");
         }
+    }
+
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
     }
 }

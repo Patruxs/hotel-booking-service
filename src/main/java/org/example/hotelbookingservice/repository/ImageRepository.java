@@ -3,5 +3,7 @@ package org.example.hotelbookingservice.repository;
 import org.example.hotelbookingservice.entity.Image;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface ImageRepository extends JpaRepository<Image, Integer> {
+import java.util.UUID;
+
+public interface ImageRepository extends JpaRepository<Image, UUID> {
 }

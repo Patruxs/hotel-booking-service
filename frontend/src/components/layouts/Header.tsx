@@ -1,8 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
-import { Book, LogOut, Menu, Ticket, User, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Book, LogOut, Menu, User, X } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { AppImage as Image } from '@/components/AppImage';
 import { ROUTES } from '@/constants';
 import { useAuth } from '@/providers/AuthProvider';
@@ -29,14 +29,14 @@ const navigationItems = [
     subcategories: [],
   },
   {
-    name: 'CONTACT',
-    href: '/contact',
+    name: 'NEWS',
+    href: '/news',
     hasDropdown: false,
     subcategories: [],
   },
   {
-    name: 'NEWS',
-    href: '/news',
+    name: 'CONTACT',
+    href: '/contact',
     hasDropdown: false,
     subcategories: [],
   },
@@ -51,6 +51,8 @@ function Header() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const isHome = location.pathname === '/';
   const { user, logout } = useAuth();
   useEffect(() => {
     const handleScroll = () => {
@@ -76,7 +78,7 @@ function Header() {
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 border-b transition-all duration-300 ease-out ${
-        isScrolled
+        isScrolled || !isHome
           ? 'bg-white border-gray-200 shadow-lg text-black'
           : 'bg-white md:bg-transparent md:backdrop-blur-sm border-white/30 text-black md:text-white'
       }`}
@@ -98,10 +100,10 @@ function Header() {
               </svg>
               <div
                 className={`text-2xl font-serif font-medium ${
-                  isScrolled ? 'text-black' : 'text-black md:text-white'
+                  isScrolled || !isHome ? 'text-black' : 'text-black md:text-white'
                 }`}
               >
-                Stayra
+                Hotel
               </div>
             </div>
           </Link>
@@ -110,7 +112,7 @@ function Header() {
             {navigationItems.map((item: any) => (
               <div key={item.name} className="relative group">
                 <button
-                  className="flex items-center text-md font-medium transition-colors hover:text-primary relative group cursor-pointer"
+                  className="flex items-center text-base font-medium transition-colors hover:text-primary relative group cursor-pointer"
                   onClick={() => item.hasDropdown && toggleDropdown(item.name)}
                   onMouseEnter={() =>
                     item.hasDropdown && setActiveDropdown(item.name)
@@ -128,8 +130,6 @@ function Header() {
                     onMouseLeave={() => closeDropdowns()}
                   >
                     <div className="py-2">
-                      {
-}
                     </div>
                   </div>
                 )}
@@ -140,12 +140,12 @@ function Header() {
           <div className="hidden md:flex items-center gap-6">
             {user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                <DropdownMenuTrigger className="outline-none">
                   <Avatar className="cursor-pointer">
-                    <AvatarImage src={user?.avatar?.url} />
+                    <AvatarImage src={user?.avatar?.url || user?.avatarUrl} />
                     <AvatarFallback>
                       <div className="bg-primary text-white w-full h-full flex justify-center items-center">
-                        {user.firstName?.charAt(0) || '?'}
+                        {(user?.firstName || user?.name || '?').charAt(0)}
                       </div>
                     </AvatarFallback>
                   </Avatar>
@@ -154,10 +154,10 @@ function Header() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user.firstName || '?'} {user.lastName || '?'}
+                        {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.name || '?'}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user.email}
+                        {user?.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
@@ -165,13 +165,10 @@ function Header() {
                   <DropdownMenuItem>
                     <Link to="/me">Account</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Link to="/me/my-bookings">My Bookings</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Link to="/me/sale">My offers</Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Link to="/me/my-bookings">My Bookings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <button
                       className="cursor-pointer w-full h-full text-start"
@@ -196,7 +193,7 @@ function Header() {
           </div>
           {}
           <button
-            className="lg:hidden p-2 hover:bg-white/10 rounded-md transition-colors"
+            className="md:hidden p-2 hover:bg-gray-100 rounded-md transition-colors"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle menu"
           >
@@ -209,14 +206,14 @@ function Header() {
         </div>
         {}
         {isMobileMenuOpen && (
-          <div className="lg:hidden mt-4 pb-4 border-t border-white/10 pt-4">
+          <div className="md:hidden mt-4 pb-4 border-t border-gray-200 pt-4">
             {}
             <nav className="flex flex-col gap-3 mb-4">
               {navigationItems.map((item: any) => (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="px-4 py-2 text-sm font-medium hover:bg-white/10 rounded-md transition-colors"
+                  className="px-4 py-2 text-sm font-medium hover:bg-gray-100 rounded-md transition-colors"
                   onClick={closeMobileMenu}
                 >
                   {item.name}
@@ -224,52 +221,54 @@ function Header() {
               ))}
             </nav>
             {}
-            <div className="border-t border-white/10 pt-4 space-y-3">
+            <div className="border-t border-gray-200 pt-4 space-y-3">
               {user ? (
-                <div className="border-t border-white/10 pt-3 space-y-2">
+                <div className="border-t border-gray-200 pt-3 space-y-2">
                   <div className="px-4 py-2 flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full">
                       <Avatar className="cursor-pointer">
-                        <AvatarImage src={user?.avatar?.url} />
+                        <AvatarImage src={user?.avatar?.url || user?.avatarUrl} />
                         <AvatarFallback>
                           <div className="bg-primary text-white w-full h-full flex justify-center items-center">
-                            {(user.firstName ?? user.name ?? "?").charAt(0)}
+                            {(user?.firstName || user?.name || '?').charAt(0)}
                           </div>
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <span className="text-sm font-medium">{user.firstName}{user.lastName}</span>
+                    <span className="text-sm font-medium">
+                      {user?.firstName ? `${user.firstName} ${user.lastName || ''}` : user?.name || '?'}
+                    </span>
                   </div>
                   <Link
                     to={ROUTES.PROFILE}
-                    className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 rounded-md transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors"
                     onClick={closeMobileMenu}
                   >
                     <User className="w-4 h-4" />
                     Account
                   </Link>
-                   <Link
-                    to={ROUTES.MY_BOOKINGS}
-                    className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 rounded-md transition-colors"
-                    onClick={closeMobileMenu}
-                  >
-                    <Book className="w-4 h-4" />
-                    My Bookings
-                  </Link>
-                   <Link
-                    to={ROUTES.PROFILE}
-                    className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 rounded-md transition-colors"
-                    onClick={closeMobileMenu}
-                  >
-                    <Ticket className="w-4 h-4" />
-                    My Offers
-                  </Link>
-                  <button
-                    onClick={() => {
-                      logout();
-                      closeMobileMenu();
+                    <Link
+                      to={ROUTES.MY_BOOKINGS}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <Book className="w-4 h-4" />
+                      My Bookings
+                    </Link>
+                    <Link
+                      to={ROUTES.MY_REVIEWS}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors"
+                      onClick={closeMobileMenu}
+                    >
+                      <Book className="w-4 h-4" />
+                      My Reviews
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        closeMobileMenu();
                     }}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 rounded-md transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 rounded-md transition-colors text-left"
                   >
                     <LogOut className="w-4 h-4" />
                     Logout

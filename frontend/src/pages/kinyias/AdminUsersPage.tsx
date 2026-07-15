@@ -1,27 +1,27 @@
-'use client';
-import { Button } from '@/components/ui/button';
+"use client";
+import { Button } from "@/components/ui/button";
 import {
   useUsersQuery,
   useUpdateUserMutation,
   useAssignRoleToUserMutation,
-  UserFormValues,
+  AdminUserFormValues,
   RoleAssignUserFormValues,
-} from '@/features/user';
-import { UsersFilters } from '@/features/user/components/UserFilter';
-import { Plus } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
-import UserManagementTable from '@/features/user/components/UserManagementTable';
-import { toast } from 'react-hot-toast';
-import { User } from '@/features/user/types';
-import EllipsisPagination from '@/components/ui/EllipsisPagination';
-import UserEditFormDialog from '@/features/user/components/UserEditFormDialog';
-import RoleAssignUserDialog from '@/features/user/components/RoleAssignUserDialog';
-import { MESSAGES } from '@/constants/message';
-import { ApiError } from '@/types';
-import { useDebounce } from '@/hooks/useDebounce';
+} from "@/features/user";
+import { UsersFilters } from "@/features/user/components/UserFilter";
+import { Plus } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import UserManagementTable from "@/features/user/components/UserManagementTable";
+import { toast } from "react-hot-toast";
+import { User } from "@/features/user/types";
+import EllipsisPagination from "@/components/ui/EllipsisPagination";
+import UserEditFormDialog from "@/features/user/components/UserEditFormDialog";
+import RoleAssignUserDialog from "@/features/user/components/RoleAssignUserDialog";
+import { MESSAGES } from "@/constants/message";
+import { ApiError } from "@/types";
+import { useDebounce } from "@/hooks/useDebounce";
 function UserManagementPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterRole, setFilterRole] = useState<string>("all");
   const [page, setPage] = useState(1);
   const limit = 10;
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -33,13 +33,13 @@ function UserManagementPage() {
     limit,
     offset,
     q: debouncedSearchTerm || undefined,
-    role: filterRole !== 'all' ? filterRole : undefined,
+    role: filterRole !== "all" ? filterRole : undefined,
   });
   const updateUserMutation = useUpdateUserMutation();
   const assignRoleToUserMutation = useAssignRoleToUserMutation();
   const users = data?.data || [];
   const totalPages = data?.meta ? Math.ceil(data.meta.total / limit) : 0;
-  const availableRoles = ['all', 'admin', 'user'];
+  const availableRoles = ["all", "admin", "user"];
   const handleEdit = (user: User) => {
     setUserToEdit(user);
     setEditDialogOpen(true);
@@ -62,13 +62,16 @@ function UserManagementPage() {
         },
         onError: (err) => {
           const error = err as ApiError;
-          console.error('Assign role error:', error);
-          toast.error(error?.response?.data.message || MESSAGES.USER.UPDATE_PROFILE_FAILED);
+          console.error("Assign role error:", error);
+          toast.error(
+            error?.response?.data.message ||
+              MESSAGES.USER.UPDATE_PROFILE_FAILED,
+          );
         },
-      }
+      },
     );
   };
-  const handleSaveEdit = async (data: UserFormValues) => {
+  const handleSaveEdit = async (data: AdminUserFormValues) => {
     if (!userToEdit) return;
     updateUserMutation.mutate(
       {
@@ -82,14 +85,17 @@ function UserManagementPage() {
         },
         onError: (err) => {
           const error = err as ApiError;
-          console.error('Edit user error:',error);
-          toast.error(error?.response?.data.message || MESSAGES.USER.UPDATE_PROFILE_FAILED);
+          console.error("Edit user error:", error);
+          toast.error(
+            error?.response?.data.message ||
+              MESSAGES.USER.UPDATE_PROFILE_FAILED,
+          );
         },
-      }
+      },
     );
   };
   const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this user?')) {
+    if (confirm("Are you sure you want to delete this user?")) {
       console.log(id);
     }
   };

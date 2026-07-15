@@ -1,12 +1,17 @@
-package org.example.hotelbookingservice.services;
+package org.example.hotelbookingservice.services.impl;
 
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingCreateRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingItemRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingResponse;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInGuestRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartResponse;
+import org.example.hotelbookingservice.config.FrontendProperties;
+import org.example.hotelbookingservice.config.VnpayProperties;
+import org.example.hotelbookingservice.security.vnpay.VnpaySigner;
+
+import org.example.hotelbookingservice.dto.request.booking.operations.BookingCreateRequest;
+import org.example.hotelbookingservice.dto.request.booking.operations.BookingItemRequest;
+import org.example.hotelbookingservice.dto.response.booking.operations.BookingResponse;
+import org.example.hotelbookingservice.dto.request.booking.operations.CheckInGuestRequest;
+import org.example.hotelbookingservice.dto.request.booking.operations.CheckInRequest;
+import org.example.hotelbookingservice.dto.request.booking.operations.PaymentStartRequest;
+import org.example.hotelbookingservice.dto.response.booking.operations.PaymentStartResponse;
+import org.example.hotelbookingservice.repository.operations.BookingOperationsRepository;
 import org.example.hotelbookingservice.security.AccountAuthUser;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterAll;
@@ -18,6 +23,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -50,7 +56,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
-class BookingOperationsServiceIntegrationTest {
+class BookingOperationsServiceImplIntegrationTest {
     private static final UUID CUSTOMER_ID = UUID.fromString("30000000-0000-4000-8000-000000000001");
     private static final UUID OTHER_CUSTOMER_ID = UUID.fromString("30000000-0000-4000-8000-000000000002");
     private static final UUID OWNER_ID = UUID.fromString("30000000-0000-4000-8000-000000000003");
@@ -59,6 +65,7 @@ class BookingOperationsServiceIntegrationTest {
     private static final UUID ROOM_TYPE_ID = UUID.fromString("30000000-0000-4000-8000-000000000006");
     private static final UUID PROMOTION_ID = UUID.fromString("30000000-0000-4000-8000-000000000007");
     private static final UUID ADMIN_ID = UUID.fromString("30000000-0000-4000-8000-000000000010");
+    private static final UUID RECEPTIONIST_ID = UUID.fromString("30000000-0000-4000-8000-000000000011");
     private static final LocalDate CHECK_IN = LocalDate.of(2027, 7, 1);
     private static final LocalDate CHECK_OUT = LocalDate.of(2027, 7, 3);
 
@@ -70,7 +77,7 @@ class BookingOperationsServiceIntegrationTest {
 
     static AnnotationConfigApplicationContext context;
     static JdbcTemplate jdbc;
-    static BookingOperationsService service;
+    static BookingOperationsServiceImpl service;
 
     @BeforeAll
     static void migrate() {
@@ -90,12 +97,23 @@ class BookingOperationsServiceIntegrationTest {
         context = new AnnotationConfigApplicationContext();
         context.registerBean(DataSource.class, () -> dataSource);
         context.registerBean(NamedParameterJdbcTemplate.class, () -> new NamedParameterJdbcTemplate(dataSource));
-        context.registerBean(DataSourceTransactionManager.class, () -> new DataSourceTransactionManager(dataSource));
+        context.registerBean(BookingOperationsRepository.class, () -> new BookingOperationsRepository(
+                context.getBean(NamedParameterJdbcTemplate.class)
+        ));
+        DataSourceTransactionManager transactionManager = new DataSourceTransactionManager(dataSource);
+        context.registerBean(DataSourceTransactionManager.class, () -> transactionManager);
         context.registerBean(Clock.class, () -> Clock.fixed(Instant.parse("2027-07-01T00:00:00Z"), ZoneOffset.UTC));
         context.register(TransactionalTestConfig.class);
-        context.registerBean(BookingOperationsService.class);
+        context.registerBean(VnpayProperties.class, () -> new VnpayProperties(null, null, null, null, true));
+        context.registerBean(FrontendProperties.class, () -> new FrontendProperties(null));
         context.refresh();
-        service = context.getBean(BookingOperationsService.class);
+        service = new BookingOperationsServiceImpl(
+                context.getBean(BookingOperationsRepository.class),
+                context.getBean(Clock.class),
+                transactionManager,
+                context.getBean(VnpayProperties.class),
+                context.getBean(FrontendProperties.class)
+        );
     }
 
     @AfterAll
@@ -111,6 +129,7 @@ class BookingOperationsServiceIntegrationTest {
         jdbc.update("delete from payments");
         jdbc.update("delete from booking_guests");
         jdbc.update("delete from check_ins");
+        jdbc.update("delete from reviews");
         jdbc.update("delete from booking_items");
         jdbc.update("delete from bookings");
         jdbc.update("delete from inventories");
@@ -127,13 +146,16 @@ class BookingOperationsServiceIntegrationTest {
         insertAccount(CUSTOMER_ID, "customer@example.com", true);
         insertAccount(OTHER_CUSTOMER_ID, "other@example.com", true);
         insertAccount(OWNER_ID, "owner@example.com", true);
+        insertAccount(RECEPTIONIST_ID, "receptionist@example.com", true);
         assignRole(CUSTOMER_ID, "CUSTOMER");
         assignRole(OTHER_CUSTOMER_ID, "CUSTOMER");
         assignRole(OWNER_ID, "OWNER");
+        assignRole(RECEPTIONIST_ID, "RECEPTIONIST");
         insertHotel(HOTEL_ID, OWNER_ID, "booking-hotel", "ACTIVE");
         insertHotel(OTHER_HOTEL_ID, OWNER_ID, "other-booking-hotel", "ACTIVE");
         jdbc.update("insert into hotel_members (hotel_id, account_id) values (?, ?)", HOTEL_ID, OWNER_ID);
         jdbc.update("insert into hotel_members (hotel_id, account_id) values (?, ?)", OTHER_HOTEL_ID, OWNER_ID);
+        jdbc.update("insert into hotel_members (hotel_id, account_id) values (?, ?)", HOTEL_ID, RECEPTIONIST_ID);
         jdbc.update("""
                 insert into room_types (id, hotel_id, name, price_per_night, max_guests)
                 values (?, ?, 'Deluxe', 100.00, 2)
@@ -261,6 +283,58 @@ class BookingOperationsServiceIntegrationTest {
     }
 
     @Test
+      void ownerCanCancelHotelBookingAndMismatchedHotelMutationsLeaveStateUnchanged() {
+          BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+          assertThat(inventoryAvailable(CHECK_IN)).isEqualTo(1);
+
+        assertThatThrownBy(() -> service.updateStatus(OTHER_HOTEL_ID, booking.id(), "CANCELLED", ownerAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404 NOT_FOUND");
+        assertThatThrownBy(() -> service.cancelHotelBooking(OTHER_HOTEL_ID, booking.id(), ownerAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("404 NOT_FOUND");
+        assertThat(service.hotelBookingDetail(HOTEL_ID, booking.id(), ownerAuth()).status()).isEqualTo("PENDING");
+        assertThat(inventoryAvailable(CHECK_IN)).isEqualTo(1);
+
+          assertThat(service.cancelHotelBooking(HOTEL_ID, booking.id(), ownerAuth()).status()).isEqualTo("CANCELLED");
+          assertThat(inventoryAvailable(CHECK_IN)).isEqualTo(2);
+      }
+
+      @Test
+      void adminCanConfirmPendingBookingWithoutCreatingSuccessfulPayment() {
+          insertAccount(ADMIN_ID, "admin-confirmation@example.com", true);
+          assignRole(ADMIN_ID, "ADMIN");
+          BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+
+          BookingResponse confirmed = service.updateStatus(
+                  HOTEL_ID,
+                  booking.id(),
+                  "CONFIRMED",
+                  auth(ADMIN_ID, "ADMIN", true)
+          );
+
+          assertThat(confirmed.status()).isEqualTo("CONFIRMED");
+          assertThat(bookingStatus(booking.id())).isEqualTo("CONFIRMED");
+          assertThat(jdbc.queryForObject(
+                  "select count(*) from payments where booking_id = ? and status = 'SUCCEEDED'",
+                  Integer.class,
+                  booking.id()
+          )).isZero();
+      }
+
+      @Test
+      void unfilteredCustomerAndHotelBookingListsDoNotBindNullStatusPredicates() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+
+        assertThat(service.listMine(10, 0, null, customerAuth()).data())
+                .extracting(BookingResponse::id)
+                .contains(booking.id());
+        assertThat(service.listHotelBookings(HOTEL_ID, 10, 0, null, null, ownerAuth()).data())
+                .extracting(BookingResponse::id)
+                .contains(booking.id());
+    }
+
+    @Test
     void checkInEditsGuestsAndCheckoutRequiresCheckIn() {
         BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
         jdbc.update("update bookings set status = 'CONFIRMED' where id = ?", booking.id());
@@ -272,7 +346,7 @@ class BookingOperationsServiceIntegrationTest {
         ), ownerAuth());
 
         assertThat(service.checkInDetail(HOTEL_ID, booking.id(), ownerAuth()).guests())
-                .extracting(BookingOperationsServiceIntegrationTest::guestName)
+                .extracting(BookingOperationsServiceImplIntegrationTest::guestName)
                 .containsExactly("Primary Guest", "Companion");
 
         BookingResponse checkedIn = service.checkIn(HOTEL_ID, booking.id(), new CheckInRequest(
@@ -282,7 +356,7 @@ class BookingOperationsServiceIntegrationTest {
         ), ownerAuth());
         assertThat(checkedIn.status()).isEqualTo("CHECKED_IN");
         assertThat(service.checkInDetail(HOTEL_ID, booking.id(), ownerAuth()).guests())
-                .extracting(BookingOperationsServiceIntegrationTest::guestName)
+                .extracting(BookingOperationsServiceImplIntegrationTest::guestName)
                 .containsExactly("Edited Primary");
 
         BookingResponse completed = service.updateStatus(HOTEL_ID, booking.id(), "COMPLETED", ownerAuth());
@@ -319,6 +393,26 @@ class BookingOperationsServiceIntegrationTest {
         assertThat(VnpaySigner.verify(query, "DEMO_SECRET")).isTrue();
         assertThat(paymentStatus(payment.paymentId())).isEqualTo("PENDING");
         assertThat(paymentEventCount(payment.paymentId(), "VNPAY_PAYMENT_URL_CREATED")).isEqualTo(1);
+    }
+
+    @Test
+    void disabledVnpayPaymentStartReturns503WithoutPersistenceSideEffects() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        BookingOperationsServiceImpl disabledService = new BookingOperationsServiceImpl(
+                context.getBean(BookingOperationsRepository.class),
+                context.getBean(Clock.class),
+                context.getBean(DataSourceTransactionManager.class),
+                new VnpayProperties(null, null, null, null, false),
+                context.getBean(FrontendProperties.class)
+        );
+
+        assertThatThrownBy(() -> disabledService.startPayment(booking.id(), null, customerAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(error -> assertThat(((ResponseStatusException) error).getStatusCode())
+                        .isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+        assertThat(jdbc.queryForObject("select count(*) from payments where booking_id = ?", Integer.class, booking.id()))
+                .isZero();
+        assertThat(jdbc.queryForObject("select count(*) from payment_events", Integer.class)).isZero();
     }
 
     @Test
@@ -429,7 +523,85 @@ class BookingOperationsServiceIntegrationTest {
         assertThat(paymentStatus(payment.paymentId())).isEqualTo("PENDING");
     }
 
-    private static String guestName(org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingGuestResponse guest) {
+    @Test
+    void adminWithoutHotelMembershipCanAccessHotelScopedBookingActions() {
+        // Admin holds the ADMIN role but is NOT a member of HOTEL_ID (real, non-seeded data).
+        insertAccount(ADMIN_ID, "admin-access@example.com", true);
+        assignRole(ADMIN_ID, "ADMIN");
+        Authentication adminAuth = auth(ADMIN_ID, "ADMIN", true);
+        assertThat(hotelMemberExists(HOTEL_ID, ADMIN_ID)).isFalse();
+
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+        jdbc.update("update bookings set status = 'CONFIRMED' where id = ?", booking.id());
+
+        // bookings.list.hotel (HOTEL_MEMBER scope) — previously 403 for a non-member admin.
+        assertThat(service.listHotelBookings(HOTEL_ID, 10, 0, null, null, adminAuth).data())
+                .extracting(BookingResponse::id)
+                .contains(booking.id());
+
+        // bookings.check_in (HOTEL_MEMBER scope)
+        BookingResponse checkedIn = service.checkIn(HOTEL_ID, booking.id(), new CheckInRequest(
+                "Admin check-in",
+                new CheckInGuestRequest(null, "Primary Guest", "ID-1", "0900000001", null, null, null, null),
+                List.of()
+        ), adminAuth);
+        assertThat(checkedIn.status()).isEqualTo("CHECKED_IN");
+
+        // bookings.status.update (HOTEL_MEMBER scope)
+        BookingResponse completed = service.updateStatus(HOTEL_ID, booking.id(), "COMPLETED", adminAuth);
+        assertThat(completed.status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void adminPassesPermissionCheckEvenWhenPermissionNotGrantedToAdminRole() {
+        // Prove the override is role-based, independent of granted permissions: strip
+        // bookings.create from the ADMIN role, then confirm admin still passes requirePermission.
+        insertAccount(ADMIN_ID, "admin-access@example.com", true);
+        assignRole(ADMIN_ID, "ADMIN");
+        UUID adminRoleId = jdbc.queryForObject("select id from roles where name = 'ADMIN'", UUID.class);
+        UUID bookingsCreateId = jdbc.queryForObject("select id from permissions where key = 'bookings.create'", UUID.class);
+        jdbc.update("delete from role_permissions where role_id = ? and permission_id = ?", adminRoleId, bookingsCreateId);
+        try {
+            BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), auth(ADMIN_ID, "ADMIN", true));
+            assertThat(booking.status()).isEqualTo("PENDING");
+        } finally {
+            jdbc.update("insert into role_permissions (role_id, permission_id) values (?, ?) on conflict do nothing",
+                    adminRoleId, bookingsCreateId);
+        }
+    }
+
+    @Test
+    void nonAdminNonMemberIsDeniedHotelScopedBookingActions() {
+        // OTHER_CUSTOMER_ID has the CUSTOMER role and is not a member of HOTEL_ID.
+        service.createBooking(HOTEL_ID, createRequest(null, 1), customerAuth());
+
+        assertThatThrownBy(() -> service.listHotelBookings(HOTEL_ID, 10, 0, null, null, otherCustomerAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Action not allowed");
+    }
+
+    @Test
+    void receptionistCreatesGuestBookingOnlyForAssignedHotel() {
+        BookingResponse booking = service.createBooking(HOTEL_ID, createRequest(null, 1), receptionistAuth());
+
+        assertThat(booking.status()).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("select account_id from bookings where id = ?", UUID.class, booking.id()))
+                .isEqualTo(RECEPTIONIST_ID);
+        assertThatThrownBy(() -> service.createBooking(OTHER_HOTEL_ID, createRequest(null, 1), receptionistAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Action not allowed: bookings.create");
+    }
+
+    private boolean hotelMemberExists(UUID hotelId, UUID accountId) {
+        Boolean exists = jdbc.queryForObject("""
+                select exists (
+                    select 1 from hotel_members where hotel_id = ? and account_id = ?
+                )
+                """, Boolean.class, hotelId, accountId);
+        return Boolean.TRUE.equals(exists);
+    }
+
+    private static String guestName(org.example.hotelbookingservice.dto.response.booking.operations.BookingGuestResponse guest) {
         return guest.fullName();
     }
 
@@ -544,6 +716,10 @@ class BookingOperationsServiceIntegrationTest {
 
     private Authentication ownerAuth() {
         return auth(OWNER_ID, "OWNER", true);
+    }
+
+    private Authentication receptionistAuth() {
+        return auth(RECEPTIONIST_ID, "RECEPTIONIST", true);
     }
 
     private Authentication auth(UUID accountId, String role, boolean verified) {

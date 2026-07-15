@@ -1,5 +1,6 @@
 package org.example.hotelbookingservice.security;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,8 +44,12 @@ public class AuthFilter extends OncePerRequestFilter {
                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
                 }
+            } catch (JwtException | IllegalArgumentException e) {
+                SecurityContextHolder.clearContext();
+                log.debug("Ignoring invalid bearer token: {}", e.getMessage());
             } catch (Exception e) {
-                log.error("Cannot set user authentication: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+                log.warn("Cannot set user authentication: {}", e.getMessage());
             }
         }
         filterChain.doFilter(request, response);
@@ -54,7 +59,8 @@ public class AuthFilter extends OncePerRequestFilter {
     private String getTokenFromRequest(HttpServletRequest request) {
         String tokenWithBearer = request.getHeader("Authorization");
         if (tokenWithBearer != null && tokenWithBearer.startsWith("Bearer ")) {
-            return tokenWithBearer.substring(7);
+            String token = tokenWithBearer.substring(7).trim();
+            return StringUtils.hasText(token) ? token : null;
         }
         return null;
     }

@@ -12,11 +12,11 @@ public class RevenueDateRangeRequest {
 
     @NotNull(message = "Start date is required")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    @Schema(description = "Ngày bắt đầu thống kê (YYYY-MM-DD)", example = "2025-01-01")
+    @Schema(description = "Start date for statistics (YYYY-MM-DD)", example = "2025-01-01")
     private LocalDate startDate;
 
     @NotNull(message = "End date is required")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-    @Schema(description = "Ngày kết thúc thống kê (YYYY-MM-DD)", example = "2025-02-01")
+    @Schema(description = "End date for statistics (YYYY-MM-DD)", example = "2025-02-01")
     private LocalDate endDate;
 }

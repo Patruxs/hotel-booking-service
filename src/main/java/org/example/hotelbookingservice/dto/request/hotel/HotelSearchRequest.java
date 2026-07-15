@@ -9,9 +9,9 @@ import java.time.LocalDate;
 @Data
 public class HotelSearchRequest {
     private String location;
-    @Schema(description = "Viết theo format YYYY-MM-DD", example = "2025-12-12")
+    @Schema(description = "Use YYYY-MM-DD format", example = "2025-12-12")
     private LocalDate checkInDate;
-    @Schema(description = "Viết theo format YYYY-MM-DD", example = "2025-12-12")
+    @Schema(description = "Use YYYY-MM-DD format", example = "2025-12-12")
     private LocalDate checkOutDate;
     private Integer adultAmount;
     private Integer childrenAmount;

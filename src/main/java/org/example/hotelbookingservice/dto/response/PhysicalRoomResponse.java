@@ -13,20 +13,20 @@ import org.example.hotelbookingservice.enums.RoomCondition;
 @NoArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Schema(description = "Thông tin phòng vật lý")
+@Schema(description = "Physical room information")
 public class PhysicalRoomResponse {
-    @Schema(description = "ID phòng vật lý")
+    @Schema(description = "Physical room ID")
     private Integer id;
 
-    @Schema(description = "Số phòng", example = "101")
-    private Integer roomNumber;
+    @Schema(description = "Room number", example = "D101")
+    private String roomNumber;
 
-    @Schema(description = "Tình trạng phòng", example = "CLEAN")
+    @Schema(description = "Room condition", example = "CLEAN")
     private RoomCondition roomCondition;
 
-    @Schema(description = "ID loại phòng liên kết")
+    @Schema(description = "Associated room type ID")
     private Integer roomId;
 
-    @Schema(description = "Tên loại phòng")
+    @Schema(description = "Room type name")
     private String roomName;
 }

@@ -19,24 +19,24 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class BookingResponse {
-    @Schema(description = "ID của booking")
+    @Schema(description = "Booking ID")
     private Integer id;
 
-    @Schema(description = "Ngày nhận phòng")
+    @Schema(description = "Check-in date")
     private LocalDate checkinDate;
 
-    @Schema(description = "Ngày trả phòng")
+    @Schema(description = "Check-out date")
     private LocalDate checkoutDate;
 
     private Integer adultAmount;
     private Integer childrenAmount;
 
-    @Schema(description = "Tổng giá tiền (đã tính theo số đêm)", example = "1500000.0")
+    @Schema(description = "Total price (calculated based on number of nights)", example = "1500000.0")
     private Float totalPrice;
 
     private Float refund;
 
-    @Schema(description = "Mã tham chiếu đặt phòng (Dùng để tra cứu)", example = "X82L9A")
+    @Schema(description = "Booking reference code (Used for lookup)", example = "X82L9A")
     private String bookingReference;
 
     private String roomNumber;
@@ -46,27 +46,27 @@ public class BookingResponse {
     private String customerPhone;
     private String cancelReason;
 
-    @Schema(description = "Trạng thái hiện tại")
+    @Schema(description = "Current status")
     private BookingStatus status;
     private String specialRequire;
     private LocalDate createAt;
 
-    @Schema(description = "Thông tin người đặt")
+    @Schema(description = "Booker information")
     private UserResponse user;
 
-    @Schema(description = "Thông tin khách sạn")
+    @Schema(description = "Hotel information")
     private HotelResponse hotel;
 
-    @Schema(description = "Danh sách các phòng đã đặt trong booking này")
+    @Schema(description = "List of rooms booked in this booking")
     private List<RoomResponse> rooms;
 
-    @Schema(description = "Phí hư hao (nếu có)")
+    @Schema(description = "Damage fee (if any)")
     private Float damageFee;
 
-    @Schema(description = "Mô tả hư hao")
+    @Schema(description = "Damage description")
     private String damageDescription;
 
-    @Schema(description = "Danh sách khách lưu trú")
+    @Schema(description = "List of guest details")
     private List<GuestDetailResponse> guestDetails;
 
 }

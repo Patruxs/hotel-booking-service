@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { User, Camera, Key, EyeOff, Eye, Save, Loader2 } from 'lucide-react';
+import { User, Camera, Key, EyeOff, Eye, Save, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   Form,
@@ -28,6 +28,7 @@ import {
   changePasswordFormSchema,
   ChangePasswordFormValues,
   useChangePasswordMutation,
+  useDeleteAvatarMutation,
   userFormSchema,
   UserFormValues,
   useUpdateProfileMutation,
@@ -47,8 +48,10 @@ const Profile = () => {
   const profileForm = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
     defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
+      firstName: user?.firstName ?? '',
+      lastName: user?.lastName ?? '',
+      phone: user?.phone ?? '',
+      dob: user?.dob ?? user?.dateOfBirth ?? '',
     },
   });
   const changePasswordForm = useForm<ChangePasswordFormValues>({
@@ -62,14 +65,17 @@ const Profile = () => {
   const changePasswordMutation = useChangePasswordMutation();
   const updateProfileMutation = useUpdateProfileMutation();
   const uploadAvatarMutation = useUploadAvatarMutation();
+  const deleteAvatarMutation = useDeleteAvatarMutation();
   useEffect(() => {
     if (user) {
       profileForm.reset({
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user.firstName ?? '',
+        lastName: user.lastName ?? '',
+        phone: user.phone ?? '',
+        dob: user.dob ?? user.dateOfBirth ?? '',
       });
     }
-  }, [user]);
+  }, [profileForm, user]);
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -124,6 +130,18 @@ const Profile = () => {
       },
     });
   };
+  const onDeleteAvatar = () => {
+    deleteAvatarMutation.mutate(undefined, {
+      onSuccess: () => {
+        toast.success(MESSAGES.USER.UPDATE_PROFILE_SUCCESS);
+        loadUser();
+      },
+      onError: (err) => {
+        const error = err as ApiError;
+        toast.error(error?.response?.data.message || MESSAGES.USER.UPDATE_PROFILE_FAILED);
+      },
+    });
+  };
   return (
     <div className="space-y-6">
       <Card className="border-border">
@@ -161,6 +179,7 @@ const Profile = () => {
                 className="absolute bottom-0 right-0 h-8 w-8 rounded-full border-2 border-background"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadAvatarMutation.isPending}
+                title="Upload avatar"
               >
                 <Camera className="h-4 w-4" />
               </Button>
@@ -182,6 +201,23 @@ const Profile = () => {
               <p className="text-sm text-muted-foreground">
                 Member since {user?.createdAt?.substring(0, 10) || ''}
               </p>
+              {user?.avatar?.url || user?.avatarUrl ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  onClick={onDeleteAvatar}
+                  disabled={deleteAvatarMutation.isPending}
+                >
+                  {deleteAvatarMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Remove Avatar
+                </Button>
+              ) : null}
             </div>
           </div>
           <Separator className="mb-8" />
@@ -213,6 +249,36 @@ const Profile = () => {
                       <div className="col-span-3">
                         <FormControl>
                           <Input {...field} placeholder="Enter last name" />
+                        </FormControl>
+                        <FormMessage className="text-xs mt-1" />
+                      </div>
+                    </div>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <div className="space-y-2 mb-5">
+                      <FormLabel className="text-right">Phone</FormLabel>
+                      <div className="col-span-3">
+                        <FormControl>
+                          <Input {...field} placeholder="0912345678" />
+                        </FormControl>
+                        <FormMessage className="text-xs mt-1" />
+                      </div>
+                    </div>
+                  )}
+                />
+                <FormField
+                  control={profileForm.control}
+                  name="dob"
+                  render={({ field }) => (
+                    <div className="space-y-2 mb-5">
+                      <FormLabel className="text-right">Date of Birth</FormLabel>
+                      <div className="col-span-3">
+                        <FormControl>
+                          <Input type="date" {...field} />
                         </FormControl>
                         <FormMessage className="text-xs mt-1" />
                       </div>

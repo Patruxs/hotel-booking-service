@@ -21,11 +21,25 @@ import { CreateBookingDto, CreateBookingItemDto } from "@/features/bookings/type
 import { RoomType } from "@/features/room-types/types";
 import { usePublicPromotionsQuery } from "@/features/promotion/queries";
 import { Promotion } from "@/features/promotion/types";
+import { useMocks } from "@/mocks/mockApi";
+import { VNPAY_ENABLED } from "@/constants";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  bookingToday,
+  isValidBookingDateRange,
+  parseBookingDate,
+} from "../bookingDateRules";
+
+const apiErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.detail ||
+  error?.response?.data?.message ||
+  error?.message ||
+  fallback;
+
 export default function BookingPayment() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -33,8 +47,13 @@ export default function BookingPayment() {
   const check_in_str = searchParams.get('check_in');
   const check_out_str = searchParams.get('check_out');
   const roomsParam = searchParams.get('rooms') || '';
-  const checkIn = check_in_str ? new Date(check_in_str) : new Date();
-  const checkOut = check_out_str ? new Date(check_out_str) : new Date(Date.now() + 86400000);
+  const hasValidBookingDates = isValidBookingDateRange(check_in_str, check_out_str);
+  const checkIn = parseBookingDate(check_in_str) ?? bookingToday();
+  const checkOut = parseBookingDate(check_out_str) ?? new Date(
+    checkIn.getFullYear(),
+    checkIn.getMonth(),
+    checkIn.getDate() + 1,
+  );
   // 2. Fetch Data
   const { data: hotel, isLoading: isLoadingHotel } = useHotelDetailQuery(hotel_id || '', !!hotel_id);
   const { data: roomTypesResponse, isLoading: isLoadingRooms } = useQueryRoomTypesAvailable(
@@ -43,7 +62,7 @@ export default function BookingPayment() {
       from: format(checkIn, "yyyy-MM-dd"),
       to: format(checkOut, "yyyy-MM-dd"),
     },
-    !!hotel_id
+    Boolean(hotel_id && hasValidBookingDates)
   );
   const availableRoomTypes = roomTypesResponse?.data || [];
   // 3. Parse Selected Rooms
@@ -62,6 +81,8 @@ export default function BookingPayment() {
   // 4. Booking Mutation
   const { mutateAsync: createBooking, isPending } = useCreateBookingMutation(hotel_id || '');
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [createdBookingForRetry, setCreatedBookingForRetry] = useState<any>(null);
   const isSubmitting = isPending || isCreatingPayment;
   // 5. Form Setup
   const form = useForm<BoookingFormValues>({
@@ -79,8 +100,9 @@ export default function BookingPayment() {
   const debouncedPromotionCode = useDebounce(promotionCodeWatch, 500);
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null);
   const { data: promotionsData } = usePublicPromotionsQuery({
-      search: debouncedPromotionCode,
-  });
+    search: debouncedPromotionCode,
+    hotelId: hotel_id || undefined,
+  }, Boolean(debouncedPromotionCode?.trim()));
   const nights = Math.max(1, differenceInDays(checkOut, checkIn));
   const rawTotal = useMemo(() => {
     return bookedRooms.reduce((acc, item) => acc + (item.type.price_per_night * item.quantity * nights), 0);
@@ -106,6 +128,8 @@ export default function BookingPayment() {
   const finalTotal = rawTotal - discountAmount;
   const onSubmit = async (values: BoookingFormValues) => {
     if (!hotel_id) return;
+    setCheckoutError(null);
+    setCreatedBookingForRetry(null);
     const promotionCode = values.promotionCode?.trim();
     const note = values.note?.trim() || "";
     const items: CreateBookingItemDto[] = bookedRooms.map(r => ({
@@ -120,7 +144,6 @@ export default function BookingPayment() {
       guestEmail: values.guestEmail.trim(),
       guestPhone: values.guestPhone.trim(),
       note,
-      totalAmount: finalTotal, // Use final/discounted total
       items
     };
     if (promotionCode) {
@@ -129,9 +152,15 @@ export default function BookingPayment() {
     let createdBooking: any;
     try {
       createdBooking = await createBooking(payload);
+      setSelectedPromotion(null);
       const bookingId = createdBooking?.id;
       if (!bookingId) {
         throw new Error("Booking response did not include an id.");
+      }
+
+      if (!VNPAY_ENABLED) {
+        router.push(`/me/my-bookings/${bookingId}`);
+        return;
       }
 
       setIsCreatingPayment(true);
@@ -144,11 +173,11 @@ export default function BookingPayment() {
     } catch (error) {
       console.error(error);
       if (createdBooking?.id) {
-        alert("Booking created, but payment could not be started. You can retry payment from booking details.");
-        router.push(`/me/my-bookings/${createdBooking.id}`);
+        setCreatedBookingForRetry(createdBooking);
+        setCheckoutError("Booking created with Spring totals, but payment could not be started. You can retry payment from booking details.");
         return;
       }
-      alert("Failed to create booking. Please try again.");
+      setCheckoutError(apiErrorMessage(error, "Failed to create booking. Please try again."));
     } finally {
       setIsCreatingPayment(false);
     }
@@ -165,7 +194,7 @@ export default function BookingPayment() {
       </div>
     );
   }
-  if (!hotel || bookedRooms.length === 0) {
+  if (!hasValidBookingDates || !hotel || bookedRooms.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
         <div className="text-xl font-bold">Invalid Booking Details</div>
@@ -316,20 +345,41 @@ export default function BookingPayment() {
                 </div>
                 {}
                 <div className="lg:col-span-1">
-                  <BookingSummary
-                      bookedRooms={bookedRooms}
-                      finalPrice={finalTotal}
-                      discountAmount={discountAmount}
-                      onConfirm={form.handleSubmit(onSubmit)}
-                      isPending={isSubmitting}
-                  />
-                  {selectedPromotion && (
-                      <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
-                          <div className="font-bold mb-1">Promotion Applied!</div>
-                          <div>You are saving {discountAmount.toLocaleString()} VND with code {selectedPromotion.code}</div>
-                      </div>
-                  )}
-                </div>
+                      <BookingSummary
+                          bookedRooms={bookedRooms}
+                          finalPrice={finalTotal}
+                          discountAmount={discountAmount}
+                          onConfirm={form.handleSubmit(onSubmit)}
+                          isPending={isSubmitting}
+                      />
+                      {selectedPromotion && (
+                        <div className="mt-4 p-4 bg-green-50 border border-green-100 rounded-lg text-sm text-green-800">
+                            <div className="font-bold mb-1">Promotion Applied!</div>
+                            <div>Estimated savings: {discountAmount.toLocaleString()} VND with code {selectedPromotion.code}. Spring will calculate the final total when booking is created.</div>
+                        </div>
+                    )}
+                      {promotionCodeWatch?.trim() && !selectedPromotion && !useMocks && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
+                            Promotion code will be validated by Spring when you confirm booking.
+                        </div>
+                    )}
+                    {checkoutError && (
+                        <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg text-sm text-red-800">
+                            <div className="font-bold mb-1">Checkout needs attention</div>
+                            <div>{checkoutError}</div>
+                            {createdBookingForRetry?.id && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="mt-3 border-red-200 text-red-700 hover:bg-red-100"
+                                onClick={() => router.push(`/me/my-bookings/${createdBookingForRetry.id}`)}
+                              >
+                                Review Booking
+                              </Button>
+                            )}
+                        </div>
+                    )}
+                  </div>
               </div>
             </form>
           </Form>

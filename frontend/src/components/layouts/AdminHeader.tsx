@@ -14,7 +14,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useAuth } from '@/providers/AuthProvider';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Button } from '../ui/button';
-import { Bell, CheckCheck, Trash2, X } from 'lucide-react';
+import { Bell, CheckCheck, Trash2, X, LogOut } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '../ui/badge';
 import {
   useNotifications,
@@ -93,7 +101,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
 export default function AdminHeader() {
   const pathname = usePathname();
   const breadcrumbTitles = findBreadcrumb(pathname);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [open, setOpen] = React.useState(false);
   const { data: unreadCountData } = useUnreadCount();
   const { data: notificationsData } = useNotifications(1, 10);
@@ -182,14 +190,31 @@ export default function AdminHeader() {
               </ScrollArea>
             </PopoverContent>
           </Popover>
-          <Avatar>
-            <AvatarImage src={user?.avatar?.url} />
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <div className="text-sm">
-            <p className="font-semibold">{user?.lastName || 'Admin'}</p>
-            <p className="text-muted-foreground text-xs">{user?.roles[0].name}</p>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-2 cursor-pointer hover:bg-accent p-1.5 rounded-md transition-colors">
+                <Avatar>
+                  <AvatarImage src={user?.avatar?.url} />
+                  <AvatarFallback>A</AvatarFallback>
+                </Avatar>
+                <div className="text-sm hidden md:block text-left">
+                  <p className="font-semibold leading-none mb-1">{user?.lastName || 'Admin'}</p>
+                  <p className="text-muted-foreground text-xs leading-none">{user?.roles?.[0]?.name}</p>
+                </div>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950" 
+                onClick={() => logout()}
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>

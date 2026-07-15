@@ -8,11 +8,11 @@ export const usePromotionsQuery = (params?: PromotionsQueryParams) => {
     queryFn: () => getPromotions(params),
   });
 };
-export const usePublicPromotionsQuery = (params?: PromotionsQueryParams) => {
+export const usePublicPromotionsQuery = (params?: PromotionsQueryParams, enabled = true) => {
   return useQuery({
     queryKey: ['public-promotions', params],
     queryFn: () => getPublicPromotions(params),
-    enabled: !!params?.search,
+    enabled: enabled && !!params?.search,
   });
 };
 export const usePromotionQuery = (id: string) => {

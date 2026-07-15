@@ -21,7 +21,7 @@ export default function MyReviewsPage() {
   const limit = 10;
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
-  const { data: reviewsResponse, isLoading } = useMyReviewsQuery({
+  const { data: reviewsResponse, isLoading, isError } = useMyReviewsQuery({
     page,
     limit,
   });
@@ -53,6 +53,12 @@ export default function MyReviewsPage() {
                   Loading your reviews...
                 </TableCell>
               </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-red-500 italic">
+                  Error loading reviews. Please try again.
+                </TableCell>
+              </TableRow>
             ) : reviews.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-gray-400 italic">
@@ -63,7 +69,7 @@ export default function MyReviewsPage() {
               reviews.map((review: any) => (
                 <TableRow key={review.id} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="font-medium">
-                     {review.hotel?.name || 'Unknown Hotel'}
+                     {review.hotel?.name || 'Hotel unavailable'}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 text-yellow-500">
@@ -80,7 +86,9 @@ export default function MyReviewsPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
-                    {format(new Date(review.createdAt), 'MMM dd, yyyy')}
+                    {review.createdAt && !isNaN(new Date(review.createdAt).getTime())
+                      ? format(new Date(review.createdAt), 'MMM dd, yyyy')
+                      : 'N/A'}
                   </TableCell>
                   <TableCell>
                     {review.isHidden ? (

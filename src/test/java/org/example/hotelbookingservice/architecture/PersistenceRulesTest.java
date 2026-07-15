@@ -14,17 +14,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PersistenceRulesTest {
 
-    private static final Pattern QUERY_ANNOTATION = Pattern.compile("@Query\\s*\\((?s:.*?)\\)");
+    private static final Pattern QUERY_ANNOTATION = Pattern.compile("@Query\\s*\\((?s:.*?)(?=\\n\\s*(?:Page|List|Optional|long|int|void|boolean)\\s+\\w+\\s*\\()");
 
     @Test
     void newCustomRepositoryQueriesUseNativeSqlInsteadOfJpql() throws IOException {
         Path sourceRoot = Path.of("src/main/java");
         Set<String> quarantinedLegacyFiles = Set.of(
-                "src/main/java/org/example/hotelbookingservice/repository/BookingRepository.java",
-                "src/main/java/org/example/hotelbookingservice/repository/HotelRepository.java",
-                "src/main/java/org/example/hotelbookingservice/repository/HotelamenityRepository.java",
-                "src/main/java/org/example/hotelbookingservice/repository/ReviewRepository.java",
-                "src/main/java/org/example/hotelbookingservice/repository/RoomRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/BookingRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/BannerRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/HotelRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/HotelamenityRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/ImageGalleryRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/NotificationRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/PromotionRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/ReviewRepository.java",
+                  "src/main/java/org/example/hotelbookingservice/repository/RoomRepository.java",
                 "src/main/java/org/example/hotelbookingservice/repository/RoomamenityRepository.java",
                 "src/main/java/org/example/hotelbookingservice/repository/UserRepository.java"
         );

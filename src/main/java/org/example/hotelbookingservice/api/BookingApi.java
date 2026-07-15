@@ -15,39 +15,39 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RequestMapping("/api/v1/bookings")
-@Tag(name = "Booking Management", description = "Quản lý đặt phòng (Tạo mới, hủy, cập nhật trạng thái, xem lịch sử)")
+@Tag(name = "Booking Management", description = "Manage bookings (Create, cancel, update status, view history)")
 public interface BookingApi {
 
-    @Operation(summary = "Lấy toàn bộ danh sách đặt phòng (ADMIN, RECEPTIONIST)")
+    @Operation(summary = "Get all bookings (ADMIN, RECEPTIONIST)")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập", content = @Content) })
-    @GetMapping("/all")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied", content = @Content) })
+    @GetMapping({"", "/all"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<List<BookingResponse>> getAllBookings();
 
-    @Operation(summary = "Tạo đặt phòng mới", description = "Khách hàng tạo booking.")
+    @Operation(summary = "Create a new booking", description = "Customer creates booking.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Đặt phòng thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Lỗi logic (Ngày check-in > check-out, Phòng đã kín chỗ...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng hoặc user", content = @Content) })
-    @PostMapping("/create")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Booking created successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Logic error (Check-in date > check-out date, Room fully booked...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Room or user not found", content = @Content) })
+    @PostMapping({"", "/create"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER') or hasAuthority('RECEPTIONIST')")
     ApiResponse<BookingResponse> createBooking(@RequestBody @Valid BookingCreateRequest bookingRequest);
 
-    @Operation(summary = "Tìm booking theo mã xác nhận")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Mã booking không tồn tại", content = @Content) })
-    @GetMapping("/get-by-confirmation-code/{confirmationCode}")
+    @Operation(summary = "Find booking by confirmation code")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking code does not exist", content = @Content) })
+    @GetMapping({"/confirmation-codes/{confirmationCode}", "/get-by-confirmation-code/{confirmationCode}"})
     ApiResponse<BookingResponse> getBookingByConfirmationCode(@PathVariable String confirmationCode);
 
-    @Operation(summary = "Cập nhật trạng thái booking (ADMIN, RECEPTIONIST)", description = "Check-in, Check-out, Hủy.")
+    @Operation(summary = "Update booking status (ADMIN, RECEPTIONIST)", description = "Check-in, Check-out, Cancel.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking không tồn tại", content = @Content) })
-    @PutMapping("/update/{bookingId}")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Updated successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking does not exist", content = @Content) })
+    @PutMapping({"/{bookingId:\\d+}", "/update/{bookingId}"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<BookingResponse> updateBooking(@PathVariable Integer bookingId, @RequestBody BookingUpdateRequest bookingRequest);
 
-    @Operation(summary = "Hủy đặt phòng", description = "Khách hàng hoặc Admin hủy phòng.")
+    @Operation(summary = "Cancel booking", description = "Customer or Admin cancels the booking.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Hủy thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Không thể hủy (Đã check-out hoặc đã hủy trước đó)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền hủy (Không chính chủ)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking không tồn tại", content = @Content) })
-    @DeleteMapping("/cancel/{bookingId}")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cancelled successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Cannot cancel (Already checked out or previously cancelled)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Not authorized to cancel (Not the owner)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Booking does not exist", content = @Content) })
+    @DeleteMapping({"/{bookingId:\\d+}", "/cancel/{bookingId}"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER') or hasAuthority('RECEPTIONIST')")
     ApiResponse<Void> cancelBooking(@PathVariable Integer bookingId, @RequestParam(required = false) String reason);
 }

@@ -19,6 +19,7 @@ public abstract class RoomMapper {
     //Response
     @Mapping(target = "roomImages", source = "images", qualifiedByName = "mapImages")
     @Mapping(target = "amenities", source = "roomAmenities", qualifiedByName = "mapAmenities")
+    @Mapping(target = "availableQuantity", ignore = true)
     public abstract RoomResponse toRoomResponse(Room room);
 
     public abstract List<RoomResponse> toRoomResponseList(List<Room> rooms);
@@ -30,6 +31,11 @@ public abstract class RoomMapper {
     @Mapping(target = "roomAmenities", ignore = true)
     @Mapping(target = "bookingrooms", ignore = true)
     @Mapping(target = "physicalRooms", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "inventories", ignore = true)
     public abstract Room toRoom(RoomCreateRequest roomCreateRequest);
 
     //Update Entity from Request
@@ -39,6 +45,11 @@ public abstract class RoomMapper {
     @Mapping(target = "bookingrooms", ignore = true)
     @Mapping(target = "physicalRooms", ignore = true)
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "inventories", ignore = true)
     public abstract void updateRoomFromRequest(RoomCreateRequest request, @MappingTarget Room room);
 
 

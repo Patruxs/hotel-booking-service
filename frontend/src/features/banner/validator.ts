@@ -1,6 +1,13 @@
 // @ts-nocheck
 import { z } from 'zod';
+import { isBefore, startOfDay } from 'date-fns';
 import { BannerLinkType } from './types';
+
+const startAtIsTodayOrLater = (startAt?: string) => {
+  if (!startAt) return true;
+  return !isBefore(startOfDay(new Date(startAt)), startOfDay(new Date()));
+};
+
 export const createBannerSchema = z.object({
   title: z.string().optional(),
   subtitle: z.string().optional(),
@@ -21,6 +28,12 @@ export const createBannerSchema = z.object({
   {
     message: 'Start date must be before or equal to end date',
     path: ['endAt'],
+  }
+).refine(
+  (data) => startAtIsTodayOrLater(data.startAt),
+  {
+    message: 'Start date cannot be before today',
+    path: ['startAt'],
   }
 );
 export const updateBannerSchema = z.object({

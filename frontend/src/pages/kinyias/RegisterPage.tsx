@@ -10,17 +10,13 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { GoogleIcon } from '@/components/icons/GoogleIcon';
 import { MailCheckIcon, ArrowRight } from 'lucide-react';
 import PageTitle from '@/components/sections/PageTitle';
-import { API_BASE_URL, ROUTES } from '@/constants';
+import { ROUTES } from '@/constants';
 import RegisterForm from '@/features/auth/components/RegisterForm';
 export default function RegisterPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [email, setEmail] = useState('');
-  const googleLogin = () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
-  };
   return (
     <>
       <PageTitle
@@ -42,31 +38,13 @@ export default function RegisterPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <RegisterForm
-                onSuccess={(email) => {
-                  setEmail(email);
-                  setIsSubmitted(true);
-                }}
-              />
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-card text-gray-500">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={googleLogin}
-              >
-                <GoogleIcon />
-                Login with Google
-              </Button>
-            </CardContent>
+                <RegisterForm
+                  onSuccess={(email) => {
+                    setEmail(email);
+                    setIsSubmitted(true);
+                  }}
+                />
+              </CardContent>
             <CardFooter className="flex justify-center">
               <p className="text-sm text-gray-600">
                 Already have an account?{' '}

@@ -28,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -107,7 +108,7 @@ public class HotelServiceImpl implements IHotelService {
     }
 
     private HotelResponse updateHotelInTransaction(Integer id, HotelUpdateRequest hotelUpdateRequest, List<String> imageUrls) {
-        Hotel existingHotel = hotelRepository.findById(id)
+        Hotel existingHotel = hotelRepository.findById(legacyId(id))
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         User currentUser = userService.getCurrentLoggedInUser();
@@ -148,7 +149,7 @@ public class HotelServiceImpl implements IHotelService {
     @Override
     @Transactional(readOnly = true)
     public HotelResponse getHotelById(Integer id) {
-        Hotel hotel = hotelRepository.findById(id)
+        Hotel hotel = hotelRepository.findById(legacyId(id))
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
         return hotelMapper.toHotelResponse(hotel);
     }
@@ -163,7 +164,7 @@ public class HotelServiceImpl implements IHotelService {
     @Override
     @Transactional
     public void deleteHotel(Integer id) {
-        Hotel hotel = hotelRepository.findById(id)
+        Hotel hotel = hotelRepository.findById(legacyId(id))
                 .orElseThrow(()->new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         User currentUser = userService.getCurrentLoggedInUser();
@@ -179,26 +180,24 @@ public class HotelServiceImpl implements IHotelService {
     public List<HotelResponse> getMyHotels() {
        User currentUser = userService.getCurrentLoggedInUser();
 
-       List<Hotel> hotels = hotelRepository.findByUserId(currentUser.getId());
+       List<Hotel> hotels = hotelRepository.findByUserId(currentUser.getUuid());
        return hotelMapper.toHotelResponseList(hotels);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<HotelResponse> searchHotels(String location, LocalDate checkInDate, LocalDate checkOutDate, Integer capacity, Integer roomQuantity) {
+        String searchLocation = (location == null) ? "" : location.trim();
+
         if (checkInDate != null && checkOutDate != null) {
             if (checkInDate.isBefore(LocalDate.now())) {
-                throw new InvalidBookingStateAndDateException("Check-in date cannot be in the past");
+                return new ArrayList<>(); // Return empty list instead of throwing
             }
             if (checkOutDate.isBefore(checkInDate)) {
-                throw new InvalidBookingStateAndDateException("Check-out date cannot be before check-in date");
+                return new ArrayList<>();
             }
             if (checkInDate.isEqual(checkOutDate)) {
-                throw new InvalidBookingStateAndDateException("Check-in and Check-out dates cannot be the same");
-            }
-        } else {
-            if (location == null || location.isBlank()) {
-                throw new AppException(ErrorCode.NAME_VALUE_REQUIRED_EXCEPTION);
+                return new ArrayList<>();
             }
         }
 
@@ -206,7 +205,7 @@ public class HotelServiceImpl implements IHotelService {
         long quantityParam = (roomQuantity == null || roomQuantity < 1) ? 1L : roomQuantity.longValue();
 
         List<Hotel> availableHotels = hotelRepository.findAvailableHotels(
-                location,
+                searchLocation,
                 checkInDate,
                 checkOutDate,
                 capacity,
@@ -219,11 +218,15 @@ public class HotelServiceImpl implements IHotelService {
     @Override
     @Transactional(readOnly = true)
     public List<RoomResponse> getRoomsByHotelId(Integer hotelId) {
-        Hotel hotel = hotelRepository.findById(hotelId)
+        Hotel hotel = hotelRepository.findById(legacyId(hotelId))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         List<Room> roomList = new ArrayList<>(hotel.getRooms());
 
         return roomMapper.toRoomResponseList(roomList);
+    }
+
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
     }
 }

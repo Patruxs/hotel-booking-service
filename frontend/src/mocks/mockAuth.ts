@@ -1,7 +1,8 @@
 import Cookies from "js-cookie";
 import { mockAdminUser } from "@/mocks/data/users";
 
-export const bypassAuth = import.meta.env.VITE_BYPASS_AUTH !== "false";
+export const bypassAuth =
+  import.meta.env.VITE_USE_MOCKS === "true" && import.meta.env.VITE_BYPASS_AUTH === "true";
 
 export function getMockCurrentUser() {
   return mockAdminUser;

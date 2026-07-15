@@ -16,6 +16,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Upload, Loader2, ImagePlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { API_BASE_URL } from '@/constants';
+import toast from 'react-hot-toast';
+
+const MAX_GALLERY_FILE_SIZE = 5 * 1024 * 1024;
 interface SelectedImage {
   id?: string;
   url: string;
@@ -73,17 +76,32 @@ export default function GalleryImagesDialog({
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!selectedFolder?.folderName || !files || files.length === 0) return;
+
+    const oversizedFile = Array.from(files).find((file) => file.size > MAX_GALLERY_FILE_SIZE);
+    if (oversizedFile) {
+      toast.error(`Each image must be 5 MB or smaller. "${oversizedFile.name}" is too large.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setUploading(true);
     try {
       const form = new FormData();
       Array.from(files).forEach((f) => form.append('files', f));
-      await api.post(`${API_BASE_URL}/upload/image/${selectedFolder.folderName}`, form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await api.post(
+        `${API_BASE_URL}/gallery/folders/${encodeURIComponent(selectedFolder.folderName)}/images`,
+        form,
+        { headers: { 'Content-Type': 'multipart/form-data' } },
+      );
       queryClient.invalidateQueries({ queryKey: ['images-gallery', selectedFolder.id] });
       queryClient.invalidateQueries({ queryKey: ['folders-gallery'] });
     } catch (error) {
-        console.error("Upload failed", error);
+      if (error?.response?.status === 413) {
+        toast.error('Each image must be 5 MB or smaller.');
+      } else {
+        toast.error(error?.response?.data?.detail || error?.response?.data?.message || 'Upload failed. Please try again.');
+        console.error('Upload failed', error);
+      }
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

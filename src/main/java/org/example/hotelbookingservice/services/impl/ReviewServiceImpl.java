@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +37,7 @@ public class ReviewServiceImpl implements IReviewService {
         User currentUser = userService.getCurrentLoggedInUser();
 
         // Check if Booking exists
-        Booking booking = bookingRepository.findById(request.getBookingId())
+        Booking booking = bookingRepository.findById(legacyId(request.getBookingId()))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
 
@@ -60,7 +61,7 @@ public class ReviewServiceImpl implements IReviewService {
         }
 
         // Get info hotel
-        Hotel hotel = hotelRepository.findById(request.getHotelId())
+        Hotel hotel = hotelRepository.findById(legacyId(request.getHotelId()))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
 
@@ -77,7 +78,7 @@ public class ReviewServiceImpl implements IReviewService {
 
     @Override
     public List<ReviewResponse> getReviewsByHotelId(Integer hotelId) {
-        if (!hotelRepository.existsById(hotelId)) {
+        if (!hotelRepository.existsById(legacyId(hotelId))) {
             throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
         }
         List<Review> reviews = reviewRepository.findByHotelId(hotelId);
@@ -86,7 +87,7 @@ public class ReviewServiceImpl implements IReviewService {
 
     @Override
     public void deleteReview(Integer reviewId) {
-        Review review = reviewRepository.findById(reviewId)
+        Review review = reviewRepository.findById(legacyId(reviewId))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         User currentUser = userService.getCurrentLoggedInUser();
@@ -103,5 +104,8 @@ public class ReviewServiceImpl implements IReviewService {
 
     }
 
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
+    }
 
 }

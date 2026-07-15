@@ -1,6 +1,6 @@
-import { createContext, useContext, useMemo, useState, type PropsWithChildren } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react";
 import { authApi } from "@/features/auth/api";
-import { clearAuthTokens, setAuthTokens } from "@/lib/axios";
+import { AUTH_STATE_CLEARED_EVENT, clearAuthTokens, hasAuthToken, setAuthTokens } from "@/lib/axios";
 import { bypassAuth, getMockCurrentUser } from "@/mocks/mockAuth";
 import type { User } from "@/lib/types";
 
@@ -8,7 +8,7 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   register: (body: unknown) => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
@@ -18,91 +18,73 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function normalizeStoredUser(value: unknown): User | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const fallbackUser = getMockCurrentUser();
-  const storedUser = value as Partial<User>;
-
-  if (!storedUser.id || !storedUser.email) {
-    return null;
-  }
-
-  return {
-    ...fallbackUser,
-    ...storedUser,
-    name: storedUser.name ?? fallbackUser.name,
-    roles: Array.isArray(storedUser.roles) ? storedUser.roles : fallbackUser.roles,
-    allowedActions: Array.isArray(storedUser.allowedActions)
-      ? storedUser.allowedActions
-      : fallbackUser.allowedActions,
-  };
-}
-
-function readStoredUser(): User | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const storedUser = window.localStorage.getItem("currentUser");
-  if (!storedUser) {
-    return null;
-  }
-
-  try {
-    const parsedUser: unknown = JSON.parse(storedUser);
-    const user = normalizeStoredUser(parsedUser);
-
-    if (!user) {
-      window.localStorage.removeItem("currentUser");
-    }
-
-    return user;
-  } catch {
-    window.localStorage.removeItem("currentUser");
-    return null;
-  }
-}
-
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = readStoredUser();
-    if (storedUser) {
-      return storedUser;
-    }
+  const [user, setUser] = useState<User | null>(() => (bypassAuth ? getMockCurrentUser() : null));
+  const [loading, setLoading] = useState(!bypassAuth);
+
+  const clearLocalAuth = useCallback(() => {
+    clearAuthTokens();
+    setUser(null);
+  }, []);
+
+  const loadUser = useCallback(async () => {
     if (bypassAuth) {
-      return getMockCurrentUser();
+      setUser(getMockCurrentUser());
+      setLoading(false);
+      return;
     }
-    return null;
-  });
+
+      try {
+        setLoading(true);
+        if (!hasAuthToken()) {
+          setUser(null);
+          return;
+        }
+        const current = await authApi.me();
+        setUser(current);
+    } catch (error) {
+      clearLocalAuth();
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [clearLocalAuth]);
+
+  useEffect(() => {
+    const handleAuthCleared = () => {
+      setUser(null);
+      setLoading(false);
+    };
+
+    window.addEventListener(AUTH_STATE_CLEARED_EVENT, handleAuthCleared);
+    void loadUser().catch(() => undefined);
+
+    return () => window.removeEventListener(AUTH_STATE_CLEARED_EVENT, handleAuthCleared);
+  }, [loadUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      loading: false,
+      loading,
       isAuthenticated: Boolean(user),
       login: async (email: string, password: string) => {
-        const session = await authApi.login({ email, password });
-        setAuthTokens(session.accessToken);
-        localStorage.setItem("currentUser", JSON.stringify(session.user));
-        setUser(session.user);
+        setLoading(true);
+        try {
+          const session = await authApi.login({ email, password });
+          setAuthTokens(session.accessToken);
+          setUser(session.user);
+          return session.user;
+        } finally {
+          setLoading(false);
+        }
       },
       register: async (body: unknown) => {
         await authApi.register(body);
       },
       logout: () => {
-        void authApi.logout().catch(() => undefined);
-        clearAuthTokens();
-        localStorage.removeItem("currentUser");
-        setUser(null);
+        void authApi.logout().finally(clearLocalAuth);
       },
-      loadUser: async () => {
-        const current = bypassAuth ? getMockCurrentUser() : await authApi.me();
-        localStorage.setItem("currentUser", JSON.stringify(current));
-        setUser(current);
-      },
+      loadUser,
       forgotPassword: async (email: string) => {
         await authApi.forgotPassword({ email });
       },
@@ -110,7 +92,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await authApi.resetPassword({ token, password, confirmPassword });
       },
     }),
-    [user],
+    [clearLocalAuth, loadUser, loading, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

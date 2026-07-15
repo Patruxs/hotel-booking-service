@@ -14,6 +14,16 @@ import { formatCurrency } from "@/utils/currency";
 const MAX_PRICE = 50000000;
 const STEP_PRICE = 10000;
 const PAGE_LIMIT = 12;
+const FILTER_QUERY_KEYS = [
+  'minPrice',
+  'maxPrice',
+  'check_in',
+  'check_out',
+  'city',
+  'rooms',
+  'adults',
+  'children',
+];
 export function HotelSearch() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -22,6 +32,9 @@ export function HotelSearch() {
   const urlCheckIn = searchParams.get('check_in');
   const urlCheckOut = searchParams.get('check_out');
   const urlCity = searchParams.get('city');
+  const urlRooms = searchParams.get('rooms');
+  const urlAdults = searchParams.get('adults');
+  const urlChildren = searchParams.get('children');
   const [priceRange, setPriceRange] = useState<[number, number]>([
     urlMinPrice ? Number(urlMinPrice) : 0,
     urlMaxPrice ? Number(urlMaxPrice) : MAX_PRICE
@@ -36,11 +49,14 @@ export function HotelSearch() {
     checkIn: urlCheckIn || undefined,
     checkOut: urlCheckOut || undefined,
     city: urlCity || undefined,
+    rooms: urlRooms ? Number(urlRooms) : undefined,
+    adults: urlAdults ? Number(urlAdults) : undefined,
+    children: urlChildren ? Number(urlChildren) : undefined,
     sortBy: sortBy as any,
   });
   useEffect(() => {
     setPage(1);
-  }, [urlMinPrice, urlMaxPrice, urlCheckIn, urlCheckOut, urlCity, sortBy]);
+  }, [urlMinPrice, urlMaxPrice, urlCheckIn, urlCheckOut, urlCity, sortBy, urlRooms, urlAdults, urlChildren]);
   const hotels = hotelsData?.data || [];
   const meta = hotelsData?.meta;
   const totalPages = meta ? Math.ceil(meta.total / meta.limit) : 0;
@@ -61,6 +77,14 @@ export function HotelSearch() {
       params.delete('maxPrice');
     }
     router.push(`/hotels?${params.toString()}`);
+  };
+  const handleClearFilters = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    FILTER_QUERY_KEYS.forEach((key) => params.delete(key));
+    setPriceRange([0, MAX_PRICE]);
+    setPage(1);
+    const query = params.toString();
+    router.push(query ? `/hotels?${query}` : '/hotels');
   };
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -135,15 +159,13 @@ export function HotelSearch() {
               <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No hotels found</h3>
                 <p className="text-gray-500">Try adjusting your filters to find what you're looking for.</p>
-                <Button
-                  variant="link"
-                  onClick={() => {
-                    setPriceRange([0, MAX_PRICE]);
-                  }}
-                  className="mt-4 text-primary font-bold"
-                >
-                  Clear all filters
-                </Button>
+                  <Button
+                    variant="link"
+                    onClick={handleClearFilters}
+                    className="mt-4 text-primary font-bold"
+                  >
+                    Clear all filters
+                  </Button>
               </div>
             ) : (
               hotels.map((hotel: any) => {

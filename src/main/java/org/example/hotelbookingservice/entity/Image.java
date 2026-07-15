@@ -1,32 +1,81 @@
 package org.example.hotelbookingservice.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+
+import java.time.Instant;
+import java.util.UUID;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "image")
+@Table(name = "image_assets")
 public class Image {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
-    private Integer id;
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
+    private UUID id;
 
-    @Size(max = 255)
     @NotNull
-    @Column(name = "path", nullable = false)
+    @Column(name = "url", nullable = false)
     private String path;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_id")
+    @NotNull
+    @Column(name = "provider", nullable = false, length = 32)
+    private String provider = "CLOUDINARY";
+
+    @Column(name = "owner_account_id")
+    private UUID ownerAccountId;
+
+    @Column(name = "public_id")
+    private String publicId;
+
+    @Column(name = "secure_url")
+    private String secureUrl;
+
+    @Column(name = "width")
+    private Integer width;
+
+    @Column(name = "height")
+    private Integer height;
+
+    @Column(name = "bytes")
+    private Long bytes;
+
+    @NotNull
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    @Transient
     private Room room;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id")
+    @Transient
     private Hotel hotel;
 
+    public Integer getId() {
+        return id == null ? null : id.hashCode();
+    }
+
+    public UUID getUuid() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id == null ? null : new UUID(0L, id.longValue());
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
 }

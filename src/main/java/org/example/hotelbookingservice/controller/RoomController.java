@@ -21,7 +21,6 @@ import java.util.List;
 import org.example.hotelbookingservice.api.RoomApi;
 
 @RestController
-@RequestMapping("/api/v1/rooms")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class RoomController implements RoomApi {
@@ -60,7 +59,7 @@ public class RoomController implements RoomApi {
     @Override
     public ApiResponse<List<RoomResponse>> getAvailableRooms(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate, @RequestParam(required = false) String roomType) {
         if (checkInDate == null || checkOutDate == null) {
-            return ApiResponse.<List<RoomResponse>>builder().status(400).message("Check-in and Check-out dates are required").build();
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Check-in and Check-out dates are required");
         }
         RoomType type = null;
         if (roomType != null && !roomType.isEmpty()) {

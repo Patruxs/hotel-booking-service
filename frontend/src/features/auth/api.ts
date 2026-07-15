@@ -16,29 +16,38 @@ type TokenResponse = {
   tokenType: string;
 };
 
-export const authApi: any = {
+function toRegisterRequest(body: any) {
+  return {
+    ...body,
+    fullName: body.fullName ?? [body.firstName, body.lastName].filter(Boolean).join(" "),
+  };
+}
+
+export const authApi = {
   login: async (body: { email: string; password: string }): Promise<LoginSession> => {
-    const session = await mockOrRequest(mockLogin(), () => api.post("/auth/login", body));
+    const session = await mockOrRequest<LoginSession | TokenResponse>(mockLogin(), () => api.post("/auth/login", body));
     if ("user" in session) {
+      setAuthTokens(session.accessToken);
       return session as LoginSession;
     }
-    const raw = session as unknown as TokenResponse | { token: string; role?: string };
-    const accessToken = "accessToken" in raw ? raw.accessToken : raw.token;
-    setAuthTokens(accessToken);
+    setAuthTokens(session.accessToken);
     return {
-      accessToken,
-      user: await authApi.me(accessToken, body.email, "role" in raw ? raw.role : undefined),
+      accessToken: session.accessToken,
+      user: await authApi.me(),
     };
   },
   logout: () => mockOrRequest({ ok: true }, () => api.post("/auth/logout")),
-  register: (body: unknown) => mockOrRequest({ ok: true }, () => api.post("/auth/register", body)),
+  register: (body: unknown) => mockOrRequest({ ok: true }, () => api.post("/auth/register", toRegisterRequest(body))),
   forgotPassword: (body: { email: string }) => mockOrRequest({ ok: true }, () => api.post("/auth/forgot-password", body)),
   resetPassword: (body: unknown) => mockOrRequest({ ok: true }, () => api.post("/auth/reset-password", body)),
   verifyEmail: (body: { token: string }) => mockOrRequest({ ok: true }, () => api.post("/auth/verify-email", body)),
   resend: (body: { email: string }) => mockOrRequest({ ok: true }, () => api.post("/auth/resend", body)),
   refresh: () => mockOrRequest({ accessToken: "mock-access-token", jti: "mock", tokenType: "Bearer" }, () => api.post("/auth/refresh")),
   me: (_accessToken?: string, fallbackEmail?: string, fallbackRole?: string): Promise<User> =>
-    mockOrRequest<User>(toUser({ email: fallbackEmail }, fallbackRole), () => api.get("/users/me")),
+    mockOrRequest<User>(toUser({ email: fallbackEmail }, fallbackRole), () => api.get("/users/me").then((response) => ({
+      ...response,
+      data: toUser(response.data?.data ?? response.data),
+    }))),
 };
 
 export const login = (body: { email: string; password: string }) => authApi.login(body);

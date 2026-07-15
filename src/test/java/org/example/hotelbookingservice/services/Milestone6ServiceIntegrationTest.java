@@ -1,13 +1,16 @@
-package org.example.hotelbookingservice.services;
+package org.example.hotelbookingservice.services.impl;
 
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.BannerMutationRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.CommissionPackageRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.ContactCreateRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.ContactUpdateRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.NewsMutationRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.PolicyMutationRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.ReviewModerationRequest;
-import org.example.hotelbookingservice.dto.operations.Milestone6Dtos.ReviewRequest;
+import org.example.hotelbookingservice.config.UploadProperties;
+import org.example.hotelbookingservice.services.IFileStorageService;
+
+import org.example.hotelbookingservice.dto.request.content.BannerMutationRequest;
+import org.example.hotelbookingservice.dto.request.content.CommissionPackageRequest;
+import org.example.hotelbookingservice.dto.request.content.ContactCreateRequest;
+import org.example.hotelbookingservice.dto.request.content.ContactUpdateRequest;
+import org.example.hotelbookingservice.dto.request.content.NewsMutationRequest;
+import org.example.hotelbookingservice.dto.request.content.PolicyMutationRequest;
+import org.example.hotelbookingservice.dto.request.review.ReviewModerationRequest;
+import org.example.hotelbookingservice.dto.request.review.ReviewRequest;
 import org.example.hotelbookingservice.security.AccountAuthUser;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
@@ -20,7 +23,6 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -36,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
-class Milestone6ServiceIntegrationTest {
+class Milestone6SplitServicesIntegrationTest {
     private static final UUID ADMIN_ID = UUID.fromString("40000000-0000-4000-8000-000000000001");
     private static final UUID OWNER_ID = UUID.fromString("40000000-0000-4000-8000-000000000002");
     private static final UUID CUSTOMER_ID = UUID.fromString("40000000-0000-4000-8000-000000000003");
@@ -52,7 +54,10 @@ class Milestone6ServiceIntegrationTest {
             .withPassword("test");
 
     static JdbcTemplate jdbc;
-    static Milestone6Service service;
+    static MediaServiceImpl mediaService;
+    static ReviewOperationsServiceImpl reviewService;
+    static ContentServiceImpl contentService;
+    static DashboardServiceImpl dashboardService;
 
     @BeforeAll
     static void migrate() {
@@ -68,9 +73,13 @@ class Milestone6ServiceIntegrationTest {
                 postgres.getPassword()
         );
         jdbc = new JdbcTemplate(dataSource);
-        service = new Milestone6Service(new NamedParameterJdbcTemplate(dataSource), new StubFileStorageService());
-        ReflectionTestUtils.setField(service, "uploadMode", "LOCAL");
-        ReflectionTestUtils.setField(service, "maxImageCount", 12);
+        NamedParameterJdbcTemplate namedJdbc = new NamedParameterJdbcTemplate(dataSource);
+        StubFileStorageService storageService = new StubFileStorageService();
+        UploadProperties uploadProperties = new UploadProperties(null, 12);
+        mediaService = new MediaServiceImpl(namedJdbc, storageService, uploadProperties);
+        reviewService = new ReviewOperationsServiceImpl(namedJdbc, storageService, uploadProperties);
+        contentService = new ContentServiceImpl(namedJdbc, storageService, uploadProperties);
+        dashboardService = new DashboardServiceImpl(namedJdbc, storageService, uploadProperties);
     }
 
     @BeforeEach
@@ -113,76 +122,111 @@ class Milestone6ServiceIntegrationTest {
         insertCompletedBooking();
     }
 
-    @Test
-    void uploadsGallerySnapshotsAndReviewsEnforceOwnershipAndVisibility() {
-        var image = service.upload(imageFile("hotel.png"), ownerAuth());
-        var folder = service.createGalleryFolder("hotel-gallery", ownerAuth());
-        var uploaded = service.uploadGalleryImages(folder.folderName(), List.of(imageFile("gallery.png")), ownerAuth());
+      @Test
+      void reviewEligibility_whenCompletedStayIsUnreviewed_returnsBookingUntilReviewCreated() {
+          var eligible = reviewService.reviewEligibility(HOTEL_ID, customerAuth());
+
+          assertThat(eligible.canReview()).isTrue();
+          assertThat(eligible.bookingId()).isEqualTo(BOOKING_ID);
+          assertThat(eligible.reason()).isEqualTo("ELIGIBLE");
+
+          reviewService.createReview(
+                  HOTEL_ID,
+                  new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(5), "Excellent stay", List.of()),
+                  customerAuth()
+          );
+
+          var reviewed = reviewService.reviewEligibility(HOTEL_ID, customerAuth());
+          assertThat(reviewed.canReview()).isFalse();
+          assertThat(reviewed.bookingId()).isNull();
+          assertThat(reviewed.reason()).isEqualTo("ALL_STAYS_REVIEWED");
+      }
+
+      @Test
+      void uploadsGallerySnapshotsAndReviewsEnforceOwnershipAndVisibility() {
+        var image = mediaService.upload(imageFile("hotel.png"), ownerAuth());
+        var folder = mediaService.createGalleryFolder("hotel-gallery", ownerAuth());
+        var uploaded = mediaService.uploadGalleryImages(folder.folderName(), List.of(imageFile("gallery.png")), ownerAuth());
 
         assertThat(image.provider()).isEqualTo("LOCAL");
         assertThat(image.url()).startsWith("/api/v1/uploads/local/");
-        assertThat(service.listGalleryImages(folder.id(), ownerAuth())).hasSize(1);
+        assertThat(mediaService.listGalleryImages(folder.id(), ownerAuth())).hasSize(1);
 
-        assertThatThrownBy(() -> service.replaceHotelImages(HOTEL_ID, List.of(uploaded.getFirst().id()), outsiderAuth()))
+        assertThatThrownBy(() -> mediaService.replaceHotelImages(HOTEL_ID, List.of(uploaded.getFirst().id()), outsiderAuth()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("403 FORBIDDEN");
 
-        assertThat(service.replaceHotelImages(HOTEL_ID, List.of(uploaded.getFirst().id()), ownerAuth()))
+        assertThat(mediaService.replaceHotelImages(HOTEL_ID, List.of(uploaded.getFirst().id()), ownerAuth()))
                 .extracting(snapshot -> snapshot.sortOrder())
                 .containsExactly(0);
-        assertThat(service.replaceRoomTypeImages(HOTEL_ID, ROOM_TYPE_ID, List.of(uploaded.getFirst().id()), ownerAuth()))
+        assertThat(mediaService.replaceRoomTypeImages(HOTEL_ID, ROOM_TYPE_ID, List.of(uploaded.getFirst().id()), ownerAuth()))
                 .hasSize(1);
 
-        var customerImage = service.upload(imageFile("review.png"), customerAuth());
-        var review = service.createReview(HOTEL_ID, new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(4.5), "Great stay", List.of(customerImage.id())), customerAuth());
+        var customerImage = mediaService.upload(imageFile("review.png"), customerAuth());
+        var review = reviewService.createReview(HOTEL_ID, new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(4.5), "Great stay", List.of(customerImage.id())), customerAuth());
         assertThat(review.images()).hasSize(1);
-        assertThat(service.visibleRatingSummary(HOTEL_ID).reviewCount()).isEqualTo(1);
-        assertThatThrownBy(() -> service.createReview(HOTEL_ID, new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(5), "Again", List.of()), customerAuth()))
+        assertThat(reviewService.visibleRatingSummary(HOTEL_ID).reviewCount()).isEqualTo(1);
+        assertThatThrownBy(() -> reviewService.createReview(HOTEL_ID, new ReviewRequest(BOOKING_ID, BigDecimal.valueOf(5), "Again", List.of()), customerAuth()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("This booking has already been reviewed");
 
-        service.moderateReview(HOTEL_ID, review.id(), new ReviewModerationRequest(false), ownerAuth());
-        assertThat(service.listPublicReviews(HOTEL_ID, 1, 10).data()).isEmpty();
-        assertThat(service.listModerationReviews(HOTEL_ID, 1, 10, ownerAuth()).data()).hasSize(1);
-    }
+          reviewService.moderateReview(HOTEL_ID, review.id(), new ReviewModerationRequest(false), ownerAuth());
+          assertThat(reviewService.listPublicReviews(HOTEL_ID, 1, 10).data()).isEmpty();
+          assertThat(reviewService.listModerationReviews(HOTEL_ID, 1, 10, ownerAuth()).data()).hasSize(1);
+          reviewService.deleteReview(HOTEL_ID, review.id(), ownerAuth());
+          assertThat(reviewService.listModerationReviews(HOTEL_ID, 1, 10, ownerAuth()).data()).isEmpty();
+      }
 
     @Test
     void contentContactsNotificationsReportsCommissionsAndPoliciesWorkTogether() {
-        var image = service.upload(imageFile("content.png"), adminAuth());
+        var image = mediaService.upload(imageFile("content.png"), adminAuth());
 
-        var news = service.createNews(new NewsMutationRequest("Launch News", "Summary", "Body", "PUBLISHED", List.of(image.id())), adminAuth());
+        var news = contentService.createNews(new NewsMutationRequest("Launch News", "Summary", "Body", "PUBLISHED", List.of(image.id())), adminAuth());
         assertThat(news.slug()).isEqualTo("launch-news");
-        assertThat(service.listNewsPublic(null, 1, 10).data()).extracting(item -> item.id()).contains(news.id());
+        assertThat(contentService.listNewsPublic(null, 1, 10).data()).extracting(item -> item.id()).contains(news.id());
 
-        var banner = service.createBanner(new BannerMutationRequest(
+        var ownerNews = contentService.createNews(new NewsMutationRequest("Owner News", "Summary", "Body", "DRAFT", List.of()), ownerAuth());
+        assertThat(contentService.listNewsAdmin("DRAFT", null, 1, 10, ownerAuth()).data())
+                .extracting(item -> item.id()).contains(ownerNews.id());
+        assertThat(contentService.updateNews(ownerNews.id(), new NewsMutationRequest(null, "Updated", null, "PUBLISHED", null), ownerAuth()).status())
+                .isEqualTo("PUBLISHED");
+        contentService.deleteNews(ownerNews.id(), ownerAuth());
+        assertThatThrownBy(() -> contentService.newsDetailAdmin(ownerNews.id(), ownerAuth()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("News not found");
+
+        var banner = contentService.createBanner(new BannerMutationRequest(
                 "Hero", "Subtitle", "/hotels/" + HOTEL_ID, "HOTEL", 1, true, null, null, List.of(image.id()), null
         ), adminAuth());
-        assertThat(service.listPublicBanners()).extracting(item -> item.id()).contains(banner.id());
-        assertThatThrownBy(() -> service.createBanner(new BannerMutationRequest(
+        assertThat(contentService.listPublicBanners()).extracting(item -> item.id()).contains(banner.id());
+        assertThatThrownBy(() -> contentService.createBanner(new BannerMutationRequest(
                 "Duplicate", null, "#hotels", "URL", 1, true, null, null, List.of(image.id()), null
         ), adminAuth())).isInstanceOf(ResponseStatusException.class).hasMessageContaining("Banner position already exists");
 
-        var contact = service.createContact(new ContactCreateRequest("Guest", "guest@example.com", null, "Help", "Need support"), "127.0.0.1", "JUnit", null);
+        var contact = contentService.createContact(new ContactCreateRequest("Guest", "guest@example.com", null, "Help", "Need support"), "127.0.0.1", "JUnit", null);
         assertThat(contact.ok()).isTrue();
-        assertThat(service.listNotifications(1, 10, adminAuth()).data()).hasSize(1);
-        service.updateContact(contact.id(), new ContactUpdateRequest("IN_PROGRESS", ADMIN_ID, "Handling"), adminAuth());
+        assertThat(contentService.listNotifications(1, 10, adminAuth()).data()).hasSize(1);
+        contentService.updateContact(contact.id(), new ContactUpdateRequest("IN_PROGRESS", ADMIN_ID, "Handling"), adminAuth());
 
-        assertThat(service.dashboardStats(null, adminAuth()).revenue()).isEqualByComparingTo("1000.00");
+        assertThat(dashboardService.dashboardStats(null, adminAuth()).revenue()).isEqualByComparingTo("1000.00");
 
-        var commission = service.createCommissionPackage(new CommissionPackageRequest("demo", "Demo", "Demo package", BigDecimal.valueOf(0.12), true), adminAuth());
-        assertThatThrownBy(() -> service.updateCommissionPackage(commission.id(), new CommissionPackageRequest("other", "Demo", null, null, true), adminAuth()))
+        var commission = contentService.createCommissionPackage(new CommissionPackageRequest("demo", "Demo", "Demo package", BigDecimal.valueOf(0.12), true), adminAuth());
+        assertThatThrownBy(() -> contentService.updateCommissionPackage(commission.id(), new CommissionPackageRequest("other", "Demo", null, null, true), adminAuth()))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("immutable");
-        assertThat(service.assignCommissionPackage(HOTEL_ID, commission.id(), adminAuth()).packageCode()).isEqualTo("DEMO");
+        assertThat(contentService.assignCommissionPackage(HOTEL_ID, commission.id(), adminAuth()).packageCode()).isEqualTo("DEMO");
 
-        var policy = service.createPolicy(HOTEL_ID, new PolicyMutationRequest("CHECKIN", "Check-in", "From 14:00", true, 1), ownerAuth());
-        assertThat(policy.type()).isEqualTo("CHECKIN");
-        assertThatThrownBy(() -> service.createPolicy(HOTEL_ID, new PolicyMutationRequest("PAYMENT", "Payment", "Pay now", true, 1), ownerAuth()))
-                .isInstanceOf(ResponseStatusException.class)
-                .hasMessageContaining("Order 1 is already taken in this hotel");
-        assertThat(service.deletePolicy(HOTEL_ID, policy.id(), ownerAuth()).deletedAt()).isNull();
-        assertThat(service.createPolicy(HOTEL_ID, new PolicyMutationRequest("CHECKIN", "Check-in again", "From 15:00", true, 1), ownerAuth()).id())
-                .isNotEqualTo(policy.id());
+          assertThatThrownBy(() -> contentService.listPoliciesAdmin(HOTEL_ID, ownerAuth()))
+                  .isInstanceOf(ResponseStatusException.class)
+                  .hasMessageContaining("403 FORBIDDEN");
+          var policy = contentService.createPolicy(HOTEL_ID, new PolicyMutationRequest("CHECKIN", "Check-in", "From 14:00", true, 1), adminAuth());
+          assertThat(policy.type()).isEqualTo("CHECKIN");
+          assertThatThrownBy(() -> contentService.createPolicy(HOTEL_ID, new PolicyMutationRequest("PAYMENT", "Payment", "Pay now", true, 1), adminAuth()))
+                  .isInstanceOf(ResponseStatusException.class)
+                  .hasMessageContaining("Order 1 is already taken in this hotel");
+          assertThat(contentService.deletePolicy(HOTEL_ID, policy.id(), adminAuth()).deletedAt()).isNull();
+          assertThat(contentService.createPolicy(HOTEL_ID, new PolicyMutationRequest("CHECKIN", "Check-in again", "From 15:00", true, 1), adminAuth()).id())
+                  .isNotEqualTo(policy.id());
     }
 
     private void insertAccount(UUID id, String email) {

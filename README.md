@@ -328,9 +328,24 @@ npm run swagger:check
 | Role | Email | Password |
 |------|-------|----------|
 | **Admin** | `admin@gmail.com` | `admin123` |
+| **Owner** | `owner@demo.local` | `owner123` |
+| **Manager** | `manager@demo.local` | `staff123` |
+| **Receptionist** | `receptionist@demo.local` | `staff123` |
 | **Customer** | `customer@gmail.com` | `customer123` |
 
 > **⚠️ Important**: Change these passwords in production!
+
+> **🔐 Admin access**: The `Admin` role is a platform-wide override — an account holding `ADMIN` is authorized for every guarded action and permission across all hotels, regardless of hotel membership, ownership, or per-permission grants. Keep assignment of the `ADMIN` role tightly controlled.
+
+> **🏨 Owner access**: The `OWNER` role is hotel-scoped. The demo owner can manage the seeded hotels assigned to `owner@demo.local`, while cross-hotel operations and platform security administration remain forbidden.
+
+The OWNER management shell now exposes Hotels, Members, Room Types, Rooms,
+Inventory, Bookings, Amenities, News, and hotel-scoped Reviews. Inventory
+deletion is intentionally limited to future records with no reserved or
+consumed capacity. Amenities and News are the only global OWNER exceptions;
+users, roles, permissions, API actions, contacts, banners, policies,
+promotions, commissions, settings, and other platform modules remain ADMIN-only.
+Existing deployments must apply Flyway migration `V4_14__enable_owner_admin_operations.sql`.
 
 ## 📁 Project Structure
 

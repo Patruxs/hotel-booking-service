@@ -17,7 +17,7 @@ import { X, ImagePlus, Calendar as CalendarIcon } from 'lucide-react';
 import GalleryImagesDialog from '@/components/common/GalleryImagesDialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 interface EditBannerDialogProps {
   open: boolean;
@@ -58,6 +58,7 @@ export function EditBannerDialog({ open, onOpenChange, banner }: EditBannerDialo
   }, [banner, reset]);
   const startAt = watch('startAt');
   const endAt = watch('endAt');
+  const today = startOfDay(new Date());
   const onSubmit = async (data: UpdateBannerFormData) => {
     if (!banner) return;
     try {
@@ -240,6 +241,7 @@ export function EditBannerDialog({ open, onOpenChange, banner }: EditBannerDialo
                       mode="single"
                       selected={startAt ? new Date(startAt) : undefined}
                       onSelect={(date) => setValue('startAt', date ? date.toISOString() : '')}
+                      disabled={{ before: today }}
                       initialFocus
                     />
                   </PopoverContent>

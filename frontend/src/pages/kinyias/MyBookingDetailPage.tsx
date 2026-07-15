@@ -33,6 +33,7 @@ import { ConfirmDialog } from "@/components/common/CofirmDialog";
 import { useMyBookingByIdQuery } from "@/features/bookings/queries";
 import { useCancelMyBookingMutation, useCreatePaymentMutation } from "@/features/bookings/mutations";
 import { formatCurrency } from "@/utils/currency";
+import { VNPAY_ENABLED } from "@/constants";
 export default function MyBookingDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -235,7 +236,7 @@ export default function MyBookingDetailPage() {
                                        </div>
                                    </div>
                                ))}
-                                {booking.status === 'PENDING' && !booking.payments.some((p: any) => p.status === 'SUCCEEDED') && (
+                                  {VNPAY_ENABLED && booking.status === 'PENDING' && !booking.payments.some((p: any) => p.status === 'SUCCEEDED') && (
                                      <div className="pt-2">
                                          <Button className="w-full" onClick={handleCreatePayment} disabled={isCreatingPayment}>
                                              {isCreatingPayment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -247,15 +248,15 @@ export default function MyBookingDetailPage() {
                       ) : (
                           <div className="text-center py-4 text-gray-500 flex flex-col items-center gap-3">
                               <p>No payment records found</p>
-                              {booking.status === 'PENDING' && (
+                                {VNPAY_ENABLED && booking.status === 'PENDING' && (
                                   <Button onClick={handleCreatePayment} disabled={isCreatingPayment}>
                                        {isCreatingPayment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                       Pay Online (VNPAY)
                                   </Button>
-                              )}
-                          </div>
-                      )}
-                  </CardContent>
+                        )}
+                            </div>
+                        )}
+                    </CardContent>
               </Card>
           </div>
           {}

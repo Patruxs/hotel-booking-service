@@ -53,7 +53,7 @@ public class SecurityFilter {
                                 "/actuator/prometheus"
                         ).permitAll()
 
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**", "/error").permitAll()
 
                         .requestMatchers(
                                 "/api/v1/payments/vnpay/return",

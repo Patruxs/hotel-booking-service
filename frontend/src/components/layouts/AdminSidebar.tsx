@@ -1,9 +1,8 @@
 'use client';
-import { BedSingle, CirclePercent, Contact, FileText, Hotel, Layers, Receipt, Scale, Settings, Sparkles, Star, Tags } from 'lucide-react';
+  import { BedSingle, DoorOpen, Hotel, Receipt, Newspaper, Star, Mail, Settings, Coffee } from 'lucide-react';
 import {
   ChevronDown,
   Home,
-  Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePathname } from '@/hooks/navigation';
@@ -28,123 +27,93 @@ import {
 } from '@/components/ui/sidebar';
 import { ROUTES } from '@/constants';
 import { usePermission } from '@/providers/PermissionProvider';
-interface NavItem {
+import { filterSidebarMenu } from '@/components/layouts/adminSidebarAccess';
+import type { PermissionRequirement } from '@/providers/permissionAccess';
+
+interface NavItem extends PermissionRequirement {
   title: string;
   href: string;
   icon: React.ElementType;
   submenu?: SubMenuItem[];
-  action: string;
 }
-interface SubMenuItem {
+
+interface SubMenuItem extends PermissionRequirement {
   title: string;
   href: string;
-  action: string;
 }
+
 export const navItems: NavItem[] = [
   {
     title: 'Dashboard',
     href: ROUTES.ADMIN_DASHBOARD,
     icon: Home,
-    action: "dashboard.read",
+      requiredActions: ["reports.hotel.view"],
   },
   {
     title: 'Hotel',
     href: ROUTES.ADMIN_HOTELS,
     icon: Hotel,
-    action: "hotels.admin.list",
+    requiredActions: ["hotels.manage"],
     submenu: [
-      { title: 'Hotels', href: ROUTES.ADMIN_HOTELS, action: "hotels.admin.list" },
-      { title: 'Members', href: ROUTES.ADMIN_MEMBER_HOTELS, action: "hotels.admin.list" },
-      { title: 'Inventory', href: ROUTES.ADMIN_INVENTORY, action: "inventories.list" },
-    ]
+      { title: 'Hotels', href: ROUTES.ADMIN_HOTELS, requiredActions: ["hotels.manage"] },
+      { title: 'Members', href: ROUTES.ADMIN_MEMBER_HOTELS, requiredRoles: ["ADMIN", "OWNER"] },
+      { title: 'Inventory', href: ROUTES.ADMIN_INVENTORY, requiredRoles: ["ADMIN", "OWNER"] },
+    ],
   },
-  {
-    title: "Room types",
+    {
+      title: "Room types",
     href: ROUTES.ADMIN_ROOM_TYPES,
     icon: BedSingle,
-    action: "room-types.list",
-  },
-  {
-    title: 'Amenities',
-    href: ROUTES.ADMIN_AMENITIES,
-    icon: Sparkles,
-    action: "amenities.list",
-  },
+    requiredRoles: ["ADMIN", "OWNER"],
+    },
+    {
+      title: "Rooms",
+      href: ROUTES.ADMIN_ROOMS,
+      icon: DoorOpen,
+      requiredActions: ["rooms.view"],
+    },
   {
     title: 'Bookings',
     href: ROUTES.ADMIN_BOOKINGS,
     icon: Receipt,
-    action: "bookings.list",
+    requiredActions: ["bookings.list.hotel"],
   },
   {
     title: 'News',
     href: ROUTES.ADMIN_NEWS,
-    icon: FileText,
-    action: "news.read",
+    icon: Newspaper,
+    requiredRoles: ["ADMIN", "OWNER"],
   },
   {
     title: 'Reviews',
     href: ROUTES.ADMIN_REVIEWS,
     icon: Star,
-    action: "reviews.moderate",
+    requiredActions: ["reviews.manage"],
   },
   {
-    title: 'Promotions',
-    href: ROUTES.ADMIN_PROMOTIONS,
-    icon: Tags,
-    action: "promotions.list",
-  },
-  {
-    title: 'Commissions',
-    href: ROUTES.ADMIN_COMMISSIONS,
-    icon: CirclePercent,
-    action: "commission-packages.list",
-  },
-  {
-    title: 'Users',
-    href: ROUTES.ADMIN_USERS,
-    icon: Users,
-    action: "users.list",
-    submenu: [
-      { title: 'Users', href: ROUTES.ADMIN_USERS, action: "users.list" },
-      { title: 'Roles', href: ROUTES.ADMIN_ROLES, action: "roles.list" },
-      { title: 'Permissions', href: ROUTES.ADMIN_PERMISSIONS, action: "permissions.list" },
-      { title: 'Actions', href: ROUTES.ADMIN_ACTIONS, action: "actions.list" },
-    ]
-  },
-  {
-    title: "Contacts",
+    title: 'Contacts',
     href: ROUTES.ADMIN_CONTACTS,
-    icon: Contact,
-    action: "contacts.read",
+    icon: Mail,
+    requiredRoles: ["ADMIN"],
   },
   {
-    title: "Policies",
-    href: ROUTES.ADMIN_POLICIES,
-    icon: Scale,
-    action: "policies.read",
+    title: 'Amenities',
+    href: ROUTES.ADMIN_AMENITIES,
+    icon: Coffee,
+    requiredRoles: ["ADMIN", "OWNER", "MANAGER"],
   },
   {
     title: 'Settings',
     href: ROUTES.ADMIN_SETTINGS,
     icon: Settings,
-    action: "banners.read",
+    requiredRoles: ["ADMIN"],
   },
 ];
+
 export default function AdminSidebar() {
   const pathname = usePathname();
-  const { can } = usePermission();
-  function filterMenu(menu: NavItem[], can: (action: string) => boolean): NavItem[] {
-    return menu
-      .filter((item: any) => !item.action || can(item.action))
-      .map((item: any) => ({
-        ...item,
-        submenu: item.submenu
-          ? item.submenu.filter((subItem: any) => !subItem.action || can(subItem.action))
-          : undefined,
-      }));
-  }
-  const filteredMenu = filterMenu(navItems, can);
+  const { canAccess } = usePermission();
+  const filteredMenu = filterSidebarMenu(navItems, canAccess);
   return (
     <Sidebar collapsible="icon" className="h-screen">
       <SidebarHeader>
@@ -158,7 +127,7 @@ export default function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {filteredMenu.map((item: any) => {
+                {filteredMenu.map((item) => {
                 const isActive =
                   pathname === item.href ||
                   pathname?.startsWith(item.href + '/');
@@ -178,7 +147,7 @@ export default function AdminSidebar() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            {item.submenu.map((subItem: any) => (
+                              {item.submenu.map((subItem) => (
                               <SidebarMenuSubItem key={subItem.title}>
                                 <SidebarMenuSubButton
                                   asChild

@@ -1,5 +1,5 @@
-'use client';
-import React, { useEffect, useState } from 'react';
+"use client";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,25 +7,25 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { User } from '../types';
-import { userFormSchema, UserFormValues } from '../validator';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+} from "@/components/ui/dialog";
+import { User } from "../types";
+import { adminUserFormSchema, AdminUserFormValues } from "../validator";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Form,
   FormControl,
   FormField,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 interface UserEditFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user?: User | null;
-  onSubmit: (data: UserFormValues) => Promise<void>;
+  onSubmit: (data: AdminUserFormValues) => Promise<void>;
 }
 function UserEditFormDialog({
   open,
@@ -34,27 +34,27 @@ function UserEditFormDialog({
   onSubmit,
 }: UserEditFormDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm<UserFormValues>({
-    resolver: zodResolver(userFormSchema),
+  const form = useForm<AdminUserFormValues>({
+    resolver: zodResolver(adminUserFormSchema),
     defaultValues: {
-      firstName: user?.firstName || '',
-      lastName: user?.lastName || '',
+      firstName: user?.firstName || "",
+      lastName: user?.lastName || "",
     },
   });
   useEffect(() => {
     if (user) {
       form.reset({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
       });
     } else {
       form.reset({
-        firstName: '',
-        lastName: '',
+        firstName: "",
+        lastName: "",
       });
     }
   }, [user, form]);
-  const handleSubmit = async (data: UserFormValues) => {
+  const handleSubmit = async (data: AdminUserFormValues) => {
     try {
       setIsSubmitting(true);
       await onSubmit(data);
@@ -62,13 +62,13 @@ function UserEditFormDialog({
       setIsSubmitting(false);
     } catch (error) {
       setIsSubmitting(false);
-      console.error('Form submission error:', error);
+      console.error("Form submission error:", error);
     }
   };
-  const dialogTitle = user ? 'Edit User' : 'Add New User';
+  const dialogTitle = user ? "Edit User" : "Add New User";
   const dialogDescription = user
-    ? 'Make changes to the user information here.'
-    : 'Add a new user to the system.';
+    ? "Make changes to the user information here."
+    : "Add a new user to the system.";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -117,7 +117,7 @@ function UserEditFormDialog({
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Saving...' : user ? 'Update User' : 'Add User'}
+                {isSubmitting ? "Saving..." : user ? "Update User" : "Add User"}
               </Button>
             </DialogFooter>
           </form>

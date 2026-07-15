@@ -1,21 +1,21 @@
-'use client';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+"use client";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from '@/components/ui/carousel';
-import { Waves, Maximize2, Users } from 'lucide-react';
-import { AppImage as Image } from '@/components/AppImage';
-import { Link } from 'react-router-dom';
-import { useListAllRoomTypesQuery } from '@/features/room-types/queries';
-import PrimaryButton from '../shared/PrimaryButton';
-import { formatCurrency } from '@/utils/currency';
+} from "@/components/ui/carousel";
+import { Waves, Maximize2, Users } from "lucide-react";
+import { AppImage as Image } from "@/components/AppImage";
+import { Link } from "react-router-dom";
+import { useListAllRoomTypesQuery } from "@/features/room-types/queries";
+import PrimaryButton from "../shared/PrimaryButton";
+import { formatCurrency } from "@/utils/currency";
 const HotelCarousel = () => {
-  const { data: roomTypes } = useListAllRoomTypesQuery(3);
+  const { data: roomTypes } = useListAllRoomTypesQuery(10);
   return (
     <section className="py-16 md:py-24 bg-background">
       <div className="w-full">
@@ -34,7 +34,7 @@ const HotelCarousel = () => {
         </div>
         <Carousel
           opts={{
-            align: 'center',
+            align: "center",
             loop: true,
           }}
           className="w-full"
@@ -47,7 +47,7 @@ const HotelCarousel = () => {
               >
                 <div className="relative h-[500px] lg:h-[600px] w-full">
                   <Image
-                    src={room.images?.[0]?.url || '/images/hero-1.jpg'}
+                    src={room.images?.[0]?.url || "/images/hero-1.jpg"}
                     alt={room.name}
                     className="w-full h-full object-cover"
                     width={1024}
@@ -67,21 +67,23 @@ const HotelCarousel = () => {
                       {room.description}
                     </p>
                     <div className="flex flex-wrap items-center gap-4 mb-6 text-xs text-muted-foreground">
-                      {room.amenities?.slice(0, 3).map((item: any, index: any) => {
-                        return (
-                          <div
-                            key={index}
-                            className="flex items-center gap-1.5"
-                          >
-                           <Waves className="w-4 h-4" />
-                            <span>{item.amenity.label}</span>
-                          </div>
-                        );
-                      })}
+                      {room.amenities
+                        ?.slice(0, 3)
+                        .map((item: any, index: any) => {
+                          return (
+                            <div
+                              key={index}
+                              className="flex items-center gap-1.5"
+                            >
+                              <Waves className="w-4 h-4" />
+                              <span>{item.amenity.label}</span>
+                            </div>
+                          );
+                        })}
                     </div>
-                      <Link to={`/hotels/${room.hotelId}`}>
-                        <PrimaryButton>BOOK NOW</PrimaryButton>
-                      </Link>
+                    <Link to={`/hotels/${room.hotelId}`}>
+                      <PrimaryButton>BOOK NOW</PrimaryButton>
+                    </Link>
                   </Card>
                 </div>
               </CarouselItem>

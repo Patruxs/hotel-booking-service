@@ -16,6 +16,8 @@ export { default as AdminRoomTypesPage } from "./AdminRoomTypesPage";
 export { default as AdminHotelRoomTypesPage } from "./AdminHotelRoomTypesPage";
 export { default as AdminRoomTypeManagePage } from "./AdminRoomTypeManagePage";
 export { default as AdminRoomManagePage } from "./AdminRoomManagePage";
+export { default as AdminRoomsPage } from "./AdminRoomsPage";
+export { default as AdminHotelRoomsPage } from "./AdminHotelRoomsPage";
 export { default as AdminInventoryPage } from "./AdminInventoryPage";
 export { default as AdminNewsPage } from "./AdminNewsPage";
 export { default as AdminNewsDetailPage } from "./AdminNewsDetailPage";

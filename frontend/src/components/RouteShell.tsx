@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { CalendarCheck, LayoutDashboard, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/layouts/Header";
@@ -27,21 +27,19 @@ const adminLinks = [
   ["/admin/settings", "Settings"],
 ];
 
-const accountLinks = [
-  ["/me", "Profile"],
-  ["/me/my-bookings", "My bookings"],
-  ["/me/my-reviews", "My reviews"],
-];
+
 
 function navClass({ isActive }: { isActive: boolean }) {
   return cn("rounded-md px-3 py-2 text-sm font-medium hover:bg-muted", isActive && "bg-muted text-foreground");
 }
 
 export function PublicLayout() {
+  const location = useLocation();
+  const isHome = location.pathname === "/";
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Header />
-      <main className="pt-24 md:pt-0">
+      <main className={cn("flex-1", isHome ? "pt-24 md:pt-0" : "pt-24")}>
         <Outlet />
       </main>
       <Footer />

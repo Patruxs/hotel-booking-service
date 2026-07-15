@@ -15,7 +15,6 @@ import java.util.List;
 import org.example.hotelbookingservice.api.BookingApi;
 
 @RestController
-@RequestMapping("/api/v1/bookings")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class BookingController implements BookingApi {
@@ -28,7 +27,7 @@ public class BookingController implements BookingApi {
     }
 
     @Override
-    public ApiResponse<BookingResponse> createBooking(@RequestBody BookingCreateRequest bookingRequest) {
+    public ApiResponse<BookingResponse> createBooking(@RequestBody @Valid BookingCreateRequest bookingRequest) {
         return ApiResponse.<BookingResponse>builder().status(201).message("Booking successful").data(bookingService.createBooking(bookingRequest)).build();
     }
 

@@ -2,615 +2,682 @@ package org.example.hotelbookingservice.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.hotelbookingservice.entity.*;
-import org.example.hotelbookingservice.enums.BookingStatus;
-import org.example.hotelbookingservice.enums.RoomType;
-import org.example.hotelbookingservice.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
+/**
+ * Optional, repeatable data set for local feature demonstrations.
+ *
+ * <p>The fixture runs in local and development environments, or explicitly with
+ * {@code SPRING_PROFILES_ACTIVE=demo-seed}. It uses stable UUIDs and upserts, so
+ * it is safe to run repeatedly. It is deliberately not enabled in production profiles.</p>
+ */
 @Component
-@Profile("legacy-seed")
+@Profile("!legacy-demo-bootstrap & (local | dev | demo-seed)")
 @RequiredArgsConstructor
 @Slf4j
 public class DataSeeder implements CommandLineRunner {
 
-    private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
-    private final UserroleRepository userroleRepository;
+    private UUID adminId = id("0001");
+    private UUID ownerId = id("0002");
+    private UUID managerId = id("0003");
+    private UUID receptionistId = id("0004");
+    private UUID customerId = id("0005");
+    private UUID secondCustomerId = id("0006");
+
+    private static final UUID CITY_HOTEL_ID = id("0101");
+    private static final UUID BEACH_HOTEL_ID = id("0102");
+    private static final UUID HERITAGE_HOTEL_ID = id("0103");
+    private static final UUID GRAND_SAPPHIRE_HOTEL_ID = UUID.fromString("c0a8ae4a-cc3e-4af0-b336-c9bebc784f32");
+    private static final UUID URBAN_EDGE_HOTEL_ID = UUID.fromString("c1b392be-30e5-4c11-ac3c-c552a0974d8b");
+    private static final UUID MOUNTAIN_VIEW_LODGE_ID = UUID.fromString("6f3924c0-61c6-4c86-8bdc-b1f468e04468");
+    private static final UUID DELUXE_ROOM_TYPE_ID = id("0201");
+    private static final UUID SUITE_ROOM_TYPE_ID = id("0202");
+    private static final UUID BEACH_ROOM_TYPE_ID = id("0203");
+    private static final UUID ACTIVE_PROMOTION_ID = id("0301");
+    private static final UUID EXPIRED_PROMOTION_ID = id("0302");
+    private static final UUID STANDARD_PACKAGE_ID = UUID.fromString("00000000-0000-4004-8000-000000000001");
+    private static final UUID PREMIUM_PACKAGE_ID = UUID.fromString("00000000-0000-4004-8000-000000000002");
+    private static final List<String> ADDITIONAL_GALLERY_IMAGE_FILES = List.of(
+            "small_mark-champs-Id2IIl1jOB0-unsplash.jpg",
+            "small_mp-fV2dM2WvKvE-unsplash.jpg",
+            "small_mr-junaid--3ohj90OT8o-unsplash.jpg",
+            "small_natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg",
+            "small_orva-studio-YC8qqp50BdA-unsplash.jpg",
+            "small_oswald-elsaboath-ym_EI-DTS1g-unsplash.jpg",
+            "small_patrick-robert-doyle-AH8zKXqFITA-unsplash.jpg",
+            "small_point3d-commercial-imaging-ltd-oxeCZrodz78-unsplash.jpg",
+            "small_reagan-m-d-eWGvLCZfQ-unsplash.jpg",
+            "small_rktkn-ssOtyGE8CyE-unsplash.jpg",
+            "small_sara-dubler-Koei_7yYtIo-unsplash.jpg",
+            "small_sasha-kaunas-67-sOi7mVIk-unsplash (1).jpg",
+            "small_sasha-kaunas-67-sOi7mVIk-unsplash.jpg",
+            "small_sasha-kaunas-TAgGZWz6Qg8-unsplash.jpg",
+            "small_valeriia-bugaiova-_pPHgeHz1uk-unsplash.jpg",
+            "small_vojtech-bruzek-Yrxr3bsPdS0-unsplash.jpg"
+    );
+
+    private final NamedParameterJdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
-    private final HotelRepository hotelRepository;
-    private final AmenityRepository amenityRepository;
-    private final HotelamenityRepository hotelamenityRepository;
-    private final RoomRepository roomRepository;
-    private final RoomamenityRepository roomamenityRepository;
-    private final ImageRepository imageRepository;
-    private final BookingRepository bookingRepository;
-    private final BookingRoomRepository bookingRoomRepository;
 
     @Override
     @Transactional
-    public void run(String... args) throws Exception {
-        if (roleRepository.count() > 0) {
-            log.info("Database already seeded. Skipping...");
-            return;
+    public void run(String... args) {
+        log.info("Seeding comprehensive local demo data");
+        seedAccountsAndRoles();
+        seedCommercialData();
+        seedHotelsAndInventory();
+        seedPromotions();
+        seedBookingsAndPayments();
+        seedMediaAndContent();
+        seedCustomerCommunication();
+        log.info("Local demo data is ready. Accounts: admin@gmail.com/admin123, owner@demo.local/owner123, customer@gmail.com/customer123");
+    }
+
+    private void seedAccountsAndRoles() {
+        adminId = upsertAccount(adminId, "admin@gmail.com", "Admin", "User", "0900000001", "admin123");
+        ownerId = upsertAccount(ownerId, "owner@demo.local", "Linh", "Nguyen", "0900000002", "owner123");
+        managerId = upsertAccount(managerId, "manager@demo.local", "Minh", "Tran", "0900000003", "staff123");
+        receptionistId = upsertAccount(receptionistId, "receptionist@demo.local", "An", "Le", "0900000004", "staff123");
+        customerId = upsertAccount(customerId, "customer@gmail.com", "Customer", "User", "0900000005", "customer123");
+        secondCustomerId = upsertAccount(secondCustomerId, "traveler@demo.local", "Mai", "Pham", "0900000006", "customer123");
+
+        assignRole(adminId, "ADMIN");
+        // Older local snapshots used the manager account for the owner fixture.
+        // Correct that deterministic fixture without changing unrelated accounts.
+        removeRole(ownerId, "MANAGER");
+        assignRole(ownerId, "OWNER");
+        assignRole(managerId, "MANAGER");
+        assignRole(receptionistId, "RECEPTIONIST");
+        assignRole(customerId, "CUSTOMER");
+        assignRole(secondCustomerId, "CUSTOMER");
+    }
+
+    private void seedCommercialData() {
+        upsertCommissionPackage(STANDARD_PACKAGE_ID, "STANDARD", "Standard Commission",
+                "Default commission package for demo hotels.", new BigDecimal("0.1000"));
+        upsertCommissionPackage(PREMIUM_PACKAGE_ID, "PREMIUM", "Premium Commission",
+                "Premium support and reporting package.", new BigDecimal("0.1500"));
+    }
+
+    private void seedHotelsAndInventory() {
+        upsertHotel(CITY_HOTEL_ID, ownerId, "Grand City Hotel", "grand-city-hotel",
+                "A modern city hotel with a rooftop pool and quick access to central Ho Chi Minh City.",
+                "1 Nguyen Hue, District 1", "Ho Chi Minh City", new BigDecimal("4.5"));
+        upsertHotel(BEACH_HOTEL_ID, ownerId, "Grand Beach Resort", "grand-beach-resort",
+                "A relaxed beach resort for couples and families, steps from My Khe Beach.",
+                "88 Vo Nguyen Giap", "Da Nang", new BigDecimal("4.8"));
+        upsertHotel(HERITAGE_HOTEL_ID, ownerId, "Grand Heritage House", "grand-heritage-house",
+                "A quiet boutique stay inspired by Hoi An's historic townhouses.",
+                "22 Tran Phu", "Hoi An", new BigDecimal("4.2"));
+
+        assignHotelPackage(CITY_HOTEL_ID, STANDARD_PACKAGE_ID);
+        assignHotelPackage(BEACH_HOTEL_ID, PREMIUM_PACKAGE_ID);
+        assignHotelPackage(HERITAGE_HOTEL_ID, STANDARD_PACKAGE_ID);
+        for (UUID hotelId : List.of(CITY_HOTEL_ID, BEACH_HOTEL_ID, HERITAGE_HOTEL_ID)) {
+            // NOTE: admin hotel membership is kept only for realistic demo data. Since
+            // grant-admin-full-access, ADMIN bypasses the fine-grained permission gates,
+            // so this membership row is no longer load-bearing for admin authorization.
+            addHotelMember(hotelId, adminId);
+            addHotelMember(hotelId, ownerId);
+            addHotelMember(hotelId, managerId);
+            addHotelMember(hotelId, receptionistId);
         }
 
-        log.info("=== Starting Database Seeding ===");
+        upsertAmenity("wifi", "Free Wi-Fi", "HOTEL_SERVICE");
+        upsertAmenity("pool", "Swimming pool", "HOTEL_SERVICE");
+        upsertAmenity("breakfast", "Breakfast included", "HOTEL_SERVICE");
+        upsertAmenity("parking", "Private parking", "HOTEL_SERVICE");
+        upsertAmenity("ocean-view", "Ocean view", "ROOM_FEATURE");
+        upsertAmenity("bathtub", "Bathtub", "ROOM_FEATURE");
+        upsertAmenity("balcony", "Private balcony", "ROOM_FEATURE");
 
-        // 1. Roles
-        Map<Integer, Role> roles = seedRoles();
+        upsertRoomType(DELUXE_ROOM_TYPE_ID, CITY_HOTEL_ID, "Deluxe City View", 1_200_000, 2, 1,
+                "A bright king room with city skyline views.");
+        upsertRoomType(SUITE_ROOM_TYPE_ID, CITY_HOTEL_ID, "Family Suite", 2_400_000, 4, 2,
+                "Two bedrooms, a living room, and space for the whole family.");
+        upsertRoomType(BEACH_ROOM_TYPE_ID, BEACH_HOTEL_ID, "Oceanfront Bungalow", 2_800_000, 3, 1,
+                "A private bungalow with a balcony overlooking the sea.");
 
-        // 2. Users
-        Map<Integer, User> users = seedUsers();
+        UUID STANDARD_ROOM_TYPE_ID = id("0204");
+        upsertRoomType(STANDARD_ROOM_TYPE_ID, CITY_HOTEL_ID, "Standard Double Room", 800_000, 2, 1,
+                "A cozy room for budget travelers.");
+        UUID PENTHOUSE_ROOM_TYPE_ID = id("0205");
+        upsertRoomType(PENTHOUSE_ROOM_TYPE_ID, CITY_HOTEL_ID, "Penthouse Suite", 5_000_000, 4, 2,
+                "Luxury suite on the top floor with panoramic views.");
+        UUID GARDEN_ROOM_TYPE_ID = id("0206");
+        upsertRoomType(GARDEN_ROOM_TYPE_ID, HERITAGE_HOTEL_ID, "Garden View Room", 1_500_000, 2, 1,
+                "Peaceful room overlooking the historic garden.");
+        UUID PREMIUM_VILLA_TYPE_ID = id("0207");
+        upsertRoomType(PREMIUM_VILLA_TYPE_ID, BEACH_HOTEL_ID, "Premium Beach Villa", 4_500_000, 6, 3,
+                "A spacious beachfront villa with a private pool and direct beach access.");
+        UUID EXECUTIVE_ROOM_TYPE_ID = id("0208");
+        upsertRoomType(EXECUTIVE_ROOM_TYPE_ID, CITY_HOTEL_ID, "Executive Club Room", 1_800_000, 2, 1,
+                "A high-floor executive room with club lounge access.");
 
-        // 3. User-Role assignments
-        seedUserRoles(users, roles);
+        addRoomAmenities(DELUXE_ROOM_TYPE_ID, List.of("wifi", "bathtub", "balcony"));
+        addRoomAmenities(SUITE_ROOM_TYPE_ID, List.of("wifi", "bathtub", "balcony"));
+        addRoomAmenities(BEACH_ROOM_TYPE_ID, List.of("wifi", "ocean-view", "balcony"));
+        addRoomAmenities(STANDARD_ROOM_TYPE_ID, List.of("wifi"));
+        addRoomAmenities(PENTHOUSE_ROOM_TYPE_ID, List.of("wifi", "bathtub", "balcony"));
+        addRoomAmenities(GARDEN_ROOM_TYPE_ID, List.of("wifi", "bathtub"));
+        addRoomAmenities(PREMIUM_VILLA_TYPE_ID, List.of("wifi", "ocean-view", "bathtub", "balcony"));
+        addRoomAmenities(EXECUTIVE_ROOM_TYPE_ID, List.of("wifi", "bathtub"));
 
-        // 4. Amenities
-        Map<Integer, Amenity> amenities = seedAmenities();
+        upsertPhysicalRoom(id("0501"), CITY_HOTEL_ID, DELUXE_ROOM_TYPE_ID, "C101", "CLEAN", true);
+        upsertPhysicalRoom(id("0502"), CITY_HOTEL_ID, DELUXE_ROOM_TYPE_ID, "C102", "DIRTY", true);
+        upsertPhysicalRoom(id("0503"), CITY_HOTEL_ID, SUITE_ROOM_TYPE_ID, "S201", "MAINTENANCE", false);
+        upsertPhysicalRoom(id("0504"), BEACH_HOTEL_ID, BEACH_ROOM_TYPE_ID, "B01", "CLEAN", true);
+        upsertPhysicalRoom(id("0505"), CITY_HOTEL_ID, STANDARD_ROOM_TYPE_ID, "S101", "CLEAN", true);
+        upsertPhysicalRoom(id("0506"), CITY_HOTEL_ID, STANDARD_ROOM_TYPE_ID, "S102", "CLEAN", true);
+        upsertPhysicalRoom(id("0507"), CITY_HOTEL_ID, PENTHOUSE_ROOM_TYPE_ID, "P901", "CLEAN", true);
+        upsertPhysicalRoom(id("0508"), HERITAGE_HOTEL_ID, GARDEN_ROOM_TYPE_ID, "G01", "CLEAN", true);
+        upsertPhysicalRoom(id("0509"), BEACH_HOTEL_ID, PREMIUM_VILLA_TYPE_ID, "B02", "CLEAN", true);
+        upsertPhysicalRoom(id("0510"), CITY_HOTEL_ID, EXECUTIVE_ROOM_TYPE_ID, "E801", "CLEAN", true);
 
-        // 5. Hotels
-        Map<Integer, Hotel> hotels = seedHotels(users);
-
-        // 6. Hotel-Amenity assignments
-        seedHotelAmenities(hotels, amenities);
-
-        // 7. Rooms
-        Map<Integer, Room> rooms = seedRooms(hotels);
-
-        // 8. Room-Amenity assignments
-        seedRoomAmenities(rooms, amenities);
-
-        // 9. Images (hotel + room)
-        seedImages(hotels, rooms);
-
-        // 10. Bookings
-        Map<Integer, Booking> bookings = seedBookings(users);
-
-        // 11. Booking-Room assignments
-        seedBookingRooms(bookings, rooms);
-
-        log.info("=== Database Seeding Completed Successfully ===");
+        seedInventory(CITY_HOTEL_ID, DELUXE_ROOM_TYPE_ID, 6, 5);
+        seedInventory(CITY_HOTEL_ID, SUITE_ROOM_TYPE_ID, 3, 2);
+        seedInventory(BEACH_HOTEL_ID, BEACH_ROOM_TYPE_ID, 4, 3);
+        seedInventory(CITY_HOTEL_ID, STANDARD_ROOM_TYPE_ID, 2, 2);
+        seedInventory(CITY_HOTEL_ID, PENTHOUSE_ROOM_TYPE_ID, 1, 1);
+        seedInventory(HERITAGE_HOTEL_ID, GARDEN_ROOM_TYPE_ID, 1, 1);
+        seedInventory(BEACH_HOTEL_ID, PREMIUM_VILLA_TYPE_ID, 2, 2);
+        seedInventory(CITY_HOTEL_ID, EXECUTIVE_ROOM_TYPE_ID, 4, 3);
     }
 
-    // ======================== 1. ROLES ========================
-    private Map<Integer, Role> seedRoles() {
-        Map<Integer, Role> map = new LinkedHashMap<>();
-
-        map.put(1, createRole(1, "CUSTOMER"));
-        map.put(2, createRole(2, "ADMIN"));
-        map.put(3, createRole(3, "RECEPTIONIST"));
-        map.put(4, createRole(4, "MANAGER"));
-
-        log.info("Seeded {} roles", map.size());
-        return map;
+    private void seedPromotions() {
+        upsertPromotion(ACTIVE_PROMOTION_ID, CITY_HOTEL_ID, "WELCOME15", "Welcome 15% Off", "PERCENT",
+                15, 500_000, 1_000_000, 100, 1, 8, true, "now() - interval '7 days'", "now() + interval '90 days'");
+        upsertPromotion(EXPIRED_PROMOTION_ID, BEACH_HOTEL_ID, "SUMMER2025", "Summer 2025", "FIXED",
+                300_000, null, 1_500_000, 50, 1, 50, false, "now() - interval '400 days'", "now() - interval '300 days'");
     }
 
-    private Role createRole(int id, String name) {
-        Role role = new Role();
-        role.setId(id);
-        role.setName(name);
-        return roleRepository.save(role);
-    }
-
-    // ======================== 2. USERS ========================
-    private Map<Integer, User> seedUsers() {
-        Map<Integer, User> map = new LinkedHashMap<>();
-
-        // User 1: Admin
-        map.put(1, createUser("Admin User", "admin@gmail.com", "admin123", "1234567890",
-                LocalDate.of(2000, 12, 3)));
-        // User 2: Customer
-        map.put(2, createUser("Customer User", "customer@gmail.com", "customer123", "0987654321",
-                LocalDate.of(2000, 12, 3)));
-        // User 3: Nguyen Van A
-        map.put(3, createUser("Nguyen Van A", "nguyenvana@gmail.com", "customer123", "0912345678",
-                LocalDate.of(1995, 5, 15)));
-        // User 4: Le Thi B
-        map.put(4, createUser("Le Thi B", "lethib@gmail.com", "customer123", "0987123456",
-                LocalDate.of(1998, 8, 20)));
-        // User 5: Tran Van Nam
-        map.put(5, createUser("Tran Van Nam", "tranam@gmail.com", "customer123", "0909123123",
-                LocalDate.of(1990, 2, 10)));
-        // User 6: Receptionist
-        map.put(6, createUser("Nguyen Thi Letan", "receptionist@hotel.com", "staff123", "0911222333",
-                LocalDate.of(1997, 3, 15)));
-        // User 7: Manager
-        map.put(7, createUser("Tran Van Quanly", "manager@hotel.com", "staff123", "0911444555",
-                LocalDate.of(1992, 7, 20)));
-
-        log.info("Seeded {} users", map.size());
-        return map;
-    }
-
-    private User createUser(String fullName, String email, String rawPassword, String phone, LocalDate dob) {
-        User user = User.builder()
-                .fullName(fullName)
-                .email(email)
-                .password(passwordEncoder.encode(rawPassword))
-                .phone(phone)
-                .dob(dob)
-                .activate(true)
-                .userRoles(new LinkedHashSet<>())
-                .build();
-        return userRepository.save(user);
-    }
-
-    // ======================== 3. USER-ROLE ========================
-    private void seedUserRoles(Map<Integer, User> users, Map<Integer, Role> roles) {
-        // SQL: (role_id, user_id) => (2,1),(1,2),(1,3),(1,4),(1,5),(3,6),(4,7)
-        assignUserRole(users.get(1), roles.get(2)); // Admin User -> ADMIN
-        assignUserRole(users.get(2), roles.get(1)); // Customer -> CUSTOMER
-        assignUserRole(users.get(3), roles.get(1)); // Nguyen Van A -> CUSTOMER
-        assignUserRole(users.get(4), roles.get(1)); // Le Thi B -> CUSTOMER
-        assignUserRole(users.get(5), roles.get(1)); // Tran Van Nam -> CUSTOMER
-        assignUserRole(users.get(6), roles.get(3)); // Nguyen Thi Letan -> RECEPTIONIST
-        assignUserRole(users.get(7), roles.get(4)); // Tran Van Quanly -> MANAGER
-
-        log.info("Seeded user-role assignments");
-    }
-
-    private void assignUserRole(User user, Role role) {
-        UserroleId id = new UserroleId();
-        id.setUserId(user.getId());
-        id.setRoleId(role.getId());
-
-        Userrole ur = new Userrole();
-        ur.setId(id);
-        ur.setUser(user);
-        ur.setRole(role);
-        userroleRepository.save(ur);
-    }
-
-    // ======================== 4. AMENITIES ========================
-    private Map<Integer, Amenity> seedAmenities() {
-        Map<Integer, Amenity> map = new LinkedHashMap<>();
-
-        // Hotel Services (1-7)
-        map.put(1, createAmenity("Free Wi-Fi", "Hotel Service"));
-        map.put(2, createAmenity("Swimming Pool", "Hotel Service"));
-        map.put(3, createAmenity("Fitness Center", "Hotel Service"));
-        map.put(4, createAmenity("Spa & Wellness", "Hotel Service"));
-        map.put(5, createAmenity("Parking", "Hotel Service"));
-        map.put(6, createAmenity("Restaurant", "Hotel Service"));
-        map.put(7, createAmenity("Bar", "Hotel Service"));
-
-        // Room Features (8-14)
-        map.put(8, createAmenity("Air Conditioning", "Room Feature"));
-        map.put(9, createAmenity("Flat-screen TV", "Room Feature"));
-        map.put(10, createAmenity("Minibar", "Room Feature"));
-        map.put(11, createAmenity("Balcony", "Room Feature"));
-        map.put(12, createAmenity("Private Bathroom", "Room Feature"));
-        map.put(13, createAmenity("Hairdryer", "Room Feature"));
-        map.put(14, createAmenity("Coffee Machine", "Room Feature"));
-
-        log.info("Seeded {} amenities", map.size());
-        return map;
-    }
-
-    private Amenity createAmenity(String name, String type) {
-        Amenity a = new Amenity();
-        a.setName(name);
-        a.setType(type);
-        return amenityRepository.save(a);
-    }
-
-    // ======================== 5. HOTELS ========================
-    private Map<Integer, Hotel> seedHotels(Map<Integer, User> users) {
-        Map<Integer, Hotel> map = new LinkedHashMap<>();
-        User admin = users.get(1);
-
-        // SQL columns: id, contactName, contactPhone, description, email, isActive,
-        // location, name, phone, starRating, UserId
-        map.put(1, createHotel("Luxury Hotel", "Ho Chi Minh City",
-                "A 5-star luxury hotel in the heart of the city.", 5,
-                "contact@example.com", "0909000999", "Manager", "0909000888", admin));
-
-        map.put(2, createHotel("Hanoi Old Quarter Hotel", "Ha Noi",
-                "Khách sạn phố cổ cổ kính.", 4,
-                "hanoios@example.com", "02439998888", "Tran Hanoi", "0912000111", admin));
-
-        map.put(3, createHotel("Danang Beach Resort", "Da Nang",
-                "Resort ven biển Mỹ Khê.", 5,
-                "danangbeach@example.com", "02363777666", "Le Da Nang", "0912000222", admin));
-
-        map.put(4, createHotel("Hue Heritage Hotel", "Thua Thien Hue",
-                "Khách sạn kiến trúc cung đình độc đáo.", 4,
-                "info@hueheritage.com", "02343888777", "Nguyen Hue", "0912345678", admin));
-
-        map.put(5, createHotel("Dalat Misty Resort", "Da Lat",
-                "Resort nằm giữa đồi thông thơ mộng.", 5,
-                "contact@dalatmisty.com", "02633777888", "Tran Da Lat", "0912345679", admin));
-
-        map.put(6, createHotel("Nha Trang Ocean View", "Nha Trang",
-                "Khách sạn mặt tiền biển trần phú.", 4,
-                "booking@nhatrangocean.com", "02583666555", "Le Nha Trang", "0912345680", admin));
-
-        map.put(7, createHotel("Phu Quoc Paradise", "Phu Quoc",
-                "Khu nghỉ dưỡng bungalow sát biển.", 5,
-                "sales@phuquocparadise.com", "02973999000", "Pham Phu Quoc", "0912345681", admin));
-
-        map.put(8, createHotel("Sapa Cloud Hotel", "Sa Pa",
-                "View nhìn thẳng ra thung lũng Mường Hoa.", 3,
-                "info@sapacloud.com", "02143555444", "Hoang Sa Pa", "0912345682", admin));
-
-        map.put(9, createHotel("Vung Tau Royal Villa", "Vung Tau",
-                "Biệt thự nghỉ dưỡng cao cấp.", 4,
-                "contact@vungtauvilla.com", "02543222333", "Vu Vung Tau", "0912345683", admin));
-
-        map.put(10, createHotel("Mekong Riverside", "Can Tho",
-                "Khách sạn nổi bật tại bến Ninh Kiều.", 4,
-                "booking@mekongriverside.com", "02923111222", "Doan Can Tho", "0912345684", admin));
-
-        map.put(11, createHotel("Hoi An Ancient House", "Hoi An",
-                "Phong cách cổ cổ kính, yên bình.", 3,
-                "info@hoianancient.com", "02353999888", "Bui Hoi An", "0912345685", admin));
-
-        map.put(12, createHotel("Halong Bay View", "Ha Long",
-                "Khách sạn view vịnh Hạ Long tuyệt đẹp.", 5,
-                "sales@halongbayview.com", "02033666777", "Ngo Ha Long", "0912345686", admin));
-
-        map.put(13, createHotel("Quy Nhon Coastal Resort", "Quy Nhon",
-                "Resort Eo Gió hoang sơ hùng vĩ.", 4,
-                "contact@quynhoncoast.com", "02563444555", "Ly Quy Nhon", "0912345687", admin));
-
-        log.info("Seeded {} hotels", map.size());
-        return map;
-    }
-
-    private Hotel createHotel(String name, String location, String description, int starRating,
-            String email, String phone, String contactName, String contactPhone, User owner) {
-        Hotel h = new Hotel();
-        h.setName(name);
-        h.setLocation(location);
-        h.setDescription(description);
-        h.setStarRating(starRating);
-        h.setEmail(email);
-        h.setPhone(phone);
-        h.setContactName(contactName);
-        h.setContactPhone(contactPhone);
-        h.setIsActive(true);
-        h.setUser(owner);
-        return hotelRepository.save(h);
-    }
-
-    // ======================== 6. HOTEL-AMENITY ========================
-    private void seedHotelAmenities(Map<Integer, Hotel> hotels, Map<Integer, Amenity> amenities) {
-        // SQL: (amenity_id, hotel_id)
-        int[][] pairs = {
-                { 1, 1 }, { 2, 1 }, { 3, 1 }, { 4, 1 }, { 5, 1 }, { 6, 1 }, { 7, 1 }, // Hotel 1: all 7
-                { 1, 2 }, { 6, 2 }, // Hotel 2
-                { 2, 3 }, { 5, 3 }, { 7, 3 }, // Hotel 3
-                { 1, 4 }, { 6, 4 }, // Hotel 4
-                { 2, 5 }, { 6, 5 }, // Hotel 5
-                { 2, 6 }, { 7, 6 }, // Hotel 6
-                { 2, 7 }, { 4, 7 }, // Hotel 7
-                { 1, 8 }, { 6, 8 }, // Hotel 8
-                { 2, 9 }, { 5, 9 }, // Hotel 9
-                { 1, 10 }, { 6, 10 }, // Hotel 10
-                { 1, 11 }, { 4, 11 }, // Hotel 11
-                { 2, 12 }, { 3, 12 }, // Hotel 12
-                { 2, 13 }, { 6, 13 }, // Hotel 13
-        };
-
-        for (int[] pair : pairs) {
-            int amenityId = pair[0];
-            int hotelId = pair[1];
-
-            HotelamenityId id = new HotelamenityId();
-            id.setAmenityId(amenities.get(amenityId).getId());
-            id.setHotelId(hotels.get(hotelId).getId());
-
-            Hotelamenity ha = new Hotelamenity();
-            ha.setId(id);
-            ha.setAmenity(amenities.get(amenityId));
-            ha.setHotel(hotels.get(hotelId));
-            hotelamenityRepository.save(ha);
-        }
-
-        log.info("Seeded hotel-amenity assignments");
-    }
-
-    // ======================== 7. ROOMS ========================
-    private Map<Integer, Room> seedRooms(Map<Integer, Hotel> hotels) {
-        Map<Integer, Room> map = new LinkedHashMap<>();
-
-        // SQL columns: id, amount, capacity, description, name, price, type, hotel_id
-        map.put(1, createRoom(1, 1, "A beautiful room with city view.", "Deluxe Single Room",
-                new BigDecimal("500000"), RoomType.SINGLE, hotels.get(1)));
-        map.put(2, createRoom(1, 2, "A beautiful room with city view.", "Premier Double Room",
-                new BigDecimal("800000"), RoomType.DOUBLE, hotels.get(1)));
-        map.put(3, createRoom(5, 2, "Phòng nhìn ra phố cổ.", "Deluxe City View",
-                new BigDecimal("900000"), RoomType.DOUBLE, hotels.get(2)));
-        map.put(4, createRoom(2, 4, "Phòng gia đình rộng rãi.", "Family Suite",
-                new BigDecimal("2500000"), RoomType.SUIT, hotels.get(2)));
-        map.put(5, createRoom(8, 1, "Phòng đơn tiêu chuẩn.", "Standard Single",
-                new BigDecimal("600000"), RoomType.SINGLE, hotels.get(3)));
-        map.put(6, createRoom(6, 2, "Phòng đôi hướng biển.", "Ocean Double",
-                new BigDecimal("1200000"), RoomType.DOUBLE, hotels.get(3)));
-        map.put(7, createRoom(5, 2, "Phòng hạng sang view sông Hương.", "Royal Double",
-                new BigDecimal("1500000"), RoomType.DOUBLE, hotels.get(4)));
-        map.put(8, createRoom(3, 2, "Bungalow gỗ thông ấm áp.", "Pine Hill Bungalow",
-                new BigDecimal("1800000"), RoomType.DOUBLE, hotels.get(5)));
-        map.put(9, createRoom(10, 2, "Phòng hướng biển tầng cao.", "Ocean Executive",
-                new BigDecimal("2000000"), RoomType.DOUBLE, hotels.get(6)));
-        map.put(10, createRoom(4, 4, "Villa 2 phòng ngủ sát biển.", "Beachfront Villa",
-                new BigDecimal("5000000"), RoomType.SUIT, hotels.get(7)));
-        map.put(11, createRoom(8, 2, "Phòng có ban công ngắm mây.", "Cloud Hunting Room",
-                new BigDecimal("900000"), RoomType.SINGLE, hotels.get(8)));
-        map.put(12, createRoom(2, 6, "Căn hộ 3 phòng ngủ cho gia đình.", "Grand Family Suite",
-                new BigDecimal("4500000"), RoomType.SUIT, hotels.get(9)));
-        map.put(13, createRoom(6, 2, "Phòng view cầu Cần Thơ.", "River View Deluxe",
-                new BigDecimal("1200000"), RoomType.DOUBLE, hotels.get(10)));
-        map.put(14, createRoom(5, 2, "Phòng thiết kế phong cách Indochine.", "Heritage Double",
-                new BigDecimal("1100000"), RoomType.DOUBLE, hotels.get(11)));
-        map.put(15, createRoom(10, 3, "Phòng rộng rãi cho 3 người.", "Triple Bay View",
-                new BigDecimal("2200000"), RoomType.TRIPLE, hotels.get(12)));
-        map.put(16, createRoom(5, 2, "Phòng hướng eo gió lộng gió.", "Cliff Side Room",
-                new BigDecimal("1600000"), RoomType.DOUBLE, hotels.get(13)));
-
-        log.info("Seeded {} rooms", map.size());
-        return map;
-    }
-
-    private Room createRoom(int amount, int capacity, String description, String name,
-            BigDecimal price, RoomType type, Hotel hotel) {
-        Room r = new Room();
-        r.setAmount(amount);
-        r.setCapacity(capacity);
-        r.setDescription(description);
-        r.setName(name);
-        r.setPrice(price);
-        r.setType(type);
-        r.setHotel(hotel);
-        return roomRepository.save(r);
-    }
-
-    // ======================== 8. ROOM-AMENITY ========================
-    private void seedRoomAmenities(Map<Integer, Room> rooms, Map<Integer, Amenity> amenities) {
-        // SQL: (amenity_id, room_id)
-        int[][] pairs = {
-                { 8, 1 }, { 9, 1 }, { 10, 1 }, { 11, 1 }, { 12, 1 }, { 13, 1 }, { 14, 1 }, // Room 1: all room amenities
-                { 8, 2 }, { 9, 2 }, { 10, 2 }, { 11, 2 }, { 12, 2 }, { 13, 2 }, { 14, 2 }, // Room 2: all room amenities
-                { 8, 3 }, { 9, 3 }, { 10, 4 }, { 14, 4 }, // Room 3 & 4
-                { 8, 5 }, { 11, 6 }, { 8, 7 }, { 9, 7 }, // Room 5, 6, 7
-                { 10, 8 }, { 11, 8 }, { 8, 9 }, { 11, 9 }, // Room 8, 9
-                { 12, 10 }, { 14, 10 }, { 8, 11 }, { 13, 11 }, // Room 10, 11
-                { 9, 12 }, { 14, 12 }, { 8, 13 }, { 11, 13 }, // Room 12, 13
-                { 8, 14 }, { 12, 14 }, { 9, 15 }, { 10, 15 }, // Room 14, 15
-                { 8, 16 }, { 11, 16 }, // Room 16
-        };
-
-        for (int[] pair : pairs) {
-            int amenityId = pair[0];
-            int roomId = pair[1];
-
-            RoomamenityId id = new RoomamenityId();
-            id.setAmenityId(amenities.get(amenityId).getId());
-            id.setRoomId(rooms.get(roomId).getId());
-
-            Roomamenity ra = new Roomamenity();
-            ra.setId(id);
-            ra.setAmenity(amenities.get(amenityId));
-            ra.setRoom(rooms.get(roomId));
-            roomamenityRepository.save(ra);
-        }
-
-        log.info("Seeded room-amenity assignments");
-    }
-
-    // ======================== 9. IMAGES ========================
-    private void seedImages(Map<Integer, Hotel> hotels, Map<Integer, Room> rooms) {
-        // Hotel images (hotel_id -> list of urls)
-        String[][] hotelImages = {
-                { "1", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_8_pj7foa.jpg" },
-                { "2", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_9_pw1id9.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_6_qmkm8i.jpg" },
-                { "3", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_5_jzaubp.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg" },
-                { "4", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_8_pj7foa.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_9_pw1id9.jpg" },
-                { "5", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_6_qmkm8i.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_5_jzaubp.jpg" },
-                { "6", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_8_pj7foa.jpg" },
-                { "7", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_9_pw1id9.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_6_qmkm8i.jpg" },
-                { "8", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_5_jzaubp.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg" },
-                { "9", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_8_pj7foa.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_9_pw1id9.jpg" },
-                { "10", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_6_qmkm8i.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_5_jzaubp.jpg" },
-                { "11", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_8_pj7foa.jpg" },
-                { "12", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_9_pw1id9.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_6_qmkm8i.jpg" },
-                { "13", "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730346/hotel_5_jzaubp.jpg",
-                        "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730347/hotel_10_ipm3kr.jpg" },
-        };
-
-        for (String[] entry : hotelImages) {
-            int hotelId = Integer.parseInt(entry[0]);
-            Hotel hotel = hotels.get(hotelId);
-            for (int i = 1; i < entry.length; i++) {
-                createImage(entry[i], hotel, null);
+    private void seedBookingsAndPayments() {
+        List<DemoBooking> bookings = List.of(
+                new DemoBooking("DEMO-PENDING-001", customerId, CITY_HOTEL_ID, DELUXE_ROOM_TYPE_ID, "PENDING", 3, 5, 1_200_000, 0, null),
+                new DemoBooking("DEMO-CONFIRMED-001", secondCustomerId, CITY_HOTEL_ID, SUITE_ROOM_TYPE_ID, "CONFIRMED", 10, 13, 2_400_000, 360_000, ACTIVE_PROMOTION_ID),
+                new DemoBooking("DEMO-CHECKIN-001", customerId, BEACH_HOTEL_ID, BEACH_ROOM_TYPE_ID, "CHECKED_IN", -1, 2, 2_800_000, 0, null),
+                new DemoBooking("DEMO-COMPLETED-001", customerId, CITY_HOTEL_ID, DELUXE_ROOM_TYPE_ID, "COMPLETED", -10, -8, 1_200_000, 180_000, ACTIVE_PROMOTION_ID),
+                new DemoBooking("DEMO-CANCELLED-001", secondCustomerId, BEACH_HOTEL_ID, BEACH_ROOM_TYPE_ID, "CANCELLED", 20, 23, 2_800_000, 0, null),
+                new DemoBooking("DEMO-NOSHOW-001", secondCustomerId, CITY_HOTEL_ID, SUITE_ROOM_TYPE_ID, "NO_SHOW", -20, -18, 2_400_000, 0, null)
+        );
+        for (int index = 0; index < bookings.size(); index++) {
+            DemoBooking booking = bookings.get(index);
+            UUID bookingId = id("06" + String.format("%02d", index + 1));
+            UUID paymentId = id("07" + String.format("%02d", index + 1));
+            BigDecimal subtotal = BigDecimal.valueOf(booking.nightlyPrice()).multiply(BigDecimal.valueOf(booking.nights()));
+            BigDecimal discount = BigDecimal.valueOf(booking.discount());
+            BigDecimal total = subtotal.subtract(discount);
+            upsertBooking(bookingId, booking, subtotal, discount, total);
+            upsertBookingItem(id("08" + String.format("%02d", index + 1)), bookingId, booking.roomTypeId(), booking, subtotal);
+            upsertPayment(paymentId, bookingId, booking.reference(), total, booking.status());
+            if (booking.status().equals("CHECKED_IN") || booking.status().equals("COMPLETED")) {
+                upsertCheckIn(id("09" + String.format("%02d", index + 1)), bookingId, booking.status().equals("COMPLETED"));
             }
         }
+        upsertReview(id("1001"), id("0604"), CITY_HOTEL_ID, customerId, "4.8", "Excellent location, friendly staff, and a very comfortable room.");
+        upsertReview(id("1002"), id("0601"), CITY_HOTEL_ID, customerId, "4.0", "Good stay, but breakfast could be better.");
+        upsertReview(id("1003"), id("0602"), CITY_HOTEL_ID, secondCustomerId, "5.0", "Amazing experience! The suite was perfect for our family.");
+        upsertReview(id("1004"), id("0603"), BEACH_HOTEL_ID, customerId, "4.5", "Beautiful ocean views and very relaxing.");
+        upsertReview(id("1005"), id("0605"), BEACH_HOTEL_ID, secondCustomerId, "3.5", "Nice beach, but the room was a bit small.");
+        upsertPaymentEvent(id("1101"), id("0704"), "PAYMENT_SUCCEEDED", "{\"source\":\"demo-seed\",\"message\":\"Payment completed successfully\"}");
+    }
 
-        // Room images (room_id -> url)
-        String[] roomImageUrls = {
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730377/room_7_wmdniz.jpg", // Room 1
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730376/room_2_ryy7uk.jpg", // Room 2
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730375/room_6_jhwmo4.jpg", // Room 3
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730374/room_8_aebnsm.jpg", // Room 4
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730373/room_5_kexydn.jpg", // Room 5
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730372/room_3_vwnd2m.jpg", // Room 6
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730372/room_4_jy0jyd.jpg", // Room 7
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730377/room_7_wmdniz.jpg", // Room 8
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730376/room_2_ryy7uk.jpg", // Room 9
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730375/room_6_jhwmo4.jpg", // Room 10
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730374/room_8_aebnsm.jpg", // Room 11
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730373/room_5_kexydn.jpg", // Room 12
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730372/room_3_vwnd2m.jpg", // Room 13
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730372/room_4_jy0jyd.jpg", // Room 14
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730377/room_7_wmdniz.jpg", // Room 15
-                "https://res.cloudinary.com/dw8eobcaf/image/upload/v1764730376/room_2_ryy7uk.jpg", // Room 16
-        };
+    private void seedMediaAndContent() {
+        UUID cityHotelImage = id("1201");
+        UUID beachHotelImage = id("1202");
+        UUID heritageHotelImage = id("1203");
+        UUID deluxeRoomImage = id("1204");
+        UUID suiteRoomImage = id("1205");
+        UUID beachRoomImage = id("1206");
+        UUID standardRoomImage = id("1207");
+        UUID penthouseRoomImage = id("1208");
+        UUID gardenRoomImage = id("1209");
+        UUID directBookingNewsImage = id("1210");
+        UUID beachesNewsImage = id("1211");
+        UUID culinaryNewsImage = id("1212");
 
-        for (int i = 0; i < roomImageUrls.length; i++) {
-            createImage(roomImageUrls[i], null, rooms.get(i + 1));
+        upsertImageAsset(cityHotelImage, ownerId, "demo/city-hotel", cloudinaryImage("small_andrew-neel-B4rEJ09-Puo-unsplash.jpg"));
+        upsertImageAsset(beachHotelImage, ownerId, "demo/beach-resort", cloudinaryImage("small_the-anam-_twiIcIsp2s-unsplash.jpg"));
+        upsertImageAsset(heritageHotelImage, ownerId, "demo/heritage-house", cloudinaryImage("small_visualsofdana-T5pL6ciEn-I-unsplash.jpg"));
+        upsertImageAsset(deluxeRoomImage, ownerId, "demo/deluxe-room", cloudinaryImage("small_brett-campbell-k1OlQaEK2qI-unsplash.jpg"));
+        upsertImageAsset(suiteRoomImage, ownerId, "demo/family-suite", cloudinaryImage("small_paolo-nicolello-2gOxKj594nM-unsplash.jpg"));
+        upsertImageAsset(beachRoomImage, ownerId, "demo/oceanfront-bungalow", cloudinaryImage("small_reisetopia-pSDe7ePo0Tc-unsplash.jpg"));
+        upsertImageAsset(standardRoomImage, ownerId, "demo/standard-room", cloudinaryImage("small_bilderboken-rlwE8f8anOc-unsplash.jpg"));
+        upsertImageAsset(penthouseRoomImage, ownerId, "demo/penthouse-suite", cloudinaryImage("small_dad-hotel-FCSDBKliyTQ-unsplash.jpg"));
+        upsertImageAsset(gardenRoomImage, ownerId, "demo/garden-room", cloudinaryImage("small_frames-for-your-heart-zSG-kd-L6vw-unsplash.jpg"));
+        upsertImageAsset(directBookingNewsImage, adminId, "demo/direct-booking-news", cloudinaryImage("small_cory-bjork-D1yT791Nf9A-unsplash.jpg"));
+        upsertImageAsset(beachesNewsImage, adminId, "demo/beaches-news", cloudinaryImage("small_jeffrey-francisco-_Ei9f33bQ1A-unsplash.jpg"));
+        upsertImageAsset(culinaryNewsImage, adminId, "demo/culinary-news", cloudinaryImage("small_jorg-angeli-1tyuLfDOnG0-unsplash.jpg"));
+
+        linkHotelImage(id("1301"), CITY_HOTEL_ID, cityHotelImage, 0);
+        linkHotelImage(id("1332"), CITY_HOTEL_ID, deluxeRoomImage, 1);
+        linkHotelImage(id("1333"), CITY_HOTEL_ID, standardRoomImage, 2);
+        linkHotelImage(id("1334"), CITY_HOTEL_ID, penthouseRoomImage, 3);
+        linkHotelImage(id("1302"), BEACH_HOTEL_ID, beachHotelImage, 0);
+        linkHotelImage(id("1335"), BEACH_HOTEL_ID, suiteRoomImage, 1);
+        linkHotelImage(id("1336"), BEACH_HOTEL_ID, beachRoomImage, 2);
+        linkHotelImage(id("1337"), BEACH_HOTEL_ID, gardenRoomImage, 3);
+        linkHotelImage(id("1303"), HERITAGE_HOTEL_ID, heritageHotelImage, 0);
+        linkHotelImage(id("1338"), HERITAGE_HOTEL_ID, gardenRoomImage, 1);
+        linkHotelImage(id("1339"), HERITAGE_HOTEL_ID, standardRoomImage, 2);
+        linkHotelImage(id("1340"), HERITAGE_HOTEL_ID, culinaryNewsImage, 3);
+        linkRoomTypeImage(id("1304"), DELUXE_ROOM_TYPE_ID, deluxeRoomImage, 0);
+        linkRoomTypeImage(id("1305"), SUITE_ROOM_TYPE_ID, suiteRoomImage, 0);
+        linkRoomTypeImage(id("1306"), BEACH_ROOM_TYPE_ID, beachRoomImage, 0);
+        linkRoomTypeImage(id("1307"), id("0204"), standardRoomImage, 0);
+        linkRoomTypeImage(id("1308"), id("0205"), penthouseRoomImage, 0);
+        linkRoomTypeImage(id("1309"), id("0206"), gardenRoomImage, 0);
+
+        linkHotelImage(id("1320"), GRAND_SAPPHIRE_HOTEL_ID, beachHotelImage, 0);
+        linkHotelImage(id("1321"), GRAND_SAPPHIRE_HOTEL_ID, suiteRoomImage, 1);
+        linkHotelImage(id("1322"), GRAND_SAPPHIRE_HOTEL_ID, beachRoomImage, 2);
+        linkHotelImage(id("1323"), GRAND_SAPPHIRE_HOTEL_ID, penthouseRoomImage, 3);
+        linkHotelImage(id("1324"), URBAN_EDGE_HOTEL_ID, cityHotelImage, 0);
+        linkHotelImage(id("1325"), URBAN_EDGE_HOTEL_ID, deluxeRoomImage, 1);
+        linkHotelImage(id("1326"), URBAN_EDGE_HOTEL_ID, standardRoomImage, 2);
+        linkHotelImage(id("1327"), URBAN_EDGE_HOTEL_ID, directBookingNewsImage, 3);
+        linkHotelImage(id("1328"), MOUNTAIN_VIEW_LODGE_ID, heritageHotelImage, 0);
+        linkHotelImage(id("1329"), MOUNTAIN_VIEW_LODGE_ID, gardenRoomImage, 1);
+        linkHotelImage(id("1330"), MOUNTAIN_VIEW_LODGE_ID, beachesNewsImage, 2);
+        linkHotelImage(id("1331"), MOUNTAIN_VIEW_LODGE_ID, culinaryNewsImage, 3);
+
+        UUID galleryFolderId = id("1310");
+            jdbcTemplate.update("""
+                    insert into gallery_folders (id, owner_account_id, folder_name)
+                    values (:id, :ownerId, 'Demo media')
+                    on conflict (id) do update set owner_account_id = excluded.owner_account_id,
+                        folder_name = excluded.folder_name, updated_at = now()
+                    """, params().addValue("id", galleryFolderId).addValue("ownerId", ownerId));
+        jdbcTemplate.update("""
+                insert into gallery_images (id, folder_id, image_asset_id)
+                values (:id, :folderId, :imageId)
+                on conflict (folder_id, image_asset_id) do nothing
+                """, params().addValue("id", id("1311")).addValue("folderId", galleryFolderId).addValue("imageId", cityHotelImage));
+        seedAdditionalGalleryImages(galleryFolderId);
+
+        upsertNews(id("1401"), "why-book-direct-demo", "Why book direct for your next stay",
+                "A demo article for the public news and admin content features.", "PUBLISHED");
+        upsertNews(id("1402"), "draft-hotel-guide-demo", "A hotel manager's local guide",
+                "A draft article to demonstrate content moderation.", "DRAFT");
+        upsertNews(id("1404"), "top-10-beaches", "Top 10 Beaches in Vietnam",
+                "Discover the most beautiful beaches for your next vacation.", "PUBLISHED");
+        upsertNews(id("1405"), "culinary-journey", "A Culinary Journey Through Hoi An",
+                "Explore the unique flavors of Central Vietnam.", "PUBLISHED");
+
+        linkNewsImage(id("1403"), id("1401"), directBookingNewsImage, 0);
+        linkNewsImage(id("1406"), id("1404"), beachesNewsImage, 0);
+        linkNewsImage(id("1407"), id("1405"), culinaryNewsImage, 0);
+
+        upsertBanner(id("1501"), "Plan your city escape", "Use WELCOME15 for an instant demo discount.",
+                cloudinaryImage("small_andrew-neel-B4rEJ09-Puo-unsplash.jpg"), "/hotels/" + CITY_HOTEL_ID, "HOTEL", 1);
+        upsertPolicy(id("1601"), CITY_HOTEL_ID, "CHECK_IN", "Check-in and check-out", "Check-in from 14:00. Check-out before 12:00.", 1);
+        upsertPolicy(id("1602"), CITY_HOTEL_ID, "CANCELLATION", "Cancellation policy", "Free cancellation until 48 hours before check-in.", 2);
+        upsertPolicy(id("1603"), BEACH_HOTEL_ID, "PAYMENT", "Payment policy", "A valid payment method is required to confirm the reservation.", 1);
+    }
+
+    private void seedCustomerCommunication() {
+        jdbcTemplate.update("""
+                insert into contact_messages (id, account_id, name, email, phone, subject, message, status, handled_by_account_id, note)
+                values (:id, :accountId, 'Customer User', 'customer@gmail.com', '0900000005',
+                        'Airport transfer enquiry', 'Can I arrange an airport transfer for my stay?', 'IN_PROGRESS', :managerId,
+                        'Demo message assigned to the manager.')
+                on conflict (id) do update set status = excluded.status, handled_by_account_id = excluded.handled_by_account_id, updated_at = now()
+                """, params().addValue("id", id("1701")).addValue("accountId", customerId).addValue("managerId", managerId));
+        upsertNotification(id("1702"), customerId, "BOOKING_CONFIRMED", "Your demo booking is confirmed",
+                "Your Family Suite is ready for the upcoming stay.", "/my-bookings");
+        upsertNotification(id("1703"), managerId, "NEW_BOOKING", "New demo booking received",
+                "Review the confirmed Family Suite reservation.", "/admin/bookings");
+    }
+
+    private UUID upsertAccount(UUID id, String email, String firstName, String lastName, String phone, String password) {
+        return jdbcTemplate.queryForObject("""
+                insert into accounts (id, email, password_hash, first_name, last_name, phone, email_verified, auth_provider)
+                values (:id, :email, :password, :firstName, :lastName, :phone, true, 'LOCAL')
+                on conflict (email) do update set password_hash = excluded.password_hash,
+                    first_name = excluded.first_name, last_name = excluded.last_name, phone = excluded.phone,
+                    email_verified = true, updated_at = now()
+                returning id
+                """, params().addValue("id", id).addValue("email", email).addValue("password", passwordEncoder.encode(password))
+                .addValue("firstName", firstName).addValue("lastName", lastName).addValue("phone", phone), UUID.class);
+    }
+
+    private void assignRole(UUID accountId, String roleName) {
+        jdbcTemplate.update("""
+                insert into account_roles (account_id, role_id)
+                select :accountId, id from roles where name = :roleName on conflict do nothing
+                """, params().addValue("accountId", accountId).addValue("roleName", roleName));
+    }
+
+    private void removeRole(UUID accountId, String roleName) {
+        jdbcTemplate.update("""
+                delete from account_roles
+                where account_id = :accountId
+                  and role_id = (select id from roles where name = :roleName)
+                """, params().addValue("accountId", accountId).addValue("roleName", roleName));
+    }
+
+    private void upsertCommissionPackage(UUID id, String code, String name, String description, BigDecimal rate) {
+        jdbcTemplate.update("""
+                insert into commission_packages (id, code, name, description, commission_rate, active, is_system)
+                values (:id, :code, :name, :description, :rate, true, false)
+                on conflict (code) do update set name = excluded.name, description = excluded.description,
+                    commission_rate = excluded.commission_rate, active = true, updated_at = now()
+                """, params().addValue("id", id).addValue("code", code).addValue("name", name)
+                .addValue("description", description).addValue("rate", rate));
+    }
+
+    private void upsertHotel(UUID id, UUID ownerId, String name, String slug, String description, String address, String city, BigDecimal rating) {
+        jdbcTemplate.update("""
+                insert into hotels (id, owner_id, name, slug, description, address, city, country, email, phone, status, star_rating)
+                values (:id, :ownerId, :name, :slug, :description, :address, :city, 'Vietnam', :email, '0900000000', 'ACTIVE', :rating)
+                  on conflict (id) do update set owner_id = excluded.owner_id, name = excluded.name,
+                      description = excluded.description, address = excluded.address, city = excluded.city,
+                      status = 'ACTIVE', star_rating = excluded.star_rating, updated_at = now()
+                """, params().addValue("id", id).addValue("ownerId", ownerId).addValue("name", name).addValue("slug", slug)
+                .addValue("description", description).addValue("address", address).addValue("city", city)
+                .addValue("email", slug + "@demo.local").addValue("rating", rating));
+    }
+
+    private void assignHotelPackage(UUID hotelId, UUID packageId) {
+        jdbcTemplate.update("""
+                insert into hotel_commission_packages (hotel_id, commission_package_id)
+                values (:hotelId, :packageId)
+                on conflict (hotel_id) do update set commission_package_id = excluded.commission_package_id, assigned_at = now()
+                """, params().addValue("hotelId", hotelId).addValue("packageId", packageId));
+    }
+
+    private void addHotelMember(UUID hotelId, UUID accountId) {
+        jdbcTemplate.update("insert into hotel_members (hotel_id, account_id) values (:hotelId, :accountId) on conflict do nothing",
+                params().addValue("hotelId", hotelId).addValue("accountId", accountId));
+    }
+
+    private void upsertAmenity(String key, String name, String type) {
+        jdbcTemplate.update("""
+                insert into amenities (id, key, name, type, active, is_system)
+                values (:id, :key, :name, :type, true, false)
+                on conflict (key) do update set name = excluded.name, type = excluded.type, active = true, updated_at = now()
+                """, params().addValue("id", UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8)))
+                .addValue("key", key).addValue("name", name).addValue("type", type));
+    }
+
+    private void upsertRoomType(UUID id, UUID hotelId, String name, int price, int maxGuests, int bedrooms, String description) {
+        jdbcTemplate.update("""
+                insert into room_types (id, hotel_id, name, description, price_per_night, max_guests, number_of_bedrooms, active)
+                values (:id, :hotelId, :name, :description, :price, :maxGuests, :bedrooms, true)
+                on conflict (id) do update set name = excluded.name, description = excluded.description, price_per_night = excluded.price_per_night,
+                    max_guests = excluded.max_guests, number_of_bedrooms = excluded.number_of_bedrooms, active = true, updated_at = now()
+                """, params().addValue("id", id).addValue("hotelId", hotelId).addValue("name", name).addValue("description", description)
+                .addValue("price", price).addValue("maxGuests", maxGuests).addValue("bedrooms", bedrooms));
+    }
+
+    private void addRoomAmenities(UUID roomTypeId, List<String> amenityKeys) {
+        for (String key : amenityKeys) {
+            jdbcTemplate.update("""
+                    insert into room_type_amenities (room_type_id, amenity_id)
+                    select :roomTypeId, id from amenities where key = :key on conflict do nothing
+                    """, params().addValue("roomTypeId", roomTypeId).addValue("key", key));
         }
-
-        log.info("Seeded images for hotels and rooms");
     }
 
-    private void createImage(String url, Hotel hotel, Room room) {
-        Image img = new Image();
-        img.setPath(url);
-        img.setHotel(hotel);
-        img.setRoom(room);
-        imageRepository.save(img);
+    private void upsertPhysicalRoom(UUID id, UUID hotelId, UUID roomTypeId, String roomNumber, String condition, boolean active) {
+        jdbcTemplate.update("""
+                insert into rooms (id, hotel_id, room_type_id, room_number, condition, active)
+                values (:id, :hotelId, :roomTypeId, :roomNumber, :condition, :active)
+                on conflict (hotel_id, room_number) do update set room_type_id = excluded.room_type_id,
+                    condition = excluded.condition, active = excluded.active, updated_at = now()
+                """, params().addValue("id", id).addValue("hotelId", hotelId).addValue("roomTypeId", roomTypeId)
+                .addValue("roomNumber", roomNumber).addValue("condition", condition).addValue("active", active));
     }
 
-    // ======================== 10. BOOKINGS ========================
-    private Map<Integer, Booking> seedBookings(Map<Integer, User> users) {
-        Map<Integer, Booking> map = new LinkedHashMap<>();
-
-        // SQL columns: id, adultAmount, bookingReference, cancelReason, checkinDate,
-        // checkoutDate,
-        // childrenAmount, createAt, customerName, refund, room_number, specialRequire,
-        // status, totalPrice, user_id
-        map.put(1, createBooking("BK-2025-001", 2, null,
-                LocalDate.of(2025, 1, 10), LocalDate.of(2025, 1, 12), 0,
-                LocalDate.of(2025, 1, 5), "Customer User", null, "101A",
-                "Late check-in", BookingStatus.CHECKED_OUT, 1000000f, users.get(2)));
-
-        map.put(2, createBooking("BK-2025-002", 2, null,
-                LocalDate.of(2025, 6, 15), LocalDate.of(2025, 6, 18), 1,
-                LocalDate.of(2025, 5, 20), "Nguyen Van A", null, null,
-                "High floor request", BookingStatus.BOOKED, 3600000f, users.get(3)));
-
-        map.put(3, createBooking("BK-2025-003", 1, "Change flight schedule",
-                LocalDate.of(2025, 3, 1), LocalDate.of(2025, 3, 3), 0,
-                LocalDate.of(2025, 2, 15), "Le Thi B", null, null,
-                null, BookingStatus.CANCELLED, 900000f, users.get(4)));
-
-        map.put(4, createBooking("BK-2025-004", 2, null,
-                LocalDate.of(2025, 12, 3), LocalDate.of(2025, 12, 5), 0,
-                LocalDate.of(2025, 11, 20), "Tran Van Nam", null, "205B",
-                "Honeymoon setup", BookingStatus.CHECKED_IN, 2400000f, users.get(5)));
-
-        map.put(5, createBooking("BK-2025-005", 4, null,
-                LocalDate.of(2025, 7, 20), LocalDate.of(2025, 7, 25), 2,
-                LocalDate.of(2025, 6, 1), "Customer User", null, null,
-                "Extra bed needed", BookingStatus.BOOKED, 12500000f, users.get(2)));
-
-        map.put(6, createBooking("BK-2025-006", 2, null,
-                LocalDate.of(2025, 2, 14), LocalDate.of(2025, 2, 16), 0,
-                LocalDate.of(2025, 1, 30), "Nguyen Van A", null, "301C",
-                "Quiet room", BookingStatus.CHECKED_OUT, 1800000f, users.get(3)));
-
-        map.put(7, createBooking("BK-2025-007", 2, "Personal reasons",
-                LocalDate.of(2025, 4, 30), LocalDate.of(2025, 5, 2), 2,
-                LocalDate.of(2025, 3, 10), "Tran Van Nam", null, null,
-                null, BookingStatus.CANCELLED, 3000000f, users.get(5)));
-
-        map.put(8, createBooking("BK-2025-008", 1, null,
-                LocalDate.of(2025, 8, 10), LocalDate.of(2025, 8, 12), 0,
-                LocalDate.of(2025, 7, 1), "Le Thi B", null, null,
-                null, BookingStatus.BOOKED, 1800000f, users.get(4)));
-
-        map.put(9, createBooking("BK-2025-009", 2, null,
-                LocalDate.of(2025, 1, 25), LocalDate.of(2025, 1, 28), 1,
-                LocalDate.of(2025, 1, 10), "Customer User", null, "405D",
-                "Airport pickup", BookingStatus.CHECKED_OUT, 6000000f, users.get(2)));
-
-        map.put(10, createBooking("BK-2025-010", 6, null,
-                LocalDate.of(2025, 9, 2), LocalDate.of(2025, 9, 5), 2,
-                LocalDate.of(2025, 8, 1), "Nguyen Van A", null, null,
-                "Large family room", BookingStatus.BOOKED, 9000000f, users.get(3)));
-
-        map.put(11, createBooking("BK-2025-011", 2, null,
-                LocalDate.of(2025, 12, 1), LocalDate.of(2025, 12, 4), 0,
-                LocalDate.of(2025, 11, 15), "Tran Van Nam", null, "501E",
-                "Sea view preferred", BookingStatus.CHECKED_IN, 3300000f, users.get(5)));
-
-        map.put(12, createBooking("BK-2025-012", 2, null,
-                LocalDate.of(2025, 5, 15), LocalDate.of(2025, 5, 16), 0,
-                LocalDate.of(2025, 5, 1), "Le Thi B", null, "602F",
-                null, BookingStatus.CHECKED_OUT, 1500000f, users.get(4)));
-
-        map.put(13, createBooking("BK-2025-013", 2, null,
-                LocalDate.of(2025, 10, 10), LocalDate.of(2025, 10, 15), 1,
-                LocalDate.of(2025, 9, 20), "Customer User", null, null,
-                "Vegan breakfast", BookingStatus.BOOKED, 6000000f, users.get(2)));
-
-        map.put(14, createBooking("BK-2025-014", 2, "Found better price",
-                LocalDate.of(2025, 6, 1), LocalDate.of(2025, 6, 5), 0,
-                LocalDate.of(2025, 5, 10), "Nguyen Van A", null, null,
-                null, BookingStatus.CANCELLED, 8000000f, users.get(3)));
-
-        map.put(15, createBooking("BK-2025-015", 2, null,
-                LocalDate.of(2025, 11, 20), LocalDate.of(2025, 11, 22), 1,
-                LocalDate.of(2025, 10, 5), "Tran Van Nam", null, null,
-                "Anniversary", BookingStatus.BOOKED, 3200000f, users.get(5)));
-
-        log.info("Seeded {} bookings", map.size());
-        return map;
-    }
-
-    private Booking createBooking(String bookingRef, int adultAmount, String cancelReason,
-            LocalDate checkin, LocalDate checkout, int childrenAmount,
-            LocalDate createAt, String customerName, Float refund,
-            String roomNumber, String specialRequire,
-            BookingStatus status, float totalPrice, User user) {
-        Booking b = new Booking();
-        b.setBookingReference(bookingRef);
-        b.setAdultAmount(adultAmount);
-        b.setCancelReason(cancelReason);
-        b.setCheckinDate(checkin);
-        b.setCheckoutDate(checkout);
-        b.setChildrenAmount(childrenAmount);
-        b.setCreateAt(createAt);
-        b.setCustomerName(customerName);
-        b.setRefund(refund);
-        b.setRoomNumber(roomNumber);
-        b.setSpecialRequire(specialRequire);
-        b.setStatus(status);
-        b.setTotalPrice(totalPrice);
-        b.setUser(user);
-        return bookingRepository.save(b);
-    }
-
-    // ======================== 11. BOOKING-ROOM ========================
-    private void seedBookingRooms(Map<Integer, Booking> bookings, Map<Integer, Room> rooms) {
-        // SQL: (id, booking_id, room_id)
-        int[][] pairs = {
-                { 1, 1 }, { 2, 3 }, { 3, 5 }, { 4, 7 }, { 5, 4 },
-                { 6, 11 }, { 7, 15 }, { 8, 9 }, { 9, 2 }, { 10, 12 },
-                { 11, 14 }, { 12, 8 }, { 13, 13 }, { 14, 10 }, { 15, 16 },
-        };
-
-        for (int[] pair : pairs) {
-            int bookingId = pair[0];
-            int roomId = pair[1];
-
-            Bookingroom br = new Bookingroom();
-            br.setBooking(bookings.get(bookingId));
-            br.setRoom(rooms.get(roomId));
-            bookingRoomRepository.save(br);
+    private void seedInventory(UUID hotelId, UUID roomTypeId, int totalRooms, int availableRooms) {
+        for (int offset = -7; offset <= 60; offset++) {
+            LocalDate stayDate = LocalDate.now().plusDays(offset);
+            jdbcTemplate.update("""
+                    insert into inventories (id, hotel_id, room_type_id, stay_date, total_rooms, available_rooms, stop_sell)
+                    values (:id, :hotelId, :roomTypeId, :stayDate, :totalRooms, :availableRooms, :stopSell)
+                    on conflict (room_type_id, stay_date) do update set total_rooms = excluded.total_rooms,
+                        available_rooms = excluded.available_rooms, stop_sell = excluded.stop_sell, updated_at = now()
+                    """, params().addValue("id", inventoryId(roomTypeId, stayDate)).addValue("hotelId", hotelId)
+                    .addValue("roomTypeId", roomTypeId).addValue("stayDate", stayDate).addValue("totalRooms", totalRooms)
+                    .addValue("availableRooms", availableRooms).addValue("stopSell", offset == 30));
         }
+    }
 
-        log.info("Seeded booking-room assignments");
+    private void upsertPromotion(UUID id, UUID hotelId, String code, String name, String type, int value, Integer maxDiscount,
+                                 int minimumAmount, int totalLimit, int perUserLimit, int usedCount, boolean active, String startsAt, String endsAt) {
+        jdbcTemplate.update("""
+                insert into promotions (id, hotel_id, code, name, discount_type, discount_value, max_discount, min_booking_amount,
+                    total_usage_limit, per_user_usage_limit, used_count, starts_at, ends_at, active)
+                values (:id, :hotelId, :code, :name, :type, :value, :maxDiscount, :minimumAmount, :totalLimit, :perUserLimit,
+                    :usedCount, %s, %s, :active)
+                on conflict (code) do update set name = excluded.name, active = excluded.active, used_count = excluded.used_count, updated_at = now()
+                """.formatted(startsAt, endsAt), params().addValue("id", id).addValue("hotelId", hotelId).addValue("code", code)
+                .addValue("name", name).addValue("type", type).addValue("value", value).addValue("maxDiscount", maxDiscount)
+                .addValue("minimumAmount", minimumAmount).addValue("totalLimit", totalLimit).addValue("perUserLimit", perUserLimit)
+                .addValue("usedCount", usedCount).addValue("active", active));
+    }
+
+    private void upsertBooking(UUID id, DemoBooking booking, BigDecimal subtotal, BigDecimal discount, BigDecimal total) {
+        String lifecycleColumn = switch (booking.status()) {
+            case "COMPLETED" -> "completed_at";
+            case "CANCELLED" -> "cancelled_at";
+            case "NO_SHOW" -> "no_show_at";
+            default -> null;
+        };
+        String lifecycleSql = lifecycleColumn == null ? "null" : "now() - interval '1 day'";
+        jdbcTemplate.update("""
+                insert into bookings (id, account_id, hotel_id, promotion_id, booking_reference, status, check_in, check_out,
+                    guest_name, guest_email, guest_phone, note, subtotal_amount, discount_amount, total_amount,
+                    commission_package_code, commission_rate, commission_amount, %s)
+                values (:id, :accountId, :hotelId, :promotionId, :reference, :status, current_date + :checkInOffset,
+                    current_date + :checkOutOffset, :guestName, :guestEmail, '0900000005', 'Seeded local demo booking.',
+                    :subtotal, :discount, :total, 'STANDARD', 0.1000, :commissionAmount, %s)
+                on conflict (booking_reference) do update set status = excluded.status, check_in = excluded.check_in,
+                    check_out = excluded.check_out, subtotal_amount = excluded.subtotal_amount, discount_amount = excluded.discount_amount,
+                    total_amount = excluded.total_amount, updated_at = now()
+                """.formatted(lifecycleColumn == null ? "pending_expires_at" : lifecycleColumn, lifecycleSql),
+                params().addValue("id", id).addValue("accountId", booking.accountId()).addValue("hotelId", booking.hotelId())
+                        .addValue("promotionId", booking.promotionId()).addValue("reference", booking.reference()).addValue("status", booking.status())
+                        .addValue("checkInOffset", booking.checkInOffset()).addValue("checkOutOffset", booking.checkOutOffset())
+                        .addValue("guestName", booking.accountId().equals(customerId) ? "Customer User" : "Mai Pham")
+                        .addValue("guestEmail", booking.accountId().equals(customerId) ? "customer@gmail.com" : "traveler@demo.local")
+                        .addValue("subtotal", subtotal).addValue("discount", discount).addValue("total", total)
+                        .addValue("commissionAmount", total.multiply(new BigDecimal("0.10"))));
+    }
+
+    private void upsertBookingItem(UUID id, UUID bookingId, UUID roomTypeId, DemoBooking booking, BigDecimal subtotal) {
+        jdbcTemplate.update("""
+                insert into booking_items (id, booking_id, room_type_id, room_type_name, quantity, unit_price, max_guests, line_total)
+                select :id, :bookingId, :roomTypeId, name, 1, :unitPrice, max_guests, :lineTotal from room_types where id = :roomTypeId
+                on conflict (booking_id, room_type_id) do update set unit_price = excluded.unit_price, line_total = excluded.line_total
+                """, params().addValue("id", id).addValue("bookingId", bookingId).addValue("roomTypeId", roomTypeId)
+                .addValue("unitPrice", booking.nightlyPrice()).addValue("lineTotal", subtotal));
+    }
+
+    private void upsertPayment(UUID id, UUID bookingId, String bookingReference, BigDecimal amount, String bookingStatus) {
+        String status = bookingStatus.equals("CANCELLED") ? "CANCELED" : bookingStatus.equals("PENDING") ? "PENDING" : "SUCCEEDED";
+        jdbcTemplate.update("""
+                insert into payments (id, booking_id, provider, status, amount, merchant_txn_ref, paid_at)
+                values (:id, :bookingId, 'VNPAY', :status, :amount, :reference, case when :status = 'SUCCEEDED' then now() else null end)
+                on conflict (merchant_txn_ref) do update set status = excluded.status, amount = excluded.amount, paid_at = excluded.paid_at, updated_at = now()
+                """, params().addValue("id", id).addValue("bookingId", bookingId).addValue("status", status)
+                .addValue("amount", amount).addValue("reference", "PAY-" + bookingReference));
+    }
+
+    private void upsertCheckIn(UUID id, UUID bookingId, boolean checkedOut) {
+        jdbcTemplate.update("""
+                insert into check_ins (id, booking_id, checked_in_by_account_id, checked_in_at, checked_out_at, note)
+                values (:id, :bookingId, :receptionistId, now() - interval '1 day', %s, 'Demo front-desk check-in.')
+                on conflict (booking_id) do update set checked_out_at = excluded.checked_out_at, note = excluded.note
+                """.formatted(checkedOut ? "now() - interval '1 hour'" : "null"), params().addValue("id", id)
+                .addValue("bookingId", bookingId).addValue("receptionistId", receptionistId));
+    }
+
+    private void upsertReview(UUID id, UUID bookingId, UUID hotelId, UUID accountId, String rating, String comment) {
+        jdbcTemplate.update("""
+                insert into reviews (id, booking_id, hotel_id, account_id, rating, comment, visible)
+                values (:id, :bookingId, :hotelId, :accountId, :rating, :comment, true)
+                on conflict (booking_id) do update set rating = excluded.rating, comment = excluded.comment, visible = true, updated_at = now()
+                """, params().addValue("id", id).addValue("bookingId", bookingId).addValue("hotelId", hotelId)
+                .addValue("accountId", accountId).addValue("rating", new BigDecimal(rating)).addValue("comment", comment));
+    }
+
+    private void upsertPaymentEvent(UUID id, UUID paymentId, String eventType, String payload) {
+        jdbcTemplate.update("insert into payment_events (id, payment_id, event_type, payload) values (:id, :paymentId, :eventType, cast(:payload as jsonb)) on conflict (id) do nothing",
+                params().addValue("id", id).addValue("paymentId", paymentId).addValue("eventType", eventType).addValue("payload", payload));
+    }
+
+    private void upsertImageAsset(UUID id, UUID ownerId, String publicId, String url) {
+        jdbcTemplate.update("""
+                insert into image_assets (id, owner_account_id, provider, public_id, url, secure_url, width, height, bytes)
+                values (:id, :ownerId, 'CLOUDINARY', :publicId, :url, :url, 1600, 900, 0)
+                on conflict (id) do update set provider = excluded.provider, public_id = excluded.public_id,
+                    url = excluded.url, secure_url = excluded.secure_url
+                """, params().addValue("id", id).addValue("ownerId", ownerId).addValue("publicId", publicId).addValue("url", url));
+    }
+
+    private void seedAdditionalGalleryImages(UUID galleryFolderId) {
+        for (int index = 0; index < ADDITIONAL_GALLERY_IMAGE_FILES.size(); index++) {
+            UUID imageId = id("18" + String.format("%02d", index + 1));
+            upsertImageAsset(imageId, ownerId, "demo/gallery/" + (index + 1),
+                    cloudinaryImage(ADDITIONAL_GALLERY_IMAGE_FILES.get(index)));
+            linkGalleryImage(id("19" + String.format("%02d", index + 1)), galleryFolderId, imageId);
+        }
+    }
+
+    private void linkGalleryImage(UUID id, UUID galleryFolderId, UUID imageId) {
+        jdbcTemplate.update("""
+                insert into gallery_images (id, folder_id, image_asset_id)
+                values (:id, :folderId, :imageId)
+                on conflict (folder_id, image_asset_id) do nothing
+                """, params().addValue("id", id).addValue("folderId", galleryFolderId).addValue("imageId", imageId));
+    }
+
+    private void linkHotelImage(UUID id, UUID hotelId, UUID imageId, int sortOrder) {
+        jdbcTemplate.update("""
+                insert into hotel_images (id, hotel_id, image_asset_id, url, sort_order)
+                select :id, :hotelId, :imageId, url, :sortOrder from image_assets where id = :imageId
+                on conflict (hotel_id, sort_order) do update set image_asset_id = excluded.image_asset_id, url = excluded.url
+                """, params().addValue("id", id).addValue("hotelId", hotelId).addValue("imageId", imageId).addValue("sortOrder", sortOrder));
+    }
+
+    private void linkRoomTypeImage(UUID id, UUID roomTypeId, UUID imageId, int sortOrder) {
+        jdbcTemplate.update("""
+                insert into room_type_images (id, room_type_id, image_asset_id, url, sort_order)
+                select :id, :roomTypeId, :imageId, url, :sortOrder from image_assets where id = :imageId
+                on conflict (room_type_id, sort_order) do update set image_asset_id = excluded.image_asset_id, url = excluded.url
+                """, params().addValue("id", id).addValue("roomTypeId", roomTypeId).addValue("imageId", imageId).addValue("sortOrder", sortOrder));
+    }
+
+    private void upsertNews(UUID id, String slug, String title, String summary, String status) {
+        jdbcTemplate.update("""
+                insert into news (id, author_account_id, title, slug, summary, content, status, published_at)
+                values (:id, :authorId, :title, :slug, :summary, :content, :status, case when :status = 'PUBLISHED' then now() else null end)
+                on conflict (slug) do update set title = excluded.title, summary = excluded.summary, content = excluded.content,
+                    status = excluded.status, published_at = excluded.published_at, updated_at = now()
+                """, params().addValue("id", id).addValue("authorId", adminId).addValue("title", title).addValue("slug", slug)
+                .addValue("summary", summary).addValue("content", summary + " This seeded content is safe to edit during a local demo.").addValue("status", status));
+    }
+
+    private void linkNewsImage(UUID id, UUID newsId, UUID imageId, int sortOrder) {
+        jdbcTemplate.update("""
+                insert into news_images (id, news_id, image_asset_id, url, sort_order)
+                select :id, :newsId, :imageId, url, :sortOrder from image_assets where id = :imageId
+                on conflict (news_id, sort_order) do update set image_asset_id = excluded.image_asset_id, url = excluded.url
+                """, params().addValue("id", id).addValue("newsId", newsId).addValue("imageId", imageId).addValue("sortOrder", sortOrder));
+    }
+
+    private void upsertBanner(UUID id, String title, String subtitle, String imageUrl, String linkUrl, String linkType, int position) {
+        jdbcTemplate.update("""
+                insert into banners (id, title, subtitle, image_url, link_url, link_type, position, active, starts_at, ends_at)
+                values (:id, :title, :subtitle, :imageUrl, :linkUrl, :linkType, :position, true, now() - interval '1 day', now() + interval '60 days')
+                on conflict (position) do update set title = excluded.title, subtitle = excluded.subtitle, image_url = excluded.image_url,
+                    link_url = excluded.link_url, link_type = excluded.link_type, active = true, updated_at = now()
+                """, params().addValue("id", id).addValue("title", title).addValue("subtitle", subtitle).addValue("imageUrl", imageUrl)
+                .addValue("linkUrl", linkUrl).addValue("linkType", linkType).addValue("position", position));
+    }
+
+    private void upsertPolicy(UUID id, UUID hotelId, String type, String title, String content, int sortOrder) {
+        jdbcTemplate.update("""
+                insert into hotel_policies (id, hotel_id, type, title, content, enabled, sort_order)
+                values (:id, :hotelId, :type, :title, :content, true, :sortOrder)
+                on conflict (hotel_id, type) do update set title = excluded.title, content = excluded.content,
+                    enabled = true, sort_order = excluded.sort_order, updated_at = now()
+                """, params().addValue("id", id).addValue("hotelId", hotelId).addValue("type", type).addValue("title", title)
+                .addValue("content", content).addValue("sortOrder", sortOrder));
+    }
+
+    private void upsertNotification(UUID id, UUID recipientId, String type, String title, String body, String linkUrl) {
+        jdbcTemplate.update("""
+                insert into notifications (id, recipient_account_id, type, title, body, link_url)
+                values (:id, :recipientId, :type, :title, :body, :linkUrl)
+                on conflict (id) do update set title = excluded.title, body = excluded.body, link_url = excluded.link_url
+                """, params().addValue("id", id).addValue("recipientId", recipientId).addValue("type", type)
+                .addValue("title", title).addValue("body", body).addValue("linkUrl", linkUrl));
+    }
+
+    private MapSqlParameterSource params() {
+        return new MapSqlParameterSource();
+    }
+
+    private UUID inventoryId(UUID roomTypeId, LocalDate stayDate) {
+        return UUID.nameUUIDFromBytes((roomTypeId + ":" + stayDate).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static UUID id(String suffix) {
+        return UUID.fromString("40000000-0000-4000-8000-00000000" + suffix);
+    }
+
+    private static String cloudinaryImage(String fileName) {
+        return switch (fileName) {
+            case "small_andrew-neel-B4rEJ09-Puo-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699214/small_andrew-neel-B4rEJ09-Puo-unsplash_ilcr8p.jpg";
+            case "small_bilderboken-rlwE8f8anOc-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699214/small_bilderboken-rlwE8f8anOc-unsplash_njofaz.jpg";
+            case "small_brett-campbell-k1OlQaEK2qI-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699214/small_brett-campbell-k1OlQaEK2qI-unsplash_iafggu.jpg";
+            case "small_cory-bjork-D1yT791Nf9A-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699214/small_cory-bjork-D1yT791Nf9A-unsplash_otawcw.jpg";
+            case "small_dad-hotel-FCSDBKliyTQ-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_dad-hotel-FCSDBKliyTQ-unsplash_fhpsmt.jpg";
+            case "small_frames-for-your-heart-zSG-kd-L6vw-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_frames-for-your-heart-zSG-kd-L6vw-unsplash_moi4cv.jpg";
+            case "small_jeffrey-francisco-_Ei9f33bQ1A-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699209/jeffrey-francisco-_Ei9f33bQ1A-unsplash_kb0ifz.jpg";
+            case "small_jorg-angeli-1tyuLfDOnG0-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_jorg-angeli-1tyuLfDOnG0-unsplash_pizjfd.jpg";
+            case "small_mark-champs-Id2IIl1jOB0-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_mark-champs-Id2IIl1jOB0-unsplash_e1phl6.jpg";
+            case "small_mp-fV2dM2WvKvE-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_mp-fV2dM2WvKvE-unsplash_f86j3v.jpg";
+            case "small_mr-junaid--3ohj90OT8o-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_mr-junaid--3ohj90OT8o-unsplash_vqxcuj.jpg";
+            case "small_natalia-gusakova-EYoK3eVKIiQ-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_natalia-gusakova-EYoK3eVKIiQ-unsplash_gwoybm.jpg";
+            case "small_orva-studio-YC8qqp50BdA-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_orva-studio-YC8qqp50BdA-unsplash_kr7gnz.jpg";
+            case "small_oswald-elsaboath-ym_EI-DTS1g-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_oswald-elsaboath-ym_EI-DTS1g-unsplash_pihkzy.jpg";
+            case "small_paolo-nicolello-2gOxKj594nM-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_paolo-nicolello-2gOxKj594nM-unsplash_cccvwq.jpg";
+            case "small_patrick-robert-doyle-AH8zKXqFITA-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_patrick-robert-doyle-AH8zKXqFITA-unsplash_wswjdr.jpg";
+            case "small_point3d-commercial-imaging-ltd-oxeCZrodz78-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_point3d-commercial-imaging-ltd-oxeCZrodz78-unsplash_bvnzw2.jpg";
+            case "small_reagan-m-d-eWGvLCZfQ-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_reagan-m-d-eWGvLCZfQ-unsplash_jpzghm.jpg";
+            case "small_reisetopia-pSDe7ePo0Tc-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_reisetopia-pSDe7ePo0Tc-unsplash_ztop2g.jpg";
+            case "small_rktkn-ssOtyGE8CyE-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_rktkn-ssOtyGE8CyE-unsplash_l5uuli.jpg";
+            case "small_sara-dubler-Koei_7yYtIo-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699219/small_sara-dubler-Koei_7yYtIo-unsplash_y2jare.jpg";
+            case "small_sasha-kaunas-67-sOi7mVIk-unsplash (1).jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699217/small_sasha-kaunas-67-sOi7mVIk-unsplash_1_wgsg94.jpg";
+            case "small_sasha-kaunas-67-sOi7mVIk-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699217/small_sasha-kaunas-67-sOi7mVIk-unsplash_v02zb3.jpg";
+            case "small_sasha-kaunas-TAgGZWz6Qg8-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699217/small_sasha-kaunas-TAgGZWz6Qg8-unsplash_li8kcx.jpg";
+            case "small_the-anam-_twiIcIsp2s-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699217/small_the-anam-_twiIcIsp2s-unsplash_wlcji8.jpg";
+            case "small_valeriia-bugaiova-_pPHgeHz1uk-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699218/small_valeriia-bugaiova-_pPHgeHz1uk-unsplash_i0vbzz.jpg";
+            case "small_visualsofdana-T5pL6ciEn-I-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699218/small_visualsofdana-T5pL6ciEn-I-unsplash_cmvyfo.jpg";
+            case "small_vojtech-bruzek-Yrxr3bsPdS0-unsplash.jpg" -> "https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699218/small_vojtech-bruzek-Yrxr3bsPdS0-unsplash_ciknsd.jpg";
+            default -> throw new IllegalArgumentException("Missing Cloudinary URL for demo image: " + fileName);
+        };
+    }
+
+    private record DemoBooking(String reference, UUID accountId, UUID hotelId, UUID roomTypeId, String status,
+                               int checkInOffset, int checkOutOffset, int nightlyPrice, int discount, UUID promotionId) {
+        private int nights() {
+            return checkOutOffset - checkInOffset;
+        }
     }
 }

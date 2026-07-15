@@ -1,5 +1,6 @@
 package org.example.hotelbookingservice.enums;
 
 public enum BookingStatus {
-    BOOKED, CHECKED_IN, CHECKED_OUT, CANCELLED
+    PENDING, CONFIRMED, CHECKED_IN, COMPLETED, CANCELLED, NO_SHOW,
+    BOOKED, CHECKED_OUT
 }

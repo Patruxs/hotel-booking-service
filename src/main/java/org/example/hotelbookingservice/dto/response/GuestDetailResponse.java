@@ -12,14 +12,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-@Schema(description = "Thông tin khách lưu trú")
+@Schema(description = "Guest information")
 public class GuestDetailResponse {
     @Schema(description = "ID")
     private Integer id;
 
-    @Schema(description = "Họ tên khách", example = "Nguyen Van A")
+    @Schema(description = "Guest full name", example = "Nguyen Van A")
     private String fullName;
 
-    @Schema(description = "Số CCCD/Passport", example = "079203012345")
+    @Schema(description = "Citizen ID/Passport number", example = "079203012345")
     private String identityNumber;
 }

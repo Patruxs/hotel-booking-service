@@ -20,7 +20,7 @@ public class OpenApiConfig {
                         .version("1.0")
                         .description("API documentation for Hotel Booking System")
                         .license(new License().name("Apache 2.0").url("http://springdoc.org")))
-                // Cấu hình nút Authorize (Nhập Token)
+                // Configure Authorize button (Enter Token)
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",

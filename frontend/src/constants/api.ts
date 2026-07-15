@@ -10,7 +10,6 @@ export const API_ENDPOINTS = {
     VERIFY_EMAIL: "/auth/verify-email",
     RESEND_EMAIL: "/auth/resend",
     REFRESH_TOKEN: "/auth/refresh",
-    GOOGLE: "/auth/google",
     SESSIONS: "/auth/sessions",
   },
   USERS: "/users",

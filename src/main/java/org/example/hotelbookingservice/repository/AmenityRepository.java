@@ -4,8 +4,9 @@ import org.example.hotelbookingservice.entity.Amenity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.UUID;
 
-public interface AmenityRepository extends JpaRepository<Amenity, Integer> {
+public interface AmenityRepository extends JpaRepository<Amenity, UUID> {
     Optional<Amenity> findByName(String name);
     boolean existsByName(String name);
 }

@@ -6,8 +6,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
-public interface ReviewRepository extends JpaRepository<Review, Integer> {
+public interface ReviewRepository extends JpaRepository<Review, UUID> {
+    default Optional<Review> findById(Integer id) {
+        return id == null ? Optional.empty() : findById(new UUID(0L, id.longValue()));
+    }
+
     @Query(value = "SELECT * FROM review WHERE hotel_id = :hotelId", nativeQuery = true)
     List<Review> findByHotelId(@Param("hotelId") Integer hotelId);
 

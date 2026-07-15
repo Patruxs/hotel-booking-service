@@ -17,6 +17,7 @@ export interface HotelMember {
   hotelId: string;
   userId: string;
   createdAt: string;
+  owner?: boolean;
   user: {
     id: string;
     email: string;
@@ -55,5 +56,8 @@ export interface HotelsQueryParams {
   checkIn?: string;
   checkOut?: string;
   city?: string;
+  rooms?: number;
+  adults?: number;
+  children?: number;
   sortBy?: 'recommended' | 'price_asc' | 'price_desc';
 }

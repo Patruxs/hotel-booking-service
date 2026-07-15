@@ -6,37 +6,80 @@ Base URL: `VITE_API_BASE_URL`, default `http://localhost:8080/api/v1`.
 
 Auth transport: `withCredentials: true`, `Authorization: Bearer <accessToken>` from the `accessToken` cookie.
 
-Mock mode: all groups below are currently represented by fixture data when `VITE_USE_MOCKS=true`. Unsupported Kinyias-era modules use `mockOnly` adapters and do not call missing Spring endpoints even when `VITE_USE_MOCKS=false`.
+Mock mode: live Spring API mode is the default when env flags are absent. Set
+`VITE_USE_MOCKS=true` only for explicit local UI inspection. Set
+`VITE_BYPASS_AUTH=true` only for explicit local auth bypass. Production-like
+runs use `VITE_USE_MOCKS=false` and `VITE_BYPASS_AUTH=false`.
+`mockOnly` adapters now throw outside explicit mock mode so live runs cannot
+silently render fixtures.
 
-Active route pages now call Kinyias-compatible feature API functions from `src/features/*/api.ts`. Spring-supported adapters decide between fixture data and Spring requests through `VITE_USE_MOCKS`, so routed pages should not read `mockApi` directly.
+OWNER administration uses the same live Spring contract as ADMIN for the
+requested modules, but hotel-derived requests must target a hotel returned by
+`/hotels/manageable`. Global OWNER exceptions are limited to `/amenities` and
+`/admin/news`; review moderation remains hotel-qualified under `/admin/hotels`.
+MANAGER may update manageable hotel profile fields, but hotel creation and
+archive/delete actions are restricted to OWNER and ADMIN and are hidden in the
+MANAGER interface.
 
-Unsupported adapters are deliberately `mockOnly`/TODO-safe. They return fixtures regardless of `VITE_USE_MOCKS` until matching Spring controllers exist.
+Active route pages call Kinyias-compatible feature API functions from `src/features/*/api.ts`. Live-mode adapters call Spring requests through `src/lib/axios.ts`; routed pages must not read `mockApi` or fixture modules directly.
+
+Any remaining `mockOnly` adapter is explicit development-only behavior. A route
+or action that is reachable from normal public, account, or admin navigation
+must be connected to Spring or hidden before it can be treated as live product
+surface.
+
+Task group 1 inventory evidence lives in
+`docs/stories/FRONTEND-API-001-live-spring-api-integration/route-inventory.md`.
+That file maps every public/account/admin reachable route to page, adapter,
+Spring endpoint target, auth requirement, and proof target.
+
+Hidden or unsupported user-facing entries:
+
+- `/me/sale` was removed from normal account navigation.
+- Mobile "My Offers" was removed because no product route or Spring contract
+  exists.
+- Login/register Google OAuth buttons were hidden because Spring has no
+  completed OAuth contract in this change slice.
+- `/auth/callback` remains mounted for direct compatibility but is not linked
+  from normal navigation and is excluded from live proof until OAuth is
+  implemented.
 
 ## Current Spring Boot connection
 
-`VITE_USE_MOCKS=false` now connects the migrated frontend to the existing Spring Boot API where an equivalent endpoint already exists:
+`VITE_USE_MOCKS=false` connects the migrated frontend to Spring Boot `/api/v1`
+for the reachable product surface:
 
 | Frontend feature | Connected Spring Boot endpoint |
 |---|---|
-| auth login/register/logout | `/auth/login`, `/auth/register`, `/auth/logout` |
-| public/admin hotels | `/hotels/all`, `/hotels/:hotelId`, `/hotels/search` |
-| hotel rooms | `/hotels/:hotelId/rooms` |
-| rooms | `/rooms/all`, `/rooms/:roomId`, `/rooms/types`, `/rooms/all-available-rooms` |
-| bookings | Hotel create/list/detail/status/cancellation targets are under `/hotels/:hotelId/bookings`; customer history uses `/bookings/me` |
-| account/users | `/users/all`, `/users/get-logged-in-profile-info`, `/users/update`, `/users/change-password`; customer bookings use `/bookings/me` |
-| amenities | `/amenities/all`, `/amenities/:id`, `/amenities/create`, `/amenities/update/:id` |
+| auth and session | `/auth/login`, `/auth/register`, `/auth/logout`, `/auth/refresh`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/verify-email`, `/auth/resend`, `/users/me` |
+| public hotels and availability | `/hotels`, `/hotels/:hotelId`, `/hotels/:hotelId/room-types`, `/hotels/:hotelId/room-types/available`, `/hotels/:hotelId/room-types/:roomTypeId`, `/hotels/:hotelId/policies`, `/hotels/:hotelId/reviews`, `/banners`, `/news`, `/contacts` |
+| booking and payment | `/hotels/:hotelId/bookings`, `/hotels/:hotelId/bookings/:bookingId`, `/bookings/me`, `/bookings/me/:bookingId`, `/bookings/:bookingId/payments/vnpay` |
+| account | `/users/me`, `/users/me/change-password`, `/uploads/avatar`, `/bookings/me`, `/bookings/me/:bookingId`, `/reviews/mine`, `/reviews/:id/mine` |
+| owner/admin hotel operations | `/hotels`, `/hotels/manageable`, `/hotels/:hotelId/manage`, `/hotels/:hotelId`, `/hotels/:hotelId/status`, `/hotels/:hotelId/members`, `/hotels/:hotelId/member-candidates`, `/hotels/:hotelId/room-types`, `/hotels/:hotelId/rooms`, `/hotels/:hotelId/rooms/:roomId`, `/hotels/:hotelId/room-types/:roomTypeId/inventory`, `/hotels/:hotelId/room-types/:roomTypeId/inventory/bulk`, and `/hotels/:hotelId/room-types/:roomTypeId/inventory/:inventoryId` delete |
+| admin content and commercial | `/admin/news`, `/admin/banners`, `/admin/contacts`, `/notifications`, `/admin/commission-packages`, `/hotels/:hotelId/commission-package/:packageId`, `/admin/hotels/:hotelId/policies`, `/admin/promotions`, `/promotions/public` |
+| admin identity and RBAC | `/users`, `/users/:userId`, `/roles`, `/roles/assign-to-user`, `/permissions`, `/actions` |
+| media and gallery | `/uploads`, `/uploads/avatar`, `/uploads/avatar` delete, `/upload/db-folders`, `/upload/db-folders/:folderId/images`, `/upload/create-folder`, `/upload/image/:folderName` |
+| dashboard and reviews | `/dashboard/stats`, `/dashboard/revenue-chart`, `/dashboard/latest-reviews`, `/dashboard/newest-bookings`, `/admin/hotels/:hotelId/reviews`, `/admin/hotels/:hotelId/reviews/:reviewId/moderation` |
 
 Spring audit notes:
 
 - Spring wraps responses as `{ status, message, data }`; frontend adapters unwrap this envelope.
-- Spring auth returns `data.token`, `role`, `expirationTime`, and `isActive`; the frontend maps this into `accessToken` plus frontend user state.
-- Spring currently has no refresh-token endpoint.
-- Spring has revenue endpoints at `/revenue/yearly` and `/revenue/date-range`, but no complete Kinyias dashboard endpoint surface.
-- Spring physical-room endpoints exist under `/physical-rooms/*`, but browser `PATCH` may need CORS follow-up.
-- News, banners, policies, promotions, contacts, commissions, gallery/upload, notifications, permissions, roles, actions, inventory, payments, and review controllers are absent or incomplete in Spring and remain mock/TODO-safe.
-- Migrated Kinyias admin pages for these unsupported modules remain visible in the SPA; their adapter functions deliberately return fixture data and do not call missing Spring controllers.
+- Feature adapters map Spring DTO names and pagination shapes into the existing
+  frontend view types. Page components consume the mapped view models.
+- Spring auth returns an access token and refresh cookie transport. The
+  frontend stores the access token, calls `/users/me`, and treats
+  `allowedActions` as a visibility hint only.
+- Spring refresh is available at `/auth/refresh`. The Axios client performs one
+  shared refresh, retries the original request, and clears auth state when
+  refresh fails.
+- Spring remains authoritative for authorization, booking totals, promotion
+  eligibility, usage consumption, payment state, and user-visible errors.
+- Fixture fallback is not valid in live mode. Explicit mock mode may return
+  source-shaped placeholders for development inspection, but it must not be used
+  as product proof.
 
-Kinyias modules without current Spring Boot equivalents remain documented below as TODOs for future Spring Boot implementation. Their listed Kinyias paths are contract references, not active NestJS runtime dependencies.
+Kinyias source paths below are migration references only. The active runtime
+contract is the Spring `/api/v1` path listed in each table.
 
 ## auth
 
@@ -62,12 +105,13 @@ Source: `apps/web/src/features/user/api.ts`.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/users` | Query `UsersQueryParams`, paginated users |
-| PUT | `/users/:id` | Partial user update |
+| PATCH | `/users/:id` | Admin partial user update |
 | DELETE | `/users/:id` | Delete user |
 | GET | `/users/me` | Current user |
 | PATCH | `/users/me` | Profile update |
 | POST | `/users/me/change-password` | Password change |
-| POST | `/users/me/avatar` | Multipart avatar upload |
+| POST | `/uploads/avatar` | Multipart avatar upload |
+| DELETE | `/uploads/avatar` | Delete avatar |
 | POST | `/roles/assign-to-user` | Assign roles to a user |
 
 ## hotels
@@ -188,7 +232,10 @@ Source: `apps/web/src/features/amentites/api.ts`.
 | GET | `/amenities` | Query `AmenitiesQueryParams` |
 | GET | `/amenities/:id` | Detail |
 | POST | `/amenities` | Create |
-| PATCH | `/amenities/:id` | Update |
+| PUT | `/amenities/:id` | Update |
+| DELETE | `/amenities/:id` | Disable |
+
+Amenity `key` is the unique business identifier. `iconKey` is optional reusable presentation metadata containing a Lucide icon export name. Create and update requests must not place the selected icon in `key`; updates that omit `iconKey` preserve its current value.
 
 ## banners
 
@@ -209,9 +256,9 @@ Source: `apps/web/src/features/news/api.ts`.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/admin/news` | Admin list |
-| GET | `/admin/news/id/:id` | Admin detail |
+| GET | `/admin/news/:id` | Admin detail |
 | POST | `/admin/news` | Create |
-| PATCH | `/admin/news/:id` | Update |
+| PUT/PATCH | `/admin/news/:id` | Update |
 | DELETE | `/admin/news/:id` | Delete |
 | GET | `/news` | Public list |
 | GET | `/news/:slug` | Public detail |
@@ -231,16 +278,25 @@ Source: `apps/web/src/features/policies/api.ts`.
 
 ## promotions
 
-Source: `apps/web/src/features/promotion/api.ts`.
+Source: `frontend/src/features/promotion/api.ts`.
+
+Live-mode behavior:
+
+- Admin promotion list/detail/create/update/delete use Spring `/api/v1/admin/promotions`.
+- Public checkout promotion search uses Spring `/api/v1/promotions/public`.
+- Public lookup/search returns currently active promotions whose `hotel_id` is either `null` for global eligibility or matches the supplied `hotelId`.
+- Public promotion responses are preview data only. Booking creation remains final authority for discount amount, usage limits, per-user limits, usage consumption, and rejection reasons.
+- The frontend maps Spring `maxDiscount`/`startsAt`/`endsAt` style fields into the existing `maxDiscountAmount`/`startAt`/`endAt` view model. `description` remains `null` because the current `promotions` table has no description column.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/promotions` | Admin list |
-| GET | `/promotions/public` | Public list |
-| GET | `/promotions/:id` | Detail |
-| POST | `/promotions` | Create |
-| PATCH | `/promotions/:id` | Update |
-| DELETE | `/promotions/:id` | Delete |
+| GET | `/admin/promotions` | Admin list with `search`, `hotelId`, `isActive`, `page`, and `limit` |
+| GET | `/admin/promotions/:id` | Admin detail |
+| POST | `/admin/promotions` | Create |
+| PATCH | `/admin/promotions/:id` | Update |
+| DELETE | `/admin/promotions/:id` | Delete |
+| GET | `/promotions/public` | Public search with `search`, `hotelId`, `subtotal`, and `limit` |
+| GET | `/promotions/public/:code` | Public code lookup with `hotelId` and `subtotal` |
 
 ## reviews
 
@@ -249,12 +305,12 @@ Source: `apps/web/src/features/reviews/api.ts`.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/hotels/:hotelId/reviews` | Public reviews |
-| GET | `/hotels/:hotelId/reviews/moderation` | Moderation list |
+| GET | `/admin/hotels/:hotelId/reviews` | OWNER/ADMIN/MANAGER moderation list for a manageable hotel |
 | POST | `/hotels/:hotelId/reviews` | Create review |
-| PATCH | `/hotels/:hotelId/reviews/:id/moderate` | Hide/show |
-| DELETE | `/hotels/:hotelId/reviews/:id` | Delete |
-| GET | `/users/me/reviews` | Source omitted leading slash |
-| PATCH | `/reviews/:id` | Source omitted leading slash |
+| PATCH | `/admin/hotels/:hotelId/reviews/:id/moderation` | OWNER/ADMIN/MANAGER hide/show |
+| DELETE | `/admin/hotels/:hotelId/reviews/:id` | OWNER/ADMIN/MANAGER delete |
+| GET | `/reviews/mine` | Customer-owned review list |
+| PATCH | `/reviews/:id/mine` | Customer-owned review update; maps frontend `content` to Spring `comment` |
 
 ## dashboard
 
@@ -273,9 +329,10 @@ Source: `apps/web/src/features/inventory/api.ts`.
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/hotels/:hotelId/inventories` | Inventory query |
-| POST | `/hotels/:hotelId/inventories/bulk` | Bulk set |
-| PATCH | `/hotels/:hotelId/inventories/:id` | Update |
+| GET | `/hotels/:hotelId/room-types/:roomTypeId/inventory` | Inventory query with optional `from` and `to` |
+| PUT | `/hotels/:hotelId/room-types/:roomTypeId/inventory` | Upsert date-range inventory for a room type |
+| PUT | `/hotels/:hotelId/room-types/:roomTypeId/inventory/bulk` | Transactional inclusive date-range bulk upsert |
+| DELETE | `/hotels/:hotelId/room-types/:roomTypeId/inventory/:inventoryId` | Delete only future records with no reserved or consumed capacity; conflicts otherwise |
 
 ## contacts
 
@@ -299,7 +356,7 @@ Source: `apps/web/src/features/commissions/api.ts`.
 | POST | `/admin/commission-packages` | Create |
 | PATCH | `/admin/commission-packages/:id` | Update |
 | PATCH | `/admin/commission-packages/:id/deactivate` | Deactivate |
-| PATCH | `/admin/commission-packages/:hotelId/commission-package` | Assign package |
+| PUT | `/hotels/:hotelId/commission-package/:packageId` | Assign package |
 | GET | `/admin/commission-packages/revenue/chart` | Revenue chart |
 
 ## permissions, roles, actions

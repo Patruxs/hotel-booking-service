@@ -32,15 +32,17 @@ export default function AmenityPage() {
   const form = useForm<AmenityFormSchema>({
     resolver: zodResolver(amenityFormSchema),
     defaultValues: {
-      label: "",
-      key: "",
+        label: "",
+        key: "",
+        iconKey: "",
     },
   });
   useEffect(() => {
     if (amenity) {
       form.reset({
-        label: amenity.label,
-        key: amenity.key,
+          label: amenity.label,
+          key: amenity.key,
+          iconKey: amenity.iconKey ?? "",
       });
     }
   }, [amenity, form]);
@@ -84,7 +86,7 @@ export default function AmenityPage() {
           />
           <FormField
             control={form.control}
-            name="key"
+              name="iconKey"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Icon Key</FormLabel>
@@ -106,7 +108,7 @@ export default function AmenityPage() {
                             </Button>
                         </div>
                         <IconExplorer
-                            onSelect={(icon) => form.setValue("key", icon)}
+                              onSelect={(icon) => form.setValue("iconKey", icon, { shouldValidate: true })}
                             selectedIcon={field.value}
                         />
                     </div>

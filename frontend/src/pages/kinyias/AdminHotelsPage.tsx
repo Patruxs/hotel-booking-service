@@ -17,7 +17,11 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useHotelsQuery } from '@/features/hotels/queries';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePermission } from '@/providers/PermissionProvider';
+import { OWNER_ONLY_REQUIREMENT } from '@/providers/permissionAccess';
+
 export default function AdminHotelsPage() {
+  const { canAccess } = usePermission();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<HotelStatus | 'all'>('all');
   const limit = 10;
@@ -47,13 +51,15 @@ export default function AdminHotelsPage() {
     <div className="m-4 md:m-6 space-y-6">
        <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-foreground">Hotels Management</h1>
-                <Link to="/admin/hotels/new">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <Plus size={20} className="mr-2" />
-                  Add Hotel
-                </Button>
-                </Link>
-              </div>
+                 {canAccess(OWNER_ONLY_REQUIREMENT) && (
+                   <Link to="/admin/hotels/new">
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                      <Plus size={20} className="mr-2" />
+                      Add Hotel
+                    </Button>
+                   </Link>
+                 )}
+                </div>
       <Card className="p-4 bg-card border-border">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">

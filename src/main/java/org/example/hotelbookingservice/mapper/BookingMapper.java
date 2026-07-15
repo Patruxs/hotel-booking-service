@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 
-@Mapper(componentModel = "spring", uses = {HotelMapper.class, RoomMapper.class, UserMapper.class}, injectionStrategy = InjectionStrategy.CONSTRUCTOR)
+@Mapper(componentModel = "spring", uses = {HotelMapper.class, UserMapper.class}, injectionStrategy = InjectionStrategy.CONSTRUCTOR)
 public abstract class BookingMapper {
 
     // 1. Entity -> Response (Output)
@@ -45,6 +45,21 @@ public abstract class BookingMapper {
     @Mapping(target = "damageFee", ignore = true)
     @Mapping(target = "damageDescription", ignore = true)
     @Mapping(target = "guestDetails", ignore = true)
+    @Mapping(target = "guestEmail", ignore = true)
+    @Mapping(target = "guestPhone", ignore = true)
+    @Mapping(target = "subtotalAmount", ignore = true)
+    @Mapping(target = "discountAmount", ignore = true)
+    @Mapping(target = "commissionPackageCode", ignore = true)
+    @Mapping(target = "commissionRate", ignore = true)
+    @Mapping(target = "commissionAmount", ignore = true)
+    @Mapping(target = "pendingExpiresAt", ignore = true)
+    @Mapping(target = "cancelledAt", ignore = true)
+    @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "noShowAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "hotel", ignore = true)
+    @Mapping(target = "promotionId", ignore = true)
+    @Mapping(target = "checkIn", ignore = true)
     public abstract Booking toBooking(BookingCreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
@@ -63,6 +78,21 @@ public abstract class BookingMapper {
     @Mapping(target = "refund", ignore = true)
     @Mapping(target = "specialRequire", ignore = true)
     @Mapping(target = "guestDetails", ignore = true)
+    @Mapping(target = "guestEmail", ignore = true)
+    @Mapping(target = "guestPhone", ignore = true)
+    @Mapping(target = "subtotalAmount", ignore = true)
+    @Mapping(target = "discountAmount", ignore = true)
+    @Mapping(target = "commissionPackageCode", ignore = true)
+    @Mapping(target = "commissionRate", ignore = true)
+    @Mapping(target = "commissionAmount", ignore = true)
+    @Mapping(target = "pendingExpiresAt", ignore = true)
+    @Mapping(target = "cancelledAt", ignore = true)
+    @Mapping(target = "completedAt", ignore = true)
+    @Mapping(target = "noShowAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "hotel", ignore = true)
+    @Mapping(target = "promotionId", ignore = true)
+    @Mapping(target = "checkIn", ignore = true)
     public abstract void updateBookingFromRequest(BookingUpdateRequest request, @MappingTarget Booking booking);
 
 
@@ -72,9 +102,17 @@ public abstract class BookingMapper {
     protected HotelResponse mapHotel(Booking booking) {
         if (booking.getBookingrooms() != null && !booking.getBookingrooms().isEmpty()) {
             var hotel = booking.getBookingrooms().iterator().next().getRoom().getHotel();
-            HotelResponse response = toHotelResponse(hotel);
-            response.setRooms(null);
-            return response;
+            return HotelResponse.builder()
+                    .id(hotel.getId())
+                    .name(hotel.getName())
+                    .location(hotel.getLocation())
+                    .description(hotel.getDescription())
+                    .starRating(hotel.getStarRating())
+                    .email(hotel.getEmail())
+                    .phone(hotel.getPhone())
+                    .isActive("ACTIVE".equals(hotel.getStatus()))
+                    .rooms(null)
+                    .build();
         }
         return null;
     }
@@ -88,8 +126,9 @@ public abstract class BookingMapper {
                 .collect(Collectors.toList());
     }
 
-    protected abstract HotelResponse toHotelResponse(Hotel hotel);
-
+    @Mapping(target = "roomImages", ignore = true)
+    @Mapping(target = "amenities", ignore = true)
+    @Mapping(target = "availableQuantity", ignore = true)
     protected abstract RoomResponse toRoomResponse(Room room);
 
     @Named("mapGuestDetails")

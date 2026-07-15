@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useQuery } from '@tanstack/react-query';
-import { listHotelReviews, listModerationReviews, listMyReviews } from './api';
+import { getReviewEligibility, listHotelReviews, listModerationReviews, listMyReviews } from './api';
 import { ListReviewsParams } from './types';
 export const REVIEWS_QUERY_KEY = 'reviews';
 export const useReviewsQuery = (hotelId: string, params: ListReviewsParams = {}) => {
@@ -8,6 +8,13 @@ export const useReviewsQuery = (hotelId: string, params: ListReviewsParams = {})
     queryKey: [REVIEWS_QUERY_KEY, hotelId, params],
     queryFn: () => listHotelReviews(hotelId, params),
     enabled: !!hotelId,
+  });
+};
+export const useReviewEligibilityQuery = (hotelId: string, enabled: boolean) => {
+  return useQuery({
+    queryKey: [REVIEWS_QUERY_KEY, 'eligibility', hotelId],
+    queryFn: () => getReviewEligibility(hotelId),
+    enabled: !!hotelId && enabled,
   });
 };
 export const useModerationReviewsQuery = (hotelId: string, params: ListReviewsParams = {}) => {

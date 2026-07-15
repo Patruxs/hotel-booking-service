@@ -52,7 +52,9 @@ export const BookingTable = ({
                         <Info className="w-3 h-3" /> Non-refundable
                       </span>
                       {type.amenities?.map((item) => {
-                          const IconComponent = (Icons as any)[item.amenity.key];
+                            const IconComponent = item.amenity.iconKey
+                              ? (Icons as any)[item.amenity.iconKey]
+                              : null;
                         return (
                           <span key={item.amenityId || Math.random()} className="flex items-center gap-1">
                             {IconComponent && <IconComponent className="w-3 h-3" />}

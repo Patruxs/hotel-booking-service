@@ -1,7 +1,8 @@
 // @ts-nocheck
 export interface Amenity {
-  id: string;
-  key: string;
+    id: string;
+    key: string;
+    iconKey: string | null;
   label: string;
   sortOrder: number;
   isActive: boolean;
@@ -13,4 +14,5 @@ export interface AmenitiesQueryParams {
   limit?: number;
   offset?: number;
   q?: string;
+  isActive?: boolean;
 }

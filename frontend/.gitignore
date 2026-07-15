@@ -8,3 +8,7 @@ vite.config.d.ts
 .env
 .env.local
 .env.*.local
+
+# Testing
+test-results/
+playwright-report/

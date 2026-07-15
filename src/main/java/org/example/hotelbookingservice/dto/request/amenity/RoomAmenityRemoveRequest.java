@@ -10,8 +10,8 @@ import java.util.List;
 @Data
 public class RoomAmenityRemoveRequest {
 
-    @NotNull(message = "Danh sách tiện ích không được để null")
-    @NotEmpty(message = "Danh sách tiện ích cần xóa không được rỗng")
-    @Schema(description = "Danh sách ID các tiện ích cần xóa khỏi phòng", example = "[3, 4]")
+    @NotNull(message = "Amenity list cannot be null")
+    @NotEmpty(message = "Amenity list to be removed cannot be empty")
+    @Schema(description = "List of amenity IDs to be removed from the room", example = "[3, 4]")
     private List<Integer> amenityIds;
 }

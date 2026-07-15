@@ -1,9 +1,7 @@
 'use client';
-import { useState } from 'react';
-import { useHotelsQuery } from '@/features/hotels/queries';
-import { useHotelMembersQuery } from '@/features/hotels/queries';
+import { useEffect, useState } from 'react';
+import { useHotelsQuery, useHotelMemberCandidatesQuery, useHotelMembersQuery } from '@/features/hotels/queries';
 import { useAddMembersToHotelMutation, useRemoveMemberFromHotelMutation } from '@/features/hotels/mutations';
-import { useUsersQuery } from '@/features/user/queries';
 import { HotelMember } from '@/features/hotels/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,7 +35,9 @@ import { toast } from 'react-hot-toast';
 import { UserPlus, Trash2, Users, Search } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 export default function MemberHotelsPage() {
-  const [selectedHotelId, setSelectedHotelId] = useState<string>('');
+  const [selectedHotelId, setSelectedHotelId] = useState<string>(() =>
+    typeof window === 'undefined' ? '' : window.localStorage.getItem('owner.selectedHotelId') ?? '',
+  );
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -47,26 +47,18 @@ export default function MemberHotelsPage() {
     selectedHotelId,
     !!selectedHotelId
   );
-  const { data: usersData, isLoading: isLoadingUsers } = useUsersQuery({ limit: 100 });
+  const { data: candidatesData, isLoading: isLoadingCandidates } = useHotelMemberCandidatesQuery(
+    selectedHotelId,
+    searchQuery,
+    !!selectedHotelId,
+  );
   // Mutations
   const addMembersMutation = useAddMembersToHotelMutation();
   const removeMemberMutation = useRemoveMemberFromHotelMutation();
   const hotels = hotelsData?.data || [];
   const members = (membersData as HotelMember[]) || [];
-  const users = usersData?.data || [];
-  // Filter users that are not already members
-  const availableUsers = users.filter(
-    (user: any) => !members.some((member) => member.userId === user.id)
-  );
-  // Filter available users based on search query
-  const filteredUsers = availableUsers.filter((user: any) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      user.email.toLowerCase().includes(searchLower) ||
-      user.firstName.toLowerCase().includes(searchLower) ||
-      user.lastName.toLowerCase().includes(searchLower)
-    );
-  });
+  const availableUsers = candidatesData || [];
+  const filteredUsers = availableUsers;
   const handleAddMembers = async () => {
     if (!selectedHotelId || selectedUserIds.length === 0) {
       toast.error('Please select at least one user');
@@ -103,6 +95,22 @@ export default function MemberHotelsPage() {
     );
   };
   const selectedHotel = hotels.find((h: any) => h.id === selectedHotelId);
+  useEffect(() => {
+    if (hotels.length === 0) {
+      setSelectedHotelId('');
+      return;
+    }
+    if (!selectedHotelId || !hotels.some((hotel: any) => String(hotel.id) === selectedHotelId)) {
+      setSelectedHotelId(String(hotels[0].id));
+    }
+  }, [hotels, selectedHotelId]);
+  useEffect(() => {
+    if (selectedHotelId) {
+      window.localStorage.setItem('owner.selectedHotelId', selectedHotelId);
+    } else {
+      window.localStorage.removeItem('owner.selectedHotelId');
+    }
+  }, [selectedHotelId]);
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -122,6 +130,8 @@ export default function MemberHotelsPage() {
         <CardContent>
           {isLoadingHotels ? (
             <Skeleton className="h-10 w-full" />
+          ) : hotels.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No manageable hotels are available for this account.</p>
           ) : (
             <Select value={selectedHotelId} onValueChange={setSelectedHotelId}>
               <SelectTrigger className="w-full">
@@ -179,7 +189,7 @@ export default function MemberHotelsPage() {
                     </div>
                     {}
                     <div className="flex-1 overflow-y-auto border rounded-md">
-                      {isLoadingUsers ? (
+                      {isLoadingCandidates ? (
                         <div className="p-4 space-y-2">
                           {[...Array(5)].map((_, i) => (
                             <Skeleton key={i} className="h-12 w-full" />
@@ -276,7 +286,8 @@ export default function MemberHotelsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveMember(member.userId)}
-                          disabled={removeMemberMutation.isPending}
+                          disabled={removeMemberMutation.isPending || member.owner}
+                          title={member.owner ? 'The hotel owner cannot be removed' : 'Remove member'}
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>

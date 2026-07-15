@@ -21,39 +21,39 @@ public class RoomCreateRequest {
     private Integer id;
 
     @NotNull(message = "Hotel ID is required")
-    @Schema(description = "ID của khách sạn muốn thêm phòng", example = "1")
+    @Schema(description = "ID of the hotel to add rooms to", example = "1")
     private Integer hotelId;
 
 
     @NotNull(message = "Room type is required")
-    @Schema(description = "Loại phòng", example = "SINGLE")
+    @Schema(description = "Room type", example = "SINGLE")
     private RoomType type;
 
     @NotNull(message = "Price is required")
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than 0")
-    @Schema(description = "Giá phòng mỗi đêm", example = "500000")
+    @Schema(description = "Room price per night", example = "500000")
     private BigDecimal price;
 
     @NotNull(message = "Capacity is required")
     @Min(value = 1, message = "Capacity must be at least 1 person")
-    @Schema(description = "Sức chứa tối đa (người)", example = "2")
+    @Schema(description = "Maximum capacity (people)", example = "2")
     private Integer capacity;
 
-    @Schema(description = "Số phòng ngủ", example = "1")
+    @Schema(description = "Number of bedrooms", example = "1")
     private Integer numberOfBedrooms;
 
     @NotBlank(message = "Description is required")
-    @Schema(description = "Mô tả chi tiết tiện nghi", example = "Phòng có view biển, điều hòa 2 chiều...")
+    @Schema(description = "Detailed description of amenities", example = "Room with ocean view, two-way air conditioning...")
     private String description;
 
     @NotBlank(message = "Room name is required")
-    @Schema(description = "Tên hiển thị của phòng", example = "Deluxe Ocean View")
+    @Schema(description = "Display name of the room", example = "Deluxe Ocean View")
     private String name;
 
     @Min(value = 1, message = "Amount of rooms must be at least 1")
-    @Schema(description = "Số lượng phòng cùng loại này", example = "5")
+    @Schema(description = "Number of rooms of this type", example = "5")
     private Integer amount;
 
-    @Schema(description = "Danh sách tiện ích đi kèm", example = "[1,2]")
+    @Schema(description = "List of accompanying amenities", example = "[1,2]")
     private List<Integer> amenityIds;
 }

@@ -10,6 +10,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +26,7 @@ class FlywaySchemaMigrationTest {
             .withPassword("test");
 
     static JdbcTemplate jdbc;
+    static List<UUID> migratedHotelOwnerIds;
 
     @BeforeAll
     static void migrate() {
@@ -40,6 +42,10 @@ class FlywaySchemaMigrationTest {
                 postgres.getPassword()
         );
         jdbc = new JdbcTemplate(dataSource);
+        migratedHotelOwnerIds = jdbc.queryForList(
+                "select distinct owner_id from hotels",
+                UUID.class
+        );
     }
 
     @Test
@@ -58,7 +64,7 @@ class FlywaySchemaMigrationTest {
                 Integer.class
         );
 
-        assertThat(migrations).isEqualTo(2);
+        assertThat(migrations).isGreaterThanOrEqualTo(15);
         assertThat(applicationTables).isEqualTo(9);
     }
 
@@ -85,8 +91,125 @@ class FlywaySchemaMigrationTest {
 
         assertThat(adminRoleId).isEqualTo(UUID.fromString("00000000-0000-4000-8000-000000000001"));
         assertThat(allRolesAreSystem).isTrue();
+        UUID ownerRoleId = jdbc.queryForObject("select id from roles where name = 'OWNER'", UUID.class);
+        Integer ownerPermissionCount = jdbc.queryForObject("""
+                select count(*)
+                from role_permissions rp
+                join roles r on r.id = rp.role_id
+                where r.name = 'OWNER'
+                """, Integer.class);
+        long ownerAssignments = migratedHotelOwnerIds.stream()
+                .filter(ownerId -> Boolean.TRUE.equals(jdbc.queryForObject("""
+                        select exists (
+                            select 1
+                            from account_roles ar
+                            join roles r on r.id = ar.role_id
+                            where ar.account_id = ?
+                              and r.name = 'OWNER'
+                        )
+                        """, Boolean.class, ownerId)))
+                .count();
+        long preservedManagerAssignments = migratedHotelOwnerIds.stream()
+                .filter(ownerId -> Boolean.TRUE.equals(jdbc.queryForObject("""
+                        select exists (
+                            select 1
+                            from account_roles ar
+                            join roles r on r.id = ar.role_id
+                            where ar.account_id = ?
+                              and r.name = 'MANAGER'
+                        )
+                        """, Boolean.class, ownerId)))
+                .count();
+
+        assertThat(ownerRoleId).isEqualTo(UUID.fromString("00000000-0000-4000-8000-000000000002"));
+        assertThat(ownerPermissionCount).isEqualTo(7);
+        assertThat(ownerAssignments).isZero();
+        assertThat(preservedManagerAssignments).isEqualTo(migratedHotelOwnerIds.size());
         assertThat(adminPermissionCount).isEqualTo(8);
-        assertThat(actionPolicyCount).isEqualTo(23);
+            assertThat(actionPolicyCount).isEqualTo(38);
+
+          assertThat(jdbc.queryForList("""
+                  select p.key
+                  from role_permissions rp
+                  join roles r on r.id = rp.role_id
+                  join permissions p on p.id = rp.permission_id
+                  where r.name = 'RECEPTIONIST'
+                    and p.key in ('rooms.view', 'rooms.condition.update')
+                  order by p.key
+                  """, String.class)).containsExactly("rooms.condition.update", "rooms.view");
+          assertThat(jdbc.queryForObject("""
+                  select count(*)
+                  from action_policies ap
+                  join api_actions a on a.id = ap.action_id
+                  join permissions p on p.id = ap.permission_id
+                  where a.key = 'bookings.create'
+                    and p.key = 'bookings.manage'
+                    and ap.scope = 'HOTEL_MEMBER'
+                  """, Integer.class)).isEqualTo(1);
+          assertThat(jdbc.queryForObject("""
+                  select count(*)
+                  from action_policies ap
+                  join api_actions a on a.id = ap.action_id
+                  join permissions p on p.id = ap.permission_id
+                  where a.key = 'rooms.condition.update'
+                    and p.key = 'rooms.condition.update'
+                    and ap.scope = 'HOTEL_MEMBER'
+                  """, Integer.class)).isEqualTo(1);
+
+        assertThat(jdbc.queryForObject("""
+                select count(*)
+                from role_permissions rp
+                join roles r on r.id = rp.role_id
+                join permissions p on p.id = rp.permission_id
+                where r.name = 'OWNER' and p.key = 'reviews.manage'
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                select count(*)
+                from action_policies ap
+                join api_actions a on a.id = ap.action_id
+                join permissions p on p.id = ap.permission_id
+                where a.key = 'inventory.delete'
+                  and p.key = 'hotels.manage'
+                  and ap.scope = 'HOTEL_OWNER'
+                """, Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                select count(*)
+                from action_policies ap
+                join api_actions a on a.id = ap.action_id
+                join permissions p on p.id = ap.permission_id
+                where a.key = 'reviews.manage'
+                  and p.key = 'reviews.manage'
+                  and ap.scope = 'HOTEL_OWNER'
+                  """, Integer.class)).isEqualTo(1);
+          assertThat(jdbc.queryForObject("""
+                  select count(*)
+                  from action_policies ap
+                  join api_actions a on a.id = ap.action_id
+                  join permissions p on p.id = ap.permission_id
+                  where a.key = 'reviews.manage'
+                    and p.key = 'bookings.manage'
+                    and ap.scope = 'HOTEL_MEMBER'
+                  """, Integer.class)).isZero();
+      }
+
+    @Test
+    void amenityIconsAreOptionalAndReusable() {
+        Boolean nullable = jdbc.queryForObject("""
+                select is_nullable = 'YES'
+                from information_schema.columns
+                where table_schema = 'public'
+                  and table_name = 'amenities'
+                  and column_name = 'icon_key'
+                """, Boolean.class);
+
+        UUID firstId = UUID.fromString("10000000-0000-4000-8003-000000000001");
+        UUID secondId = UUID.fromString("10000000-0000-4000-8003-000000000002");
+        jdbc.update("insert into amenities (id, key, name, type, icon_key) values (?, 'shared-icon-one', 'One', 'GENERAL', 'Wifi')", firstId);
+        jdbc.update("insert into amenities (id, key, name, type, icon_key) values (?, 'shared-icon-two', 'Two', 'GENERAL', 'Wifi')", secondId);
+
+        assertThat(nullable).isTrue();
+        assertThat(jdbc.queryForObject("select count(*) from amenities where icon_key = 'Wifi'", Integer.class))
+                .isEqualTo(2);
     }
 
     @Test

@@ -38,6 +38,8 @@ import { Link } from 'react-router-dom';
 import { UpdateStatusBookingDialog } from "@/features/bookings/components/UpdateStatusBookingDialog";
 import { Booking } from "@/features/bookings/types";
 import { useDebounce } from "@/hooks/useDebounce";
+import { Plus } from "lucide-react";
+import { CreateBookingDialog } from "@/features/bookings/components/CreateBookingDialog";
 export default function HotelBookingsPage() {
   const params = useParams();
   const router = useRouter();
@@ -47,9 +49,10 @@ export default function HotelBookingsPage() {
   const debouncedSearch = useDebounce(search, 500);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false);
+  const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false);
   const limit= 10
   // Fetch Hotel Details
-  const { data: hotel, isLoading: isLoadingHotel } = useHotelDetailQuery(hotelId);
+    const { data: hotel, isLoading: isLoadingHotel } = useHotelDetailQuery(hotelId);
   // Fetch Bookings
   const { data: bookingsResponse, isLoading: isLoadingBookings } = useBookingsQuery(
     hotelId,
@@ -92,7 +95,10 @@ export default function HotelBookingsPage() {
             <ArrowLeft className="w-5 h-5" />
         </Button>
       </div>
-      {}
+           <Button onClick={() => setIsCreateBookingOpen(true)}>
+             <Plus className="mr-2 h-4 w-4" />
+             Create Booking
+           </Button>
       <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100 mt-5">
          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -211,7 +217,7 @@ export default function HotelBookingsPage() {
             </div>
           )}
       </Card>
-      {selectedBooking && (
+        {selectedBooking && (
         <UpdateStatusBookingDialog
             hotelId={hotelId}
             bookingId={selectedBooking.id}
@@ -222,7 +228,12 @@ export default function HotelBookingsPage() {
                 if (!open) setSelectedBooking(null);
             }}
         />
-      )}
+        )}
+        <CreateBookingDialog
+          hotelId={hotelId}
+          open={isCreateBookingOpen}
+          onOpenChange={setIsCreateBookingOpen}
+        />
     </div>
   );
 }

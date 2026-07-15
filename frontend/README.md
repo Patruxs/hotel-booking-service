@@ -19,20 +19,25 @@ npm run typecheck
 npm run build
 ```
 
-Default inspection variables:
+Production-like live API variables:
+
+```bash
+VITE_API_BASE_URL=http://localhost:8080/api/v1
+VITE_USE_MOCKS=false
+VITE_BYPASS_AUTH=false
+VITE_VNPAY_ENABLED=false
+```
+
+Set `VNPAY_ENABLED=true` for the backend and `VITE_VNPAY_ENABLED=true` for the
+frontend only when intentionally exercising the VNPAY integration. Both flags
+default to disabled so the demo cannot redirect customers to the sandbox.
+
+Explicit local UI inspection variables:
 
 ```bash
 VITE_API_BASE_URL=http://localhost:8080/api/v1
 VITE_USE_MOCKS=true
 VITE_BYPASS_AUTH=true
-```
-
-Production-like real-backend variables:
-
-```bash
-VITE_API_BASE_URL=/api/v1
-VITE_USE_MOCKS=false
-VITE_BYPASS_AUTH=false
 ```
 
 The app uses `BrowserRouter`; Nginx/static hosting needs fallback to `index.html`.

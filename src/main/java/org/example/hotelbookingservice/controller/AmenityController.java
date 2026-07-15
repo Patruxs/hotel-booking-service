@@ -17,7 +17,6 @@ import java.util.List;
 import org.example.hotelbookingservice.api.AmenityApi;
 
 @RestController
-@RequestMapping("/api/v1/amenities")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AmenityController implements AmenityApi {

@@ -29,7 +29,7 @@ public class RoomUpdateRequest {
     @Min(value = 1, message = "Capacity must be at least 1 person")
     private Integer capacity;
 
-    @Schema(description = "Số phòng ngủ", example = "1")
+    @Schema(description = "Number of bedrooms", example = "1")
     private Integer numberOfBedrooms;
 
     @NotBlank(message = "Description is required")

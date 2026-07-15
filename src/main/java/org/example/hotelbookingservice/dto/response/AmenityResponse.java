@@ -11,12 +11,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AmenityResponse {
-    @Schema(description = "ID của tiện ích")
+    @Schema(description = "ID of the amenity")
     private Integer id;
 
-    @Schema(description = "Tên tiện ích", example = "Swimming Pool")
+    @Schema(description = "Amenity name", example = "Swimming Pool")
     private String name;
 
-    @Schema(description = "Phân loại tiện ích", example = "Hotel Service")
+    @Schema(description = "Amenity type", example = "Hotel Service")
     private String type;
 }

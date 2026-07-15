@@ -11,6 +11,17 @@ const toBookingPage = (payload: any) => {
   };
 };
 
+const toSpringPaginationParams = (params?: any) => {
+  const { page, offset, ...rest } = params ?? {};
+  const limit = Math.max(1, Number(rest.limit ?? 10) || 10);
+  const normalizedPage = Math.max(1, Number(page ?? 1) || 1);
+  const normalizedOffset = offset == null
+    ? (normalizedPage - 1) * limit
+    : Math.max(0, Number(offset) || 0);
+
+  return { ...rest, limit, offset: normalizedOffset };
+};
+
 const mockBookingPage = (hotelId: string, params?: any) => {
   const q = String(params?.q ?? "").trim().toLowerCase();
   const rows = mockApi.bookings.list().filter((booking: any) => {
@@ -48,16 +59,30 @@ const mockVnpayPayment = (bookingId: string) => ({
   paymentUrl: `/payment-result?payment_status=failed&booking_id=${bookingId}`,
 });
 
+export const toSpringBookingCreateRequest = (body: any) => ({
+  checkIn: body?.checkIn,
+  checkOut: body?.checkOut,
+  guestName: body?.guestName,
+  guestEmail: body?.guestEmail,
+  guestPhone: body?.guestPhone,
+  note: body?.note,
+  promotionCode: body?.promotionCode,
+  items: Array.isArray(body?.items) ? body.items.map((item: any) => ({
+    roomTypeId: item.roomTypeId,
+    quantity: item.quantity,
+  })) : [],
+});
+
 export const bookingsApi: any = {
-  create: async (hotelId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.list()[0], () => api.post(`/hotels/${hotelId}/bookings`, body))),
+  create: async (hotelId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.list()[0], () => api.post(`/hotels/${hotelId}/bookings`, toSpringBookingCreateRequest(body)))),
   listByHotel: async (hotelId: string, params?: unknown) => toBookingPage(await mockOrRequest(mockBookingPage(hotelId, params), () => api.get(`/hotels/${hotelId}/bookings`, { params }))),
   getByHotel: async (hotelId: string, bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.list().find((booking: any) => booking.hotelId === hotelId && booking.id === bookingId) ?? mockApi.bookings.get(bookingId), () => api.get(`/hotels/${hotelId}/bookings/${bookingId}`))),
   updateStatus: async (hotelId: string, bookingId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.patch(`/hotels/${hotelId}/bookings/${bookingId}/status`, body))),
   cancel: async (hotelId: string, bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.patch(`/hotels/${hotelId}/bookings/${bookingId}/cancel`))),
   cancelMine: async (bookingId: string) => toBooking(await mockOrRequest({ ...mockApi.bookings.get(bookingId), status: "CANCELLED" }, () => api.patch(`/bookings/me/${bookingId}/cancel`))),
-  mine: async (params?: unknown) => toBookingPage(await mockOrRequest(mockMyBookingPage(params), () => api.get("/bookings/me", { params }))),
+  mine: async (params?: unknown) => toBookingPage(await mockOrRequest(mockMyBookingPage(params), () => api.get("/bookings/me", { params: toSpringPaginationParams(params) }))),
   myDetail: async (bookingId: string) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.get(`/bookings/me/${bookingId}`))),
-  createVnpayPayment: (bookingId: string) => mockOrRequest(mockVnpayPayment(bookingId), () => api.post(`/bookings/${bookingId}/payments/vnpay`)),
+  createVnpayPayment: (bookingId: string) => mockOrRequest(mockVnpayPayment(bookingId), () => api.post(`/bookings/${bookingId}/payments/vnpay`, {})),
   checkIn: async (hotelId: string, bookingId: string, body: unknown) => toBooking(await mockOrRequest(mockApi.bookings.get(bookingId), () => api.post(`/hotels/${hotelId}/bookings/${bookingId}/check-in`, body))),
   checkInDetail: (hotelId: string, bookingId: string) => mockOrRequest({ checkIn: null, guests: [] }, () => api.get(`/hotels/${hotelId}/bookings/${bookingId}/check-in`)),
 };

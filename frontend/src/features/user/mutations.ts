@@ -1,11 +1,11 @@
 // @ts-nocheck
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { assignRoleToUser, changePassword, updateProfile, updateUser, uploadAvatar } from './api';
-import { ChangePasswordFormValues, RoleAssignUserFormValues, UserFormValues } from './validator';
+import { assignRoleToUser, changePassword, deleteAvatar, updateProfile, updateUser, uploadAvatar } from './api';
+import { AdminUserFormValues, ChangePasswordFormValues, RoleAssignUserFormValues, UserFormValues } from './validator';
 export const useUpdateUserMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UserFormValues }) =>
+      mutationFn: ({ id, data }: { id: string; data: AdminUserFormValues }) =>
       updateUser(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
@@ -44,6 +44,15 @@ export const useUploadAvatarMutation = () => {
    const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => uploadAvatar(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+};
+export const useDeleteAvatarMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => deleteAvatar(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
     },

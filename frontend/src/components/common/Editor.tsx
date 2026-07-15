@@ -147,7 +147,7 @@ const extensions = [
   }),
   ImageGif.configure({
     provider: 'giphy',
-    API_KEY: process.env.NEXT_PUBLIC_GIPHY_API_KEY as string
+    API_KEY: (import.meta as any).env?.VITE_GIPHY_API_KEY as string || ""
   }),
   Blockquote,
   HorizontalRule,

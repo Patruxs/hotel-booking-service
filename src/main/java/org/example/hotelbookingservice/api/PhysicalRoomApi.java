@@ -17,75 +17,75 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RequestMapping("/api/v1/physical-rooms")
-@Tag(name = "Physical Room Management", description = "Quản lý phòng vật lý (Tình trạng phòng: CLEAN, DIRTY, MAINTENANCE)")
+@Tag(name = "Physical Room Management", description = "Manage physical rooms (Room condition: CLEAN, DIRTY, MAINTENANCE)")
 public interface PhysicalRoomApi {
 
-    @Operation(summary = "Tạo phòng vật lý mới (ADMIN)", description = "Thêm phòng vật lý mới và gắn vào loại phòng (Room).")
+    @Operation(summary = "Create new physical room (ADMIN)", description = "Add a new physical room and assign it to a room type (Room).")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Số phòng đã tồn tại hoặc dữ liệu không hợp lệ", content = @Content),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy loại phòng (Room)", content = @Content)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Created successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Room number already exists or invalid data", content = @Content),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Room type (Room) not found", content = @Content)
     })
-    @PostMapping("/create")
+    @PostMapping({"", "/create"})
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<PhysicalRoomResponse> createPhysicalRoom(@RequestBody @Valid PhysicalRoomCreateRequest request);
 
-    @Operation(summary = "Cập nhật phòng vật lý (ADMIN)", description = "Sửa thông tin phòng vật lý (số phòng, loại phòng, tình trạng).")
+    @Operation(summary = "Update physical room (ADMIN)", description = "Edit physical room details (room number, room type, status/condition).")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng vật lý", content = @Content)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Physical room not found", content = @Content)
     })
-    @PutMapping("/update/{id}")
+    @PutMapping({"/{id:\\d+}", "/update/{id}"})
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<PhysicalRoomResponse> updatePhysicalRoom(@PathVariable Integer id, @RequestBody @Valid PhysicalRoomCreateRequest request);
 
-    @Operation(summary = "Cập nhật tình trạng phòng (ADMIN, RECEPTIONIST)", description = "Thay đổi tình trạng phòng (VD: DIRTY → CLEAN sau khi dọn phòng).")
+    @Operation(summary = "Update room condition (ADMIN, RECEPTIONIST)", description = "Change room condition (e.g., DIRTY -> CLEAN after housekeeping).")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật trạng thái thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng vật lý", content = @Content)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Status updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Physical room not found", content = @Content)
     })
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<PhysicalRoomResponse> updateStatus(@PathVariable Integer id, @RequestBody @Valid PhysicalRoomUpdateStatusRequest request);
 
-    @Operation(summary = "Xóa phòng vật lý (ADMIN)", description = "Xóa phòng vật lý khỏi hệ thống.")
+    @Operation(summary = "Delete physical room (ADMIN)", description = "Delete physical room from the system.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng vật lý", content = @Content)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Deleted successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Physical room not found", content = @Content)
     })
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping({"/{id:\\d+}", "/delete/{id}"})
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> deletePhysicalRoom(@PathVariable Integer id);
 
-    @Operation(summary = "Xem chi tiết phòng vật lý", description = "Lấy thông tin phòng vật lý theo ID.")
+    @Operation(summary = "Get physical room details", description = "Retrieve physical room details by ID.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses(value = {
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy", content = @Content)
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Not found", content = @Content)
     })
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<PhysicalRoomResponse> getById(@PathVariable Integer id);
 
-    @Operation(summary = "Lấy danh sách phòng vật lý theo loại phòng (Room)", description = "Xem tất cả phòng vật lý thuộc loại phòng cụ thể.")
+    @Operation(summary = "Get physical rooms by room type (Room)", description = "View all physical rooms belonging to a specific room type.")
     @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/by-room/{roomId}")
+    @GetMapping({"/rooms/{roomId}", "/by-room/{roomId}"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<List<PhysicalRoomResponse>> getByRoomId(@PathVariable Integer roomId);
 
-    @Operation(summary = "Lọc phòng theo tình trạng (CLEAN/DIRTY/MAINTENANCE)", description = "Xem danh sách phòng vật lý theo trạng thái.")
+    @Operation(summary = "Filter rooms by condition (CLEAN/DIRTY/MAINTENANCE)", description = "View physical rooms list filtered by condition.")
     @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/by-condition")
+    @GetMapping({"/conditions", "/by-condition"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<List<PhysicalRoomResponse>> getByCondition(@RequestParam RoomCondition condition);
 
-    @Operation(summary = "Lấy tất cả phòng vật lý (ADMIN, RECEPTIONIST)", description = "Xem toàn bộ danh sách phòng vật lý.")
+    @Operation(summary = "Get all physical rooms (ADMIN, RECEPTIONIST)", description = "View the list of all physical rooms.")
     @SecurityRequirement(name = "bearerAuth")
-    @GetMapping("/all")
+    @GetMapping({"", "/all"})
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('RECEPTIONIST')")
     ApiResponse<List<PhysicalRoomResponse>> getAll();
 }

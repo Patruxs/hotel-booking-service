@@ -27,7 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
 export type RevenueGroupBy = 'day' | 'week' | 'month';
@@ -38,6 +38,30 @@ const monthNames = [
 interface RevenueChartProps {
     hotelId?: string;
 }
+
+interface RevenuePoint {
+  period?: string | null;
+  month?: string | null;
+  date?: string | null;
+  revenue: number;
+}
+
+function formatRevenuePeriod(value: unknown, groupBy: RevenueGroupBy) {
+  if (typeof value !== 'string') return null;
+
+  const label = value.trim();
+  if (!label) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(label)) {
+    const date = parseISO(label);
+    if (isValid(date)) {
+      return format(date, groupBy === 'month' ? 'MM/yyyy' : 'dd/MM/yyyy', { locale: vi });
+    }
+  }
+
+  return label;
+}
+
 export function RevenueChart({ hotelId }: RevenueChartProps) {
   const currentYear = new Date().getFullYear();
   const [viewType, setViewType] = useState<'year' | 'range'>('year');
@@ -74,15 +98,16 @@ export function RevenueChart({ hotelId }: RevenueChartProps) {
             revenue: total,
         }));
       }
-      const list = rawData as { date: string, revenue: number }[];
-      return list.map((item: any) => ({
-        name: format(new Date(item.date), groupBy === 'month' ? 'MM/yyyy' : 'dd/MM/yyyy', { locale: vi }),
-        revenue: item.revenue
-      })).sort((a, b) => {
-          const [a1, a2, a3] = a.name.split('/').map(Number);
-          const [b1, b2, b3] = b.name.split('/').map(Number);
-          return 0;
-      });
+        if (!Array.isArray(rawData)) return [];
+
+        const list = rawData as RevenuePoint[];
+        return list.flatMap((item) => {
+          if (!item || typeof item !== 'object') return [];
+
+          const point = item as RevenuePoint;
+          const name = formatRevenuePeriod(point.period ?? point.month ?? point.date, groupBy);
+          return name ? [{ name, revenue: point.revenue }] : [];
+        });
   }, [rawData, groupBy]);
   return (
     <>

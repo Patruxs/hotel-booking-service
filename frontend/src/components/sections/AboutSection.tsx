@@ -1,5 +1,5 @@
-import { AppImage as Image } from '@/components/AppImage';
-import React from 'react';
+import { AppImage as Image } from "@/components/AppImage";
+import React from "react";
 function AboutSection() {
   return (
     <section id="about" className="py-20 px-4 bg-muted">
@@ -29,14 +29,14 @@ function AboutSection() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-4">
               <Image
-                src="/images/luxury-hotel-building-exterior.jpg"
+                  src="https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699218/small_visualsofdana-T5pL6ciEn-I-unsplash_cmvyfo.jpg"
                 alt="Hotel exterior"
                 className="w-full h-64 object-cover rounded-lg"
                 width={300}
                 height={500}
               />
               <Image
-                src="/images/luxury-hotel-reception-lobby.jpg"
+                  src="https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699219/small_sara-dubler-Koei_7yYtIo-unsplash_y2jare.jpg"
                 alt="Hotel lobby"
                 className="w-full h-48 object-cover rounded-lg"
                 width={300}
@@ -45,14 +45,14 @@ function AboutSection() {
             </div>
             <div className="space-y-4 pt-8">
               <Image
-                src="/images/luxury-hotel-restaurant-dining.jpg"
+                  src="https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699215/small_frames-for-your-heart-zSG-kd-L6vw-unsplash_moi4cv.jpg"
                 alt="Hotel restaurant"
                 className="w-full h-48 object-cover rounded-lg"
                 width={300}
                 height={500}
               />
               <Image
-                src="/images/luxury-hotel-pool-area.jpg"
+                  src="https://res.cloudinary.com/dw8eobcaf/image/upload/v1783699216/small_reisetopia-pSDe7ePo0Tc-unsplash_ztop2g.jpg"
                 alt="Hotel pool"
                 className="w-full h-64 object-cover rounded-lg"
                 width={300}

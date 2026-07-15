@@ -17,63 +17,63 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RequestMapping("/api/v1/amenities")
-@Tag(name = "Amenity Management", description = "Quản lý danh mục tiện ích (Wifi, Bể bơi, Gym, Spa...)")
+@Tag(name = "Amenity Management", description = "Manage amenity catalog (Wifi, Swimming Pool, Gym, Spa...)")
 public interface AmenityApi {
 
-    @Operation(summary = "Lấy danh sách tất cả tiện ích trong hệ thống", description = "Dùng cho Admin khi muốn xem danh sách để chọn tiện ích thêm vào phòng/khách sạn.")
+    @Operation(summary = "Get list of all amenities in the system", description = "Used for Admin when they want to view the list to select amenities to add to rooms/hotels.")
     @GetMapping("/all")
     ApiResponse<List<AmenityResponse>> getAllAmenities();
 
-    @Operation(summary = "Lấy tiện ích cấp Khách sạn theo Hotel ID (Admin)")
+    @Operation(summary = "Get hotel-level amenities by Hotel ID (Admin)")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/hotel/{hotelId}/hotel-amenities")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<List<AmenityResponse>> getHotelAmenities(@PathVariable Integer hotelId);
 
-    @Operation(summary = "Lấy danh sách amenity của tất cả các phòng thuộc Hotel A")
+    @Operation(summary = "Get list of amenities for all rooms belonging to Hotel A")
     @GetMapping("/hotel/{hotelId}/room-amenities")
     ApiResponse<List<RoomResponse>> getRoomAmenitiesByHotel(@PathVariable Integer hotelId);
 
-    @Operation(summary = "Xem chi tiết tiện ích")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Tiện ích không tồn tại", content = @Content) })
+    @Operation(summary = "View amenity details")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Amenity does not exist", content = @Content) })
     @GetMapping("/{id:\\d+}")
     ApiResponse<AmenityResponse> getAmenityById(@PathVariable Integer id);
 
-    @Operation(summary = "Tạo tiện ích mới (ADMIN)")
+    @Operation(summary = "Create a new amenity (ADMIN or OWNER)")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Tên tiện ích đã tồn tại", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Created successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Amenity name already exists", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "No amenity management permission", content = @Content) })
     @PostMapping("/create")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'OWNER')")
     ApiResponse<AmenityResponse> createAmenity(@RequestBody @Valid AmenityRequest request);
 
-    @Operation(summary = "Cập nhật tiện ích (ADMIN)")
+    @Operation(summary = "Update amenity (ADMIN or OWNER)")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Tên trùng lặp", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy tiện ích", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Updated successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Duplicate name", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "No permission", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Amenity not found", content = @Content) })
     @PutMapping("/update/{id}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'OWNER')")
     ApiResponse<AmenityResponse> updateAmenity(@PathVariable Integer id, @RequestBody @Valid AmenityRequest request);
 
-    @Operation(summary = "Xóa tiện ích (ADMIN)")
+    @Operation(summary = "Delete amenity (ADMIN or OWNER)")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy tiện ích", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Deleted successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "No permission", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Amenity not found", content = @Content) })
     @DeleteMapping("/delete/{id}")
-    @PreAuthorize("hasAuthority('ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'OWNER')")
     ApiResponse<Void> deleteAmenity(@PathVariable Integer id);
 
-    @Operation(summary = "Xóa danh sách tiện ích khỏi Khách sạn (ADMIN)")
+    @Operation(summary = "Remove list of amenities from Hotel (ADMIN)")
     @SecurityRequirement(name = "bearerAuth")
     @DeleteMapping("/hotel/{hotelId}/remove")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> removeHotelAmenities(@PathVariable Integer hotelId, @RequestBody @Valid HotelAmenityRemoveRequest request);
 
-    @Operation(summary = "Xóa danh sách tiện ích khỏi Phòng (ADMIN)", description = "Yêu cầu cung cấp chính xác Hotel ID và Room ID để đảm bảo tính toàn vẹn dữ liệu.")
+    @Operation(summary = "Remove list of amenities from Room (ADMIN)", description = "Requires providing exact Hotel ID and Room ID to ensure data integrity.")
     @SecurityRequirement(name = "bearerAuth")
     @DeleteMapping("/hotel/{hotelId}/room/{roomId}/remove")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> removeRoomAmenities(@PathVariable Integer hotelId, @PathVariable Integer roomId, @RequestBody @Valid RoomAmenityRemoveRequest request);
 
-    @Operation(summary = "Lấy danh sách tiện ích của một phòng cụ thể thuộc khách sạn")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy phòng", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Phòng không thuộc khách sạn này", content = @Content) })
+    @Operation(summary = "Get list of amenities for a specific room belonging to a hotel")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Room not found", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Room does not belong to this hotel", content = @Content) })
     @GetMapping("/hotel/{hotelId}/room/{roomId}")
     ApiResponse<List<AmenityResponse>> getAmenitiesByRoom(@PathVariable Integer hotelId, @PathVariable Integer roomId);
 }

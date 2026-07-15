@@ -4,14 +4,14 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HotelForm } from '@/features/hotels/components/HotelForm';
 import { HotelFormValues } from '@/features/hotels/validator';
-import { useHotelDetailQuery } from '@/features/hotels/queries';
+import { useManageHotelDetailQuery } from '@/features/hotels/queries';
 import { useCreateHotelMutation, useUpdateHotelMutation } from '@/features/hotels/mutations';
 export default function HotelEditPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
   const isEditing = !!id && id !== 'new';
-  const { data: hotel, isLoading, isError } = useHotelDetailQuery(id, isEditing);
+  const { data: hotel, isLoading, isError } = useManageHotelDetailQuery(id, isEditing);
   const createMutation = useCreateHotelMutation();
   const updateMutation = useUpdateHotelMutation(id);
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -30,16 +30,18 @@ export default function HotelEditPage() {
   }
   const initialData: HotelFormValues | undefined = hotel
     ? {
-        name: hotel.name,
-        address: hotel.address,
-        description: hotel.description,
-        city: hotel.city,
-        country: hotel.country,
-        status: hotel.status,
-        images: (hotel.images ?? []).map((img: any) => ({
-          id: img.id ?? img.image_id ?? undefined,
-          url: img.url,
-        })),
+        name: hotel.name ?? '',
+        address: hotel.address ?? '',
+        description: hotel.description ?? '',
+        city: hotel.city ?? '',
+        country: hotel.country ?? '',
+        status: hotel.status ?? 'DRAFT',
+        images: (hotel.images ?? [])
+          .filter((img: any) => !img.isPlaceholder)
+          .map((img: any) => ({
+            id: img.id ?? img.image_id ?? undefined,
+            url: img.url ?? '',
+          })),
       }
     : undefined;
   const handleSubmit = async (data: HotelFormValues) => {

@@ -1,25 +1,32 @@
 import { createContext, useContext, useMemo, type PropsWithChildren } from "react";
 import { useAuth } from "@/providers/AuthProvider";
+import {
+  canAccessRequirement,
+  type PermissionRequirement,
+} from "@/providers/permissionAccess";
 
 type PermissionContextValue = {
   can: (action: string) => boolean;
   canAny: (actions: string[]) => boolean;
   canAll: (actions: string[]) => boolean;
+  canAccess: (requirement: PermissionRequirement) => boolean;
 };
 
 const PermissionContext = createContext<PermissionContextValue | null>(null);
 
 export function PermissionProvider({ children }: PropsWithChildren) {
   const { user } = useAuth();
-  const allowed = useMemo(() => new Set(user?.allowedActions ?? []), [user]);
+  const allowedActions = useMemo(() => user?.allowedActions ?? [], [user]);
+  const roleNames = useMemo(() => user?.roles?.map((role) => role.name) ?? [], [user]);
 
   const value = useMemo<PermissionContextValue>(
     () => ({
-      can: (action: string) => allowed.has("*") || allowed.has(action),
-      canAny: (actions: string[]) => actions.some((action) => allowed.has("*") || allowed.has(action)),
-      canAll: (actions: string[]) => actions.every((action) => allowed.has("*") || allowed.has(action)),
+      can: (action: string) => canAccessRequirement({ requiredActions: [action] }, allowedActions, roleNames),
+      canAny: (actions: string[]) => actions.some((action) => canAccessRequirement({ requiredActions: [action] }, allowedActions, roleNames)),
+      canAll: (actions: string[]) => actions.every((action) => canAccessRequirement({ requiredActions: [action] }, allowedActions, roleNames)),
+      canAccess: (requirement: PermissionRequirement) => canAccessRequirement(requirement, allowedActions, roleNames),
     }),
-    [allowed],
+    [allowedActions, roleNames],
   );
 
   return <PermissionContext.Provider value={value}>{children}</PermissionContext.Provider>;

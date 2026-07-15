@@ -20,7 +20,6 @@ import org.example.hotelbookingservice.repository.RoomRepository;
 import org.example.hotelbookingservice.services.BookingCodeGenerator;
 import org.example.hotelbookingservice.services.IUserService;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,8 +42,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@Disabled("Legacy booking service tests target the pre-migration integer-ID booking lifecycle.")
-public class BookingServiceImplTest {
+class BookingServiceImplTest {
 
     @Mock
     private BookingRepository bookingRepository;
@@ -80,7 +79,7 @@ public class BookingServiceImplTest {
     @BeforeEach
     void setUp() {
         mockUser = new User();
-        mockUser.setId(1);
+        mockUser.setId(UUID.fromString("10000000-0000-4000-8000-000000000001"));
         mockUser.setFullName("John Doe");
 
         mockHotel = new Hotel();
@@ -115,11 +114,7 @@ public class BookingServiceImplTest {
                 mockCreateRequest.getCheckoutDate()
         )).thenReturn(1L); // 1 room currently booked
 
-        when(bookingRepository.isRoomAvailable(
-                Long.valueOf(mockRoom.getId()),
-                mockCreateRequest.getCheckinDate(),
-                mockCreateRequest.getCheckoutDate()
-        )).thenReturn(true);
+        when(physicalRoomRepository.countByRoom_IdAndActiveTrue(mockRoom.getUuid())).thenReturn(5L);
 
         when(bookingCodeGenerator.generateBookingReference()).thenReturn("BOOK123");
 
@@ -226,6 +221,7 @@ public class BookingServiceImplTest {
                 mockCreateRequest.getCheckinDate(),
                 mockCreateRequest.getCheckoutDate()
         )).thenReturn(4L);
+        when(physicalRoomRepository.countByRoom_IdAndActiveTrue(mockRoom.getUuid())).thenReturn(5L);
 
         // When & Then
         assertThatThrownBy(() -> bookingService.createBooking(mockCreateRequest))
@@ -236,7 +232,7 @@ public class BookingServiceImplTest {
     }
 
     @Test
-    void createBooking_RoomNotAvailable_ThrowsInvalidBookingStateAndDateException() {
+    void createBooking_OverlappingBookingWithinPhysicalCapacity_SavesBooking() {
         // Given
         when(userService.getCurrentLoggedInUser()).thenReturn(mockUser);
         when(roomRepository.findById(mockCreateRequest.getRoomId())).thenReturn(Optional.of(mockRoom));
@@ -246,19 +242,25 @@ public class BookingServiceImplTest {
                 mockCreateRequest.getCheckinDate(),
                 mockCreateRequest.getCheckoutDate()
         )).thenReturn(1L);
+        when(physicalRoomRepository.countByRoom_IdAndActiveTrue(mockRoom.getUuid())).thenReturn(5L);
+        when(bookingCodeGenerator.generateBookingReference()).thenReturn("BOOK-CAPACITY");
 
-        when(bookingRepository.isRoomAvailable(
-                Long.valueOf(mockRoom.getId()),
-                mockCreateRequest.getCheckinDate(),
-                mockCreateRequest.getCheckoutDate()
-        )).thenReturn(false); // Room not available
+        Booking savedBooking = new Booking();
+        savedBooking.setId(1);
+        savedBooking.setBookingReference("BOOK-CAPACITY");
+        when(bookingRepository.save(any(Booking.class))).thenReturn(savedBooking);
 
-        // When & Then
-        assertThatThrownBy(() -> bookingService.createBooking(mockCreateRequest))
-                .isInstanceOf(InvalidBookingStateAndDateException.class)
-                .hasMessage("Room is not available for the selected date ranges");
+        BookingResponse response = new BookingResponse();
+        response.setId(1);
+        response.setBookingReference("BOOK-CAPACITY");
+        when(bookingMapper.toBookingResponse(savedBooking)).thenReturn(response);
 
-        verify(bookingRepository, never()).save(any(Booking.class));
+        // When
+        BookingResponse result = bookingService.createBooking(mockCreateRequest);
+
+        // Then
+        assertThat(result.getBookingReference()).isEqualTo("BOOK-CAPACITY");
+        verify(bookingRepository).save(any(Booking.class));
     }
 
     @Test
@@ -267,7 +269,7 @@ public class BookingServiceImplTest {
         Integer bookingId = 1;
         String cancelReason = "Change of plans";
 
-        Userrole userRole = new Userrole();
+        org.example.hotelbookingservice.entity.UserRole userRole = new org.example.hotelbookingservice.entity.UserRole();
         Role role = new Role();
         role.setName("USER");
         userRole.setRole(role);
@@ -297,8 +299,8 @@ public class BookingServiceImplTest {
         String cancelReason = "";
 
         User adminUser = new User();
-        adminUser.setId(999);
-        Userrole adminRole = new Userrole();
+        adminUser.setId(UUID.fromString("10000000-0000-4000-8000-000000000999"));
+        org.example.hotelbookingservice.entity.UserRole adminRole = new org.example.hotelbookingservice.entity.UserRole();
         Role role = new Role();
         role.setName("ADMIN");
         adminRole.setRole(role);
@@ -341,8 +343,8 @@ public class BookingServiceImplTest {
         Integer bookingId = 1;
 
         User otherUser = new User();
-        otherUser.setId(999);
-        Userrole userRole = new Userrole();
+        otherUser.setId(UUID.fromString("10000000-0000-4000-8000-000000000999"));
+        org.example.hotelbookingservice.entity.UserRole userRole = new org.example.hotelbookingservice.entity.UserRole();
         Role role = new Role();
         role.setName("USER");
         userRole.setRole(role);
@@ -369,7 +371,7 @@ public class BookingServiceImplTest {
         // Given
         Integer bookingId = 1;
 
-        Userrole userRole = new Userrole();
+        org.example.hotelbookingservice.entity.UserRole userRole = new org.example.hotelbookingservice.entity.UserRole();
         Role role = new Role();
         role.setName("USER");
         userRole.setRole(role);
@@ -396,7 +398,7 @@ public class BookingServiceImplTest {
         // Given
         Integer bookingId = 1;
 
-        Userrole userRole = new Userrole();
+        org.example.hotelbookingservice.entity.UserRole userRole = new org.example.hotelbookingservice.entity.UserRole();
         Role role = new Role();
         role.setName("USER");
         userRole.setRole(role);
@@ -559,7 +561,7 @@ public class BookingServiceImplTest {
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
 
         // Mock: No physical room mapped to room number 301
-        when(physicalRoomRepository.findByRoomNumber(301)).thenReturn(Optional.empty());
+        when(physicalRoomRepository.findByRoomNumber("301")).thenReturn(Optional.empty());
 
         Booking savedBooking = new Booking();
         savedBooking.setId(bookingId);
@@ -633,7 +635,7 @@ public class BookingServiceImplTest {
 
         PhysicalRoom physicalRoom = new PhysicalRoom();
         physicalRoom.setId(5);
-        physicalRoom.setRoomNumber(205);
+        physicalRoom.setRoomNumber("205");
         physicalRoom.setRoomCondition(RoomCondition.CLEAN);
         Room linkedRoom = new Room();
         linkedRoom.setId(10);
@@ -641,7 +643,7 @@ public class BookingServiceImplTest {
         physicalRoom.setRoom(linkedRoom);
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
-        when(physicalRoomRepository.findByRoomNumber(205)).thenReturn(Optional.of(physicalRoom));
+        when(physicalRoomRepository.findByRoomNumber("205")).thenReturn(Optional.of(physicalRoom));
 
         Booking savedBooking = new Booking();
         savedBooking.setId(bookingId);
@@ -657,7 +659,45 @@ public class BookingServiceImplTest {
         // Then
         assertThat(physicalRoom.getRoomCondition()).isEqualTo(RoomCondition.DIRTY);
         verify(physicalRoomRepository, times(1)).save(physicalRoom);
-        verify(physicalRoomRepository, times(1)).findByRoomNumber(205);
+        verify(physicalRoomRepository, times(1)).findByRoomNumber("205");
+    }
+
+    @Test
+    void updateBooking_CheckoutMarksAlphanumericPhysicalRoomAsDirty() {
+        // Given
+        Integer bookingId = 1;
+        BookingUpdateRequest updateRequest = new BookingUpdateRequest();
+        updateRequest.setStatus(BookingStatus.CHECKED_OUT);
+
+        Booking existingBooking = new Booking();
+        existingBooking.setId(bookingId);
+        existingBooking.setStatus(BookingStatus.CHECKED_IN);
+        existingBooking.setTotalPrice(1000000f);
+        existingBooking.setRoomNumber("D101");
+
+        PhysicalRoom physicalRoom = new PhysicalRoom();
+        physicalRoom.setId(5);
+        physicalRoom.setRoomNumber("D101");
+        physicalRoom.setRoomCondition(RoomCondition.CLEAN);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existingBooking));
+        when(physicalRoomRepository.findByRoomNumber("D101")).thenReturn(Optional.of(physicalRoom));
+
+        Booking savedBooking = new Booking();
+        savedBooking.setId(bookingId);
+        when(bookingRepository.save(existingBooking)).thenReturn(savedBooking);
+
+        BookingResponse response = new BookingResponse();
+        response.setId(bookingId);
+        when(bookingMapper.toBookingResponse(savedBooking)).thenReturn(response);
+
+        // When
+        bookingService.updateBooking(bookingId, updateRequest);
+
+        // Then
+        assertThat(physicalRoom.getRoomCondition()).isEqualTo(RoomCondition.DIRTY);
+        verify(physicalRoomRepository, times(1)).save(physicalRoom);
+        verify(physicalRoomRepository, times(1)).findByRoomNumber("D101");
     }
 
     @Test
@@ -683,11 +723,7 @@ public class BookingServiceImplTest {
                 mockCreateRequest.getCheckinDate(),
                 mockCreateRequest.getCheckoutDate()
         )).thenReturn(0L);
-        when(bookingRepository.isRoomAvailable(
-                Long.valueOf(mockRoom.getId()),
-                mockCreateRequest.getCheckinDate(),
-                mockCreateRequest.getCheckoutDate()
-        )).thenReturn(true);
+        when(physicalRoomRepository.countByRoom_IdAndActiveTrue(mockRoom.getUuid())).thenReturn(5L);
         when(bookingCodeGenerator.generateBookingReference()).thenReturn("GUEST123");
 
         Booking mockSavedBooking = new Booking();

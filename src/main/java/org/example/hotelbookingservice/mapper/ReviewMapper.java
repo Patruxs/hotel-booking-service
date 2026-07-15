@@ -11,6 +11,8 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface ReviewMapper {
 
+    @Mapping(target = "userfullName", ignore = true)
+    @Mapping(target = "userAvatar", ignore = true)
     ReviewResponse toReviewResponse(Review review);
 
     List<ReviewResponse> toReviewResponseList(List<Review> reviews);
@@ -20,7 +22,11 @@ public interface ReviewMapper {
     @Mapping(target = "createAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "hotel", ignore = true)
+    @Mapping(target = "booking", ignore = true)
     @Mapping(target = "description", ignore = true)
     @Mapping(target = "point", ignore = true)
+    @Mapping(target = "visible", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     Review toReview(ReviewRequeset request);
 }

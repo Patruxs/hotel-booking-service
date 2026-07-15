@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,7 +31,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     @Override
     @Transactional
     public PhysicalRoomResponse createPhysicalRoom(PhysicalRoomCreateRequest request) {
-        Room room = roomRepository.findById(request.getRoomId())
+        Room room = roomRepository.findById(legacyId(request.getRoomId()))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
         if (physicalRoomRepository.existsByRoomNumber(request.getRoomNumber())) {
@@ -51,10 +52,10 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     @Override
     @Transactional
     public PhysicalRoomResponse updatePhysicalRoom(Integer id, PhysicalRoomCreateRequest request) {
-        PhysicalRoom existing = physicalRoomRepository.findById(id)
+        PhysicalRoom existing = physicalRoomRepository.findById(legacyId(id))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
-        Room room = roomRepository.findById(request.getRoomId())
+        Room room = roomRepository.findById(legacyId(request.getRoomId()))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
         existing.setRoomNumber(request.getRoomNumber());
@@ -68,7 +69,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     @Override
     @Transactional
     public PhysicalRoomResponse updateStatus(Integer id, PhysicalRoomUpdateStatusRequest request) {
-        PhysicalRoom existing = physicalRoomRepository.findById(id)
+        PhysicalRoom existing = physicalRoomRepository.findById(legacyId(id))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         existing.setRoomCondition(request.getRoomCondition());
@@ -81,16 +82,17 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     @Override
     @Transactional
     public void deletePhysicalRoom(Integer id) {
-        if (!physicalRoomRepository.existsById(id)) {
+        UUID physicalRoomId = legacyId(id);
+        if (!physicalRoomRepository.existsById(physicalRoomId)) {
             throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
         }
-        physicalRoomRepository.deleteById(id);
+        physicalRoomRepository.deleteById(physicalRoomId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public PhysicalRoomResponse getById(Integer id) {
-        PhysicalRoom physicalRoom = physicalRoomRepository.findById(id)
+        PhysicalRoom physicalRoom = physicalRoomRepository.findById(legacyId(id))
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
         return toResponse(physicalRoom);
     }
@@ -98,7 +100,7 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
     @Override
     @Transactional(readOnly = true)
     public List<PhysicalRoomResponse> getByRoomId(Integer roomId) {
-        return physicalRoomRepository.findByRoomId(roomId).stream()
+        return physicalRoomRepository.findByRoom_Id(legacyId(roomId)).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -128,5 +130,9 @@ public class PhysicalRoomServiceImpl implements IPhysicalRoomService {
                 .roomId(entity.getRoom().getId())
                 .roomName(entity.getRoom().getName())
                 .build();
+    }
+
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
     }
 }

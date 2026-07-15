@@ -27,6 +27,8 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
       firstName: '',
       lastName: '',
       email: '',
+      phone: '',
+      dob: '',
       password: '',
       confirmPassword: '',
     },
@@ -108,6 +110,39 @@ export default function RegisterForm({ onSuccess }: RegisterFormProps) {
             </FormItem>
           )}
         />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input
+                    inputMode="tel"
+                    placeholder="0987654321"
+                    disabled={loading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="dob"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date of birth</FormLabel>
+                <FormControl>
+                  <Input type="date" disabled={loading} {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={form.control}
           name="password"

@@ -20,7 +20,6 @@ import java.util.List;
 import org.example.hotelbookingservice.api.HotelApi;
 
 @RestController
-@RequestMapping("/api/v1/hotels")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class HotelController implements HotelApi {

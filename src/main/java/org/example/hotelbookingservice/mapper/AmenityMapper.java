@@ -15,13 +15,23 @@ public interface AmenityMapper {
     List<AmenityResponse> toAmenityResponseList(List<Amenity> amenities);
 
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "hotelAmenities", ignore = true)
     @Mapping(target = "roomAmenities", ignore = true)
+    @Mapping(target = "key", ignore = true)
+    @Mapping(target = "iconKey", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    @Mapping(target = "system", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     Amenity toAmenity(AmenityRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "hotelAmenities", ignore = true)
     @Mapping(target = "roomAmenities", ignore = true)
+    @Mapping(target = "key", ignore = true)
+    @Mapping(target = "iconKey", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    @Mapping(target = "system", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     void updateAmenityFromRequest(AmenityRequest request, @MappingTarget Amenity amenity);
 }

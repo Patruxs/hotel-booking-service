@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
+import org.example.hotelbookingservice.dto.request.user.AdminUserUpdateRequest;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
 import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
@@ -13,21 +14,21 @@ import org.example.hotelbookingservice.dto.response.UserResponse;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.CurrentUserResponse;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.PageResponse;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.UserListItem;
-import org.example.hotelbookingservice.services.AuthAccountService;
+import org.example.hotelbookingservice.services.IAuthAccountService;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.UUID;
 import org.example.hotelbookingservice.api.UserApi;
 
 @RestController
-@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class UserController implements UserApi {
 
     IUserService userService;
-    AuthAccountService authAccountService;
+    IAuthAccountService authAccountService;
 
     @Override
     public ApiResponse<List<UserResponse>> getAllUser() {
@@ -98,6 +99,15 @@ public class UserController implements UserApi {
     public ApiResponse<Void> unlockUser(@PathVariable Integer userId) {
         userService.unlockUser(userId);
         return ApiResponse.<Void>builder().status(200).message("User unlocked successfully").build();
+    }
+
+    @Override
+    public ApiResponse<UserListItem> updateUser(@PathVariable UUID userId, @RequestBody @Valid AdminUserUpdateRequest request) {
+        return ApiResponse.<UserListItem>builder()
+                .status(200)
+                .message("User updated successfully")
+                .data(authAccountService.updateUser(userId, request))
+                .build();
     }
 }
 

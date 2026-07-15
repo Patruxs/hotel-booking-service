@@ -18,11 +18,19 @@ import PageTitle from "@/components/sections/PageTitle";
 import { BookingTable } from "@/features/bookings/components/BookingTable";
 import { cn } from "@/lib/utils";
 import { useHotelDetailQuery } from "@/features/hotels/queries";
-import { useQueryRoomTypesAvailable } from "@/features/room-types/queries";
+import {
+  useQueryPublicRoomTypes,
+  useQueryRoomTypesAvailable,
+} from "@/features/room-types/queries";
 import { formatCurrency } from "@/utils/currency";
 import { HotelGallery } from "@/features/hotels/components/HotelGallery";
 import ReviewList from "@/features/reviews/components/ReviewList";
 import { PolicyList } from "@/features/policies";
+import {
+  bookingToday,
+  normalizeBookingDateRange,
+  parseBookingDate,
+} from "@/features/bookings/bookingDateRules";
 export type GalleryImage = {
   id: string;
   url: string;
@@ -30,6 +38,11 @@ export type GalleryImage = {
   roomTypeId?: string;
   roomTypeName?: string;
 };
+const roomTypeFallbackImages = new Set([
+  "/globe.svg",
+  "/window.svg",
+  "/file.svg",
+]);
 export default function HotelDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -38,46 +51,67 @@ export default function HotelDetailPage() {
   const searchFrom = searchParams.get('from');
   const searchTo = searchParams.get('to');
   const [date, setDate] = useState<DateRange | undefined>(() => {
-    if (searchFrom && searchTo) {
-      return {
-        from: new Date(searchFrom),
-        to: new Date(searchTo)
-      };
-    }
+    const normalized = normalizeBookingDateRange(searchFrom, searchTo);
     return {
-      from: new Date(),
-      to: addDays(new Date(), 1),
+      from: parseBookingDate(normalized.checkIn)!,
+      to: parseBookingDate(normalized.checkOut)!,
     };
   });
   const [guests, setGuests] = useState({ rooms: 1, adults: 2, children: 0 });
   const [isGuestPopoverOpen, setIsGuestPopoverOpen] = useState(false);
   const { data: hotel, isLoading: isLoadingHotel } = useHotelDetailQuery(hotelId);
-  const queryFrom = searchFrom || (date?.from ? format(date.from, "yyyy-MM-dd") : undefined);
-  const queryTo = searchTo || (date?.to ? format(date.to, "yyyy-MM-dd") : undefined);
-  const { data: roomTypesResponse, isLoading: isLoadingRooms } = useQueryRoomTypesAvailable(
-    hotelId,
-    queryFrom && queryTo ? {
-        from: queryFrom,
-        to: queryTo,
-    } : undefined
+  const queryFrom = date?.from ? format(date.from, "yyyy-MM-dd") : undefined;
+  const queryTo = date?.to ? format(date.to, "yyyy-MM-dd") : undefined;
+  const { data: roomTypesResponse, isLoading: isLoadingRooms } =
+    useQueryRoomTypesAvailable(
+      hotelId,
+      queryFrom && queryTo
+        ? {
+            from: queryFrom,
+            to: queryTo,
+          }
+        : undefined,
+    );
+  const {
+    data: publicRoomTypesResponse,
+    isLoading: isLoadingPublicRoomTypes,
+  } = useQueryPublicRoomTypes(hotelId, Boolean(hotelId));
+  const availableRoomTypes = roomTypesResponse?.data || [];
+  const publicRoomTypes = publicRoomTypesResponse?.data || [];
+  const availabilityById = new Map(
+    availableRoomTypes.map((roomType: any) => [roomType.id, roomType]),
   );
-  const roomTypes = roomTypesResponse?.data || [];
+  const publicRoomTypeIds = new Set(
+    publicRoomTypes.map((roomType: any) => roomType.id),
+  );
+  const roomTypes = publicRoomTypes.length > 0
+    ? [
+        ...publicRoomTypes.map(
+          (roomType: any) => availabilityById.get(roomType.id) ?? roomType,
+        ),
+        ...availableRoomTypes.filter(
+          (roomType: any) => !publicRoomTypeIds.has(roomType.id),
+        ),
+      ]
+    : availableRoomTypes;
   const galleryImages: GalleryImage[] = [
-  ...(hotel?.images ?? []).map((img: any) => ({
-    id: img.image_id,
-    url: img.url,
-    source: 'hotel' as const,
-  })),
-  ...roomTypes.flatMap((rt: any) =>
-    (rt.images ?? []).map((img: any) => ({
-      id: img.image_id,
+    ...(hotel?.images ?? []).map((img: any) => ({
+      id: img.id || img.image_id,
       url: img.url,
-      source: 'roomtype' as const,
-      roomTypeId: rt.id,
-      roomTypeName: rt.name,
-    }))
-  ),
-];
+      source: 'hotel' as const,
+    })),
+    ...roomTypes.flatMap((rt: any) =>
+      (rt.images ?? [])
+        .filter((img: any) => !roomTypeFallbackImages.has(img.url))
+        .map((img: any) => ({
+          id: img.id || img.image_id,
+          url: img.url,
+          source: 'roomtype' as const,
+          roomTypeId: rt.id,
+          roomTypeName: rt.name,
+        })),
+    ),
+  ];
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const checkInDate = queryFrom ? new Date(queryFrom) : new Date();
   const checkOutDate = queryTo ? new Date(queryTo) : addDays(new Date(), 1);
@@ -113,7 +147,6 @@ export default function HotelDetailPage() {
     bookingSearchParams.set('hotel_id', hotel.id);
     if(queryFrom) bookingSearchParams.set('check_in', queryFrom);
     if(queryTo) bookingSearchParams.set('check_out', queryTo);
-    bookingSearchParams.set('total_price', totalPrice.toString());
     bookingSearchParams.set('rooms', roomsParam);
     router.push(`/booking?${bookingSearchParams.toString()}`);
   };
@@ -122,7 +155,7 @@ export default function HotelDetailPage() {
     if (date.to) return `${format(date.from, "dd/MM/yyyy")} - ${format(date.to, "dd/MM/yyyy")}`;
     return format(date.from, "dd/MM/yyyy");
   };
-  if (isLoadingHotel || isLoadingRooms) {
+  if (isLoadingHotel || isLoadingRooms || isLoadingPublicRoomTypes) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
             <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -178,10 +211,12 @@ export default function HotelDetailPage() {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="range"
-                            selected={date}
-                            onSelect={setDate}
+                            <Calendar
+                              mode="range"
+                              selected={date}
+                              onSelect={setDate}
+                              disabled={{ before: bookingToday() }}
+                              min={1}
                             numberOfMonths={2}
                             initialFocus
                           />

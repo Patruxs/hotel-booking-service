@@ -10,10 +10,10 @@ import org.example.hotelbookingservice.enums.RoomCondition;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Schema(description = "Request cập nhật tình trạng phòng vật lý")
+@Schema(description = "Request to update physical room status")
 public class PhysicalRoomUpdateStatusRequest {
 
     @NotNull(message = "Room condition is required")
-    @Schema(description = "Tình trạng mới (CLEAN, DIRTY, MAINTENANCE)", example = "CLEAN")
+    @Schema(description = "New room condition (CLEAN, DIRTY, MAINTENANCE)", example = "CLEAN")
     private RoomCondition roomCondition;
 }

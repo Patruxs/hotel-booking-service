@@ -9,22 +9,6 @@ export const loginSchema = z.object({
     .nonempty("Email cannot be empty"),
   password: z
     .string()
-    .min(8, {
-      message: "Password must be at least 8 characters long",
-    })
-    .regex(/[a-z]/, {
-      message: "Password must contain at least one lowercase letter (a-z)",
-    })
-    .regex(/[A-Z]/, {
-      message: "Password must contain at least one uppercase letter (A-Z)",
-    })
-    .regex(/[0-9]/, {
-      message: "Password must contain at least one number (0-9)",
-    })
-    .regex(/[!@#$%^&*]/, {
-      message:
-        "Password must contain at least one special character (!, @, #, $, %, ^, &, *)",
-    })
     .nonempty("Password cannot be empty"),
 });
 export const registerSchema = z
@@ -37,6 +21,12 @@ export const registerSchema = z
         message: "Please enter a valid email address",
       })
       .nonempty("Email cannot be empty"),
+    phone: z
+      .string()
+      .regex(/^\d{10,12}$/, {
+        message: "Phone number must be between 10 and 12 digits",
+      }),
+    dob: z.string().nonempty("Date of birth cannot be empty"),
     password: z
       .string()
       .min(8, {

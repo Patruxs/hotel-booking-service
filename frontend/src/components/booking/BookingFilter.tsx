@@ -6,7 +6,7 @@ import {
   ArrowRight,
   MapPin,
 } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -19,6 +19,20 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { DateRange } from "react-day-picker";
 import { useRouter, useSearchParams } from "@/hooks/navigation";
+import {
+  bookingToday,
+  normalizeBookingDateRange,
+  parseBookingDate,
+} from "@/features/bookings/bookingDateRules";
+
+const dateRangeFromValues = (checkIn: string | null, checkOut: string | null): DateRange => {
+  const normalized = normalizeBookingDateRange(checkIn, checkOut);
+  return {
+    from: parseBookingDate(normalized.checkIn)!,
+    to: parseBookingDate(normalized.checkOut)!,
+  };
+};
+
 const BookingFilter = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -29,35 +43,18 @@ const BookingFilter = () => {
     Number(searchParams.get("children")) || 0,
   );
   const [isGuestPopoverOpen, setIsGuestPopoverOpen] = useState(false);
-  const [date, setDate] = useState<DateRange | undefined>(() => {
-    const checkIn = searchParams.get("check_in");
-    const checkOut = searchParams.get("check_out");
-    if (checkIn && checkOut) {
-      return {
-        from: parseISO(checkIn),
-        to: parseISO(checkOut),
-      };
-    }
-    const today = new Date();
-    const to = new Date(today);
-    to.setDate(today.getDate() + 1);
-    return {
-      from: today,
-      to,
-    };
+    const [date, setDate] = useState<DateRange | undefined>(() => {
+      const checkIn = searchParams.get("check_in");
+      const checkOut = searchParams.get("check_out");
+      return dateRangeFromValues(checkIn, checkOut);
   });
   // Sync state with URL changes
   useEffect(() => {
     const city = searchParams.get("city");
-    if (city !== null) setLocation(city);
-    const checkIn = searchParams.get("check_in");
-    const checkOut = searchParams.get("check_out");
-    if (checkIn && checkOut) {
-      setDate({
-        from: parseISO(checkIn),
-        to: parseISO(checkOut),
-      });
-    }
+      if (city !== null) setLocation(city);
+      const checkIn = searchParams.get("check_in");
+      const checkOut = searchParams.get("check_out");
+      setDate(dateRangeFromValues(checkIn, checkOut));
     setRooms(Number(searchParams.get("rooms")) || 1);
     setAdults(Number(searchParams.get("adults")) || 1);
     setChildren(Number(searchParams.get("children")) || 0);
@@ -75,23 +72,19 @@ const BookingFilter = () => {
     }
     return format(date.from, "dd/MM/yyyy");
   };
-  const handleApplyFilter = () => {
-    const params = new URLSearchParams(searchParams.toString());
+    const handleApplyFilter = () => {
+      const params = new URLSearchParams(searchParams.toString());
+      const normalizedDates = normalizeBookingDateRange(
+        date?.from ? format(date.from, "yyyy-MM-dd") : null,
+        date?.to ? format(date.to, "yyyy-MM-dd") : null,
+      );
     if (location) {
       params.set("city", location);
     } else {
       params.delete("city");
     }
-    if (date?.from) {
-      params.set("check_in", format(date.from, "yyyy-MM-dd"));
-    } else {
-      params.delete("check_in");
-    }
-    if (date?.to) {
-      params.set("check_out", format(date.to, "yyyy-MM-dd"));
-    } else {
-      params.delete("check_out");
-    }
+      params.set("check_in", normalizedDates.checkIn);
+      params.set("check_out", normalizedDates.checkOut);
     params.set("rooms", rooms.toString());
     params.set("adults", adults.toString());
     params.set("children", children.toString());
@@ -157,9 +150,11 @@ const BookingFilter = () => {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
-                mode="range"
-                selected={date}
-                onSelect={setDate}
+                  mode="range"
+                  selected={date}
+                  onSelect={setDate}
+                  disabled={{ before: bookingToday() }}
+                  min={1}
                 numberOfMonths={2}
                 initialFocus
                 className={cn("p-3 pointer-events-auto")}

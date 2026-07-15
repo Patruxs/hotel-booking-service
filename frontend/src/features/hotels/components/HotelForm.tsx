@@ -25,22 +25,27 @@ import EditorClient from '@/components/common/EditorClient';
 import GalleryImagesDialog from '@/components/common/GalleryImagesDialog';
 import { AppImage as Image } from '@/components/AppImage';
 import { useState } from 'react';
+import { usePermission } from '@/providers/PermissionProvider';
 interface HotelFormProps {
   initialData?: HotelFormValues;
   onSubmit: (data: HotelFormValues) => void;
   isLoading?: boolean;
 }
 export function HotelForm({ initialData, onSubmit, isLoading }: HotelFormProps) {
+  const { can, canAccess } = usePermission();
+  const canEditStatus = initialData
+    ? can('hotels.status.update')
+    : canAccess({ requiredRoles: ['ADMIN'] });
   const form = useForm<HotelFormValues>({
     resolver: zodResolver(hotelFormSchema),
-      defaultValues: initialData || {
-      name: '',
-      address: '',
-      city: '',
-      country: '',
-      description: '',
-      status: 'DRAFT',
-      images: []
+    defaultValues: {
+      name: initialData?.name ?? '',
+      address: initialData?.address ?? '',
+      city: initialData?.city ?? '',
+      country: initialData?.country ?? '',
+      description: initialData?.description ?? '',
+      status: initialData?.status ?? 'DRAFT',
+      images: initialData?.images ?? [],
     },
   });
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -147,33 +152,37 @@ export function HotelForm({ initialData, onSubmit, isLoading }: HotelFormProps) 
           )}
         />
         {}
-        {initialData &&
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="DRAFT">Draft</SelectItem>
-                    <SelectItem value="ACTIVE">Active</SelectItem>
-                    <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                    <SelectItem value="ARCHIVED">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-}
+        {canEditStatus && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select value={field.value ?? 'DRAFT'} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="DRAFT">Draft</SelectItem>
+                      <SelectItem value="ACTIVE">Active</SelectItem>
+                      {initialData && (
+                        <>
+                          <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                          <SelectItem value="ARCHIVED">Archived</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        )}
         {}
         <FormField
           control={form.control}

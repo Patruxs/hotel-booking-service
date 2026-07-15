@@ -16,7 +16,7 @@ import org.example.hotelbookingservice.dto.request.auth.TokenRequest;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.AuthSessionResponse;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.RegistrationResponse;
 import org.example.hotelbookingservice.dto.response.auth.AuthResponses.TokenResponse;
-import org.example.hotelbookingservice.services.AuthAccountService;
+import org.example.hotelbookingservice.services.IAuthAccountService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
@@ -27,12 +27,11 @@ import java.util.Arrays;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class AuthController implements AuthApi {
 
-    AuthAccountService authAccountService;
+    IAuthAccountService authAccountService;
 
     @Override
     public ApiResponse<RegistrationResponse> registerUser(@RequestBody RegisterRequest request) {
@@ -41,7 +40,7 @@ public class AuthController implements AuthApi {
 
     @Override
     public ApiResponse<TokenResponse> loginUser(@RequestBody LoginRequest request, HttpServletRequest httpRequest, HttpServletResponse response) {
-        AuthAccountService.TokenIssue tokenIssue = authAccountService.login(request, httpRequest);
+        IAuthAccountService.TokenIssue tokenIssue = authAccountService.login(request, httpRequest);
         setRefreshCookie(response, tokenIssue);
         return ApiResponse.<TokenResponse>builder().status(200).message("User logged in successfully").data(tokenIssue.response()).build();
     }
@@ -53,56 +52,56 @@ public class AuthController implements AuthApi {
         return ApiResponse.<Void>builder().status(200).message("Logged out successfully").build();
     }
 
-    @PostMapping("/refresh")
+    @Override
     public ApiResponse<TokenResponse> refresh(HttpServletRequest request, HttpServletResponse response) {
-        AuthAccountService.TokenIssue tokenIssue = authAccountService.refresh(readRefreshToken(request), request);
+        IAuthAccountService.TokenIssue tokenIssue = authAccountService.refresh(readRefreshToken(request), request);
         setRefreshCookie(response, tokenIssue);
         return ApiResponse.<TokenResponse>builder().status(200).message("Token refreshed successfully").data(tokenIssue.response()).build();
     }
 
-    @PostMapping("/logout-all")
+    @Override
     public ApiResponse<Void> logoutAll(HttpServletResponse response) {
         authAccountService.logoutAll();
         clearRefreshCookie(response);
         return ApiResponse.<Void>builder().status(200).message("All sessions logged out successfully").build();
     }
 
-    @GetMapping("/sessions")
+    @Override
     public ApiResponse<List<AuthSessionResponse>> sessions() {
         return ApiResponse.<List<AuthSessionResponse>>builder().status(200).message("Success").data(authAccountService.sessions()).build();
     }
 
-    @PostMapping("/verify-email")
+    @Override
     public ApiResponse<Void> verifyEmail(@RequestBody @Valid TokenRequest request) {
         authAccountService.verifyEmail(request.getToken());
         return ApiResponse.<Void>builder().status(200).message("Email verified successfully").build();
     }
 
-    @GetMapping("/verify-email")
+    @Override
     public ApiResponse<Void> verifyEmailQuery(@RequestParam String token) {
         authAccountService.verifyEmail(token);
         return ApiResponse.<Void>builder().status(200).message("Email verified successfully").build();
     }
 
-    @PostMapping("/resend")
+    @Override
     public ApiResponse<Void> resend(@RequestBody @Valid EmailRequest request) {
         authAccountService.resendVerification(request);
         return ApiResponse.<Void>builder().status(200).message("If the account is pending, a verification email will be sent.").build();
     }
 
-    @PostMapping("/forgot-password")
+    @Override
     public ApiResponse<Void> forgotPassword(@RequestBody @Valid EmailRequest request) {
         authAccountService.forgotPassword(request);
         return ApiResponse.<Void>builder().status(200).message("If the account exists, a reset email will be sent.").build();
     }
 
-    @PostMapping("/reset-password")
+    @Override
     public ApiResponse<Void> resetPassword(@RequestBody @Valid ResetPasswordRequest request) {
         authAccountService.resetPassword(request);
         return ApiResponse.<Void>builder().status(200).message("Password reset successfully").build();
     }
 
-    private void setRefreshCookie(HttpServletResponse response, AuthAccountService.TokenIssue tokenIssue) {
+    private void setRefreshCookie(HttpServletResponse response, IAuthAccountService.TokenIssue tokenIssue) {
         ResponseCookie cookie = ResponseCookie.from("refresh_token", tokenIssue.refreshToken())
                 .httpOnly(true)
                 .secure(false)

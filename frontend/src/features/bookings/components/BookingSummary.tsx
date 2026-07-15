@@ -8,10 +8,11 @@ interface BookingSummaryProps {
   bookedRooms: { type: RoomType; quantity: number }[];
   finalPrice: number;
   discountAmount?: number;
+  onlinePaymentEnabled?: boolean;
   onConfirm?: () => void;
   isPending?: boolean;
 }
-export const BookingSummary = ({ bookedRooms, finalPrice, discountAmount = 0, onConfirm, isPending }: BookingSummaryProps) => {
+export const BookingSummary = ({ bookedRooms, finalPrice, discountAmount = 0, onlinePaymentEnabled = true, onConfirm, isPending }: BookingSummaryProps) => {
   const subTotal = finalPrice + discountAmount;
   return (
     <div className="sticky top-8 space-y-6">
@@ -49,7 +50,7 @@ export const BookingSummary = ({ bookedRooms, finalPrice, discountAmount = 0, on
             <span className="font-bold text-2xl text-primary">{formatCurrency(finalPrice)}</span>
           </div>
         </CardContent>
-        <div className="p-6 pt-0">
+          <div className="p-6 pt-0">
           <Button
             className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20"
             onClick={onConfirm}
@@ -62,10 +63,12 @@ export const BookingSummary = ({ bookedRooms, finalPrice, discountAmount = 0, on
           </p>
         </div>
       </Card>
-      <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-blue-700 text-sm">
-        <CreditCard className="w-5 h-5 flex-shrink-0" />
-        <p>Your payment information is encrypted and secure.</p>
-      </div>
+        {onlinePaymentEnabled && (
+          <div className="p-4 rounded-lg flex gap-3 text-sm bg-blue-50 text-blue-700">
+            <CreditCard className="w-5 h-5 flex-shrink-0" />
+            <p>Your payment information is encrypted and secure.</p>
+          </div>
+        )}
     </div>
   );
 };

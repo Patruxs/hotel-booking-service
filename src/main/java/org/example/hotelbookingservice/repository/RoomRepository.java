@@ -8,10 +8,28 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
-public interface RoomRepository extends JpaRepository<Room, Integer> {
+public interface RoomRepository extends JpaRepository<Room, UUID> {
+    default Optional<Room> findById(Integer id) {
+        return findById(legacyId(id));
+    }
+
+    default boolean existsById(Integer id) {
+        return existsById(legacyId(id));
+    }
+
+    default void deleteById(Integer id) {
+        deleteById(legacyId(id));
+    }
+
+    private static UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
+    }
+
     @Query(value = """
-                SELECT r.* FROM room r
+                SELECT r.* FROM room_types r
                 WHERE (:#{#roomType == null} = true OR r.type = :#{#roomType?.name()})
                 AND r.id NOT IN (
                     SELECT br.room_id
@@ -27,7 +45,7 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
 
 
     @Query(value = """
-               SELECT r.* FROM room r
+               SELECT r.* FROM room_types r
                WHERE LOWER(r.name) LIKE LOWER(CONCAT('%', :searchParam, '%'))
                   OR LOWER(CAST(r.type AS text)) LIKE LOWER(CONCAT('%', :searchParam, '%'))
                   OR CAST(r.price AS text) LIKE CONCAT('%', :searchParam, '%')
@@ -37,7 +55,7 @@ public interface RoomRepository extends JpaRepository<Room, Integer> {
     List<Room> searchRooms(@Param("searchParam") String searchParam);
 
     @Query(value = """
-            SELECT r.* FROM room r
+            SELECT r.* FROM room_types r
             WHERE r.hotel_id = :hotelId
             AND r.id NOT IN (
                 SELECT br.room_id

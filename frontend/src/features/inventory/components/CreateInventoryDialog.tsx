@@ -59,7 +59,7 @@ export function CreateInventoryDialog({
   const isControlled = open !== undefined
   const show = isControlled ? open : internalOpen
   const setShow = isControlled ? onOpenChange : setInternalOpen
-  const { data: roomTypesData } = useQueryRoomTypes(hotelId, !!hotelId)
+  const { data: roomTypesData, isLoading: isRoomTypesLoading } = useQueryRoomTypes(hotelId, !!hotelId)
   const roomTypes = roomTypesData?.data || []
   const { mutate, isPending } = useCreateInventoryMutation(hotelId)
   const form = useForm<BulkSetInventoryFormValues>({
@@ -217,11 +217,17 @@ export function CreateInventoryDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {roomTypes.map((rt: any) => (
-                        <SelectItem key={rt.id} value={rt.id}>
-                          {rt.name}
-                        </SelectItem>
-                      ))}
+                      {isRoomTypesLoading ? (
+                        <div className="p-2 text-sm text-muted-foreground">Loading room types...</div>
+                      ) : roomTypes.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">No room types found</div>
+                      ) : (
+                        roomTypes.map((rt: any) => (
+                          <SelectItem key={rt.id} value={String(rt.id)}>
+                            {rt.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />

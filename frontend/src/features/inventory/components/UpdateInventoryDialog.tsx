@@ -1,9 +1,9 @@
-"use client"
-import * as React from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+"use client";
+import * as React from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -21,18 +21,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
-import { useUpdateInventoryMutation } from "../mutations"
-import { UpdateInventoryFormValues, UpdateInventorySchema } from "../validator"
-import { Inventory } from "../types"
-import toast from "react-hot-toast"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { useDeleteInventoryMutation, useUpdateInventoryMutation } from "../mutations";
+import { UpdateInventoryFormValues, UpdateInventorySchema } from "../validator";
+import { Inventory } from "../types";
+import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/common/CofirmDialog";
+import { getApiErrorMessage } from "@/lib/apiErrors";
 interface UpdateInventoryDialogProps {
-  inventory: Inventory
-  trigger?: React.ReactNode
-  open?: boolean
-  onOpenChange?: (open: boolean) => void
+  inventory: Inventory;
+  trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 export function UpdateInventoryDialog({
   inventory,
@@ -40,11 +42,13 @@ export function UpdateInventoryDialog({
   open,
   onOpenChange,
 }: UpdateInventoryDialogProps) {
-  const [internalOpen, setInternalOpen] = React.useState(false)
-  const isControlled = open !== undefined
-  const show = isControlled ? open : internalOpen
-  const setShow = isControlled ? onOpenChange : setInternalOpen
-  const { mutate, isPending } = useUpdateInventoryMutation(inventory.hotelId)
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const isControlled = open !== undefined;
+  const show = isControlled ? open : internalOpen;
+  const setShow = isControlled ? onOpenChange : setInternalOpen;
+  const { mutate, isPending } = useUpdateInventoryMutation(inventory.hotelId);
+  const deleteMutation = useDeleteInventoryMutation(inventory.hotelId);
   const form = useForm<UpdateInventoryFormValues>({
     resolver: zodResolver(UpdateInventorySchema),
     defaultValues: {
@@ -52,31 +56,58 @@ export function UpdateInventoryDialog({
       availableRooms: inventory.availableRooms,
       stopSell: inventory.stopSell,
     },
-  })
+  });
   React.useEffect(() => {
     if (inventory) {
       form.reset({
         totalRooms: inventory.totalRooms,
         availableRooms: inventory.availableRooms,
         stopSell: inventory.stopSell,
-      })
+      });
     }
-  }, [inventory, form])
+  }, [inventory, form]);
   const onSubmit = (values: UpdateInventoryFormValues) => {
     mutate(
-      { id: inventory.id, payload: values },
+      {
+        id: inventory.id,
+        payload: {
+          ...values,
+          roomTypeId: inventory.roomTypeId,
+          date: inventory.date,
+        },
+      },
       {
         onSuccess: () => {
-          setShow?.(false)
-          toast.success("Inventory updated successfully")
+          setShow?.(false);
+          toast.success("Inventory updated successfully");
         },
         onError: (error) => {
-          console.error(error)
-          toast.error("Failed to update inventory")
+          console.error(error);
+          toast.error("Failed to update inventory");
         },
-      }
-    )
-  }
+      },
+    );
+  };
+  const onDelete = () => {
+    deleteMutation.mutate(
+      { roomTypeId: inventory.roomTypeId, id: inventory.id },
+      {
+        onSuccess: () => {
+          setDeleteDialogOpen(false);
+          setShow?.(false);
+          toast.success("Inventory deleted successfully");
+        },
+        onError: (error: unknown) => {
+          toast.error(
+            getApiErrorMessage(
+              error,
+              "Inventory cannot be deleted when it is past, reserved, or consumed.",
+            ),
+          );
+        },
+      },
+    );
+  };
   return (
     <Dialog open={show} onOpenChange={setShow}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -106,7 +137,7 @@ export function UpdateInventoryDialog({
                           field.onChange(
                             e.target.value === ""
                               ? undefined
-                              : parseInt(e.target.value, 10)
+                              : parseInt(e.target.value, 10),
                           )
                         }
                       />
@@ -131,7 +162,7 @@ export function UpdateInventoryDialog({
                           field.onChange(
                             e.target.value === ""
                               ? undefined
-                              : parseInt(e.target.value, 10)
+                              : parseInt(e.target.value, 10),
                           )
                         }
                       />
@@ -169,7 +200,16 @@ export function UpdateInventoryDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending}>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={isPending || deleteMutation.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+              <Button type="submit" disabled={isPending || deleteMutation.isPending}>
                 {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Update Inventory
               </Button>
@@ -177,6 +217,16 @@ export function UpdateInventoryDialog({
           </form>
         </Form>
       </DialogContent>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        title="Delete Inventory"
+        description="Only future inventory with no reserved or consumed capacity can be deleted."
+        confirmText="Delete"
+        cancelText="Keep"
+        isLoading={deleteMutation.isPending}
+        onConfirm={onDelete}
+        onCancel={() => setDeleteDialogOpen(false)}
+      />
     </Dialog>
-  )
+  );
 }

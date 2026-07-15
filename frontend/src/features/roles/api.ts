@@ -2,8 +2,18 @@ import { mockApi } from "@/mocks/mockApi";
 import api from "@/lib/axios";
 import { mockOrRequest } from "@/features/shared/apiClient";
 
+function normalizeRoleList(payload: unknown) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: unknown[] }).data;
+  }
+  throw new Error("Unexpected roles list response from Spring API");
+}
+
 export const rolesApi: any = {
-  list: () => mockOrRequest(mockApi.roles.list(), () => api.get("/roles")),
+  list: () => mockOrRequest(mockApi.roles.list(), () => api.get("/roles")).then(normalizeRoleList),
   create: (_body: unknown) => mockOrRequest({ ok: true }, () => api.post("/roles", _body)),
   update: (_id: string, _body: unknown) => mockOrRequest({ ok: true }, () => api.patch(`/roles/${_id}`, _body)),
   assignPermissions: (_id: string, _body: unknown) => mockOrRequest({ ok: true }, () => api.post(`/roles/${_id}/permissions`, _body)),

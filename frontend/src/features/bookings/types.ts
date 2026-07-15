@@ -32,7 +32,7 @@ export interface CreateBookingDto{
     guestName: string;
     guestEmail: string;
     guestPhone: string;
-    totalAmount: number;
+    totalAmount?: number;
     note: string;
     promotionCode?: string;
     items: CreateBookingItemDto[];

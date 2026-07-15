@@ -1,4 +1,4 @@
-package org.example.hotelbookingservice.services;
+package org.example.hotelbookingservice.security.vnpay;
 
 import org.junit.jupiter.api.Test;
 

@@ -17,10 +17,15 @@ import { Edit, Trash2 } from 'lucide-react';
 import { Hotel } from '../types';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { usePermission } from '@/providers/PermissionProvider';
+import { OWNER_ONLY_REQUIREMENT } from '@/providers/permissionAccess';
+
 interface HotelTableProps {
   hotels: Hotel[];
 }
 export default function HotelTable({ hotels }: HotelTableProps) {
+  const { canAccess } = usePermission();
+  const canDeleteHotel = canAccess(OWNER_ONLY_REQUIREMENT);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const deleteMutation = useDeleteHotelMutation();
@@ -115,15 +120,17 @@ export default function HotelTable({ hotels }: HotelTableProps) {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </Link>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Delete"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteClick(hotel.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        {canDeleteHotel && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Delete"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDeleteClick(hotel.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -137,16 +144,18 @@ export default function HotelTable({ hotels }: HotelTableProps) {
           </div>
         )}
       </Card>
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Delete Hotel"
-        description="Are you sure you want to delete this hotel? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        isLoading={deleteMutation.isPending}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmOpen(false)}
-      />
+        {canDeleteHotel && (
+          <ConfirmDialog
+            open={confirmOpen}
+            title="Delete Hotel"
+            description="Are you sure you want to delete this hotel? This action cannot be undone."
+            confirmText="Delete"
+            cancelText="Cancel"
+            isLoading={deleteMutation.isPending}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setConfirmOpen(false)}
+          />
+        )}
     </>
   );
 }

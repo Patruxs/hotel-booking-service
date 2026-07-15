@@ -10,6 +10,8 @@ export type User = {
   name: string;
   email: string;
   phone?: string;
+  dob?: string;
+  dateOfBirth?: string;
   avatarUrl?: string;
   firstName?: string;
   lastName?: string;

@@ -3,16 +3,16 @@ package org.example.hotelbookingservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingCreateRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingResponse;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.BookingStatusRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInDetailResponse;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.CheckInRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartRequest;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.PaymentStartResponse;
-import org.example.hotelbookingservice.dto.operations.BookingOperationsDtos.VnpayIpnResponse;
-import org.example.hotelbookingservice.dto.operations.HotelOperationsDtos.PaginatedResponse;
-import org.example.hotelbookingservice.services.BookingOperationsService;
+import org.example.hotelbookingservice.dto.request.booking.operations.BookingCreateRequest;
+import org.example.hotelbookingservice.dto.response.booking.operations.BookingResponse;
+import org.example.hotelbookingservice.dto.request.booking.operations.BookingStatusRequest;
+import org.example.hotelbookingservice.dto.response.booking.operations.CheckInDetailResponse;
+import org.example.hotelbookingservice.dto.request.booking.operations.CheckInRequest;
+import org.example.hotelbookingservice.dto.request.booking.operations.PaymentStartRequest;
+import org.example.hotelbookingservice.dto.response.booking.operations.PaymentStartResponse;
+import org.example.hotelbookingservice.dto.response.booking.operations.VnpayIpnResponse;
+import org.example.hotelbookingservice.dto.response.hotel.operations.PaginatedResponse;
+import org.example.hotelbookingservice.services.IBookingOperationsService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,7 +32,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
 public class BookingOperationsController {
-    private final BookingOperationsService bookingOperationsService;
+    private final IBookingOperationsService bookingOperationsService;
 
     @PostMapping("/hotels/{hotelId}/bookings")
     public ApiResponse<BookingResponse> createBooking(

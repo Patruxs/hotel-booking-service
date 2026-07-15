@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
+import org.example.hotelbookingservice.dto.request.user.AdminUserUpdateRequest;
 import org.example.hotelbookingservice.dto.request.user.ChangePasswordRequest;
 import org.example.hotelbookingservice.dto.request.user.CreateStaffRequest;
 import org.example.hotelbookingservice.dto.request.user.UserUpdateRequest;
@@ -15,68 +16,77 @@ import org.example.hotelbookingservice.dto.response.UserResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.UUID;
 
 @RequestMapping("/api/v1/users")
-@Tag(name = "User Management", description = "Quản lý người dùng (Thông tin cá nhân, Lịch sử đặt phòng, Quản trị viên)")
+@Tag(name = "User Management", description = "User management (Personal information, Booking history, Admin)")
 public interface UserApi {
 
-    @Operation(summary = "Lấy danh sách tất cả người dùng (ADMIN)", description = "Chỉ Admin mới có quyền truy cập.")
+    @Operation(summary = "Get list of all users (ADMIN)", description = "Only Admin has access.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập (Token không hợp lệ)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền truy cập (Không phải ADMIN)", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in (Invalid token)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Access denied (Not an ADMIN)", content = @Content) })
     @GetMapping("/all")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<List<UserResponse>> getAllUser();
 
-    @Operation(summary = "Tạo tài khoản nhân viên (ADMIN)", description = "Admin tạo tài khoản cho Lễ tân (RECEPTIONIST) hoặc Quản lý (MANAGER).")
+    @Operation(summary = "Create staff account (ADMIN)", description = "Admin creates accounts for Receptionist (RECEPTIONIST) or Manager (MANAGER).")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo nhân viên thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ hoặc email đã tồn tại", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content) })
-    @PostMapping("/create-staff")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Staff created successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid data or email already exists", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin permission required", content = @Content) })
+    @PostMapping({"/staff", "/create-staff"})
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<UserResponse> createStaff(@RequestBody @Valid CreateStaffRequest request);
 
-    @Operation(summary = "Cập nhật thông tin cá nhân", description = "Người dùng tự cập nhật thông tin của mình.")
+    @Operation(summary = "Update personal information", description = "User updates their own information.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Dữ liệu không hợp lệ (Số điện thoại sai, ngày sinh sai...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content) })
-    @PutMapping("/update")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Updated successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid data (Wrong phone number, wrong birthdate...)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in", content = @Content) })
+    @PutMapping({"/me", "/update"})
     ApiResponse<UserResponse> updateOwnAccount(@RequestBody @Valid UserUpdateRequest request);
 
-    @Operation(summary = "Xóa tài khoản cá nhân", description = "Người dùng tự xóa tài khoản của mình.")
+    @Operation(summary = "Delete personal account", description = "User deletes their own account.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content) })
-    @DeleteMapping("/delete")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Deleted successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in", content = @Content) })
+    @DeleteMapping({"/me", "/delete"})
     ApiResponse<Void> deleteOwnAccount();
 
-    @Operation(summary = "Lấy thông tin profile", description = "Lấy thông tin của người dùng đang đăng nhập.")
+    @Operation(summary = "Get profile info", description = "Get the profile information of the currently logged in user.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Không tìm thấy user (Token lỗi)", content = @Content) })
-    @GetMapping("/get-logged-in-profile-info")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User not found (Token error)", content = @Content) })
+    @GetMapping({"/me/profile", "/get-logged-in-profile-info"})
     ApiResponse<UserResponse> getOwnAccountDetails();
 
-    @Operation(summary = "Lịch sử đặt phòng", description = "Lấy danh sách các booking của người dùng hiện tại.")
+    @Operation(summary = "Booking history", description = "Get the list of bookings of the current user.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content) })
-    @GetMapping("/get-user-bookings")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in", content = @Content) })
+    @GetMapping({"/me/bookings", "/get-user-bookings"})
     @PreAuthorize("hasAuthority('CUSTOMER') or hasAuthority('ADMIN')")
     ApiResponse<List<BookingResponse>> getMyBookingHistory();
 
-    @Operation(summary = "Đổi mật khẩu", description = "Yêu cầu mật khẩu cũ phải chính xác.")
+    @Operation(summary = "Change password", description = "Requires the old password to be correct.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Đổi mật khẩu thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Mật khẩu cũ không đúng hoặc Mật khẩu mới trùng mật khẩu cũ", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Chưa đăng nhập", content = @Content) })
-    @PutMapping("/change-password")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Password changed successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Incorrect old password or new password is the same as old password", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not logged in", content = @Content) })
+    @PutMapping({"/me/password", "/change-password"})
     ApiResponse<Void> changePassword(@RequestBody @Valid ChangePasswordRequest request);
 
-    @Operation(summary = "Khóa tài khoản (ADMIN)", description = "Admin khóa tài khoản người dùng.")
+    @Operation(summary = "Lock user account (ADMIN)", description = "Admin locks a user account.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Khóa thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User không tồn tại", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Locked successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin permission required", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User does not exist", content = @Content) })
     @PutMapping("/{userId}/lock")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> lockUser(@PathVariable Integer userId);
 
-    @Operation(summary = "Mở khóa tài khoản (ADMIN)", description = "Admin mở khóa tài khoản người dùng.")
+    @Operation(summary = "Unlock user account (ADMIN)", description = "Admin unlocks a user account.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Mở khóa thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User không tồn tại", content = @Content) })
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Unlocked successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin permission required", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "User does not exist", content = @Content) })
     @PutMapping("/{userId}/unlock")
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> unlockUser(@PathVariable Integer userId);
-}
 
+    @Operation(summary = "Update user profile fields (ADMIN)", description = "Admin updates visible user profile fields.")
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/{userId}")
+    @PreAuthorize("hasAuthority('ADMIN')")
+    ApiResponse<org.example.hotelbookingservice.dto.response.auth.AuthResponses.UserListItem> updateUser(
+            @PathVariable UUID userId,
+            @RequestBody @Valid AdminUserUpdateRequest request
+    );
+}

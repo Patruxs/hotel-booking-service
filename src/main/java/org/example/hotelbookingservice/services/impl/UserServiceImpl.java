@@ -19,7 +19,7 @@ import org.example.hotelbookingservice.mapper.UserMapper;
 import org.example.hotelbookingservice.repository.BookingRepository;
 import org.example.hotelbookingservice.repository.RoleRepository;
 import org.example.hotelbookingservice.repository.UserRepository;
-import org.example.hotelbookingservice.repository.UserroleRepository;
+import org.example.hotelbookingservice.repository.UserRoleRepository;
 import org.example.hotelbookingservice.security.JwtUtils;
 import org.example.hotelbookingservice.services.IUserService;
 import org.springframework.data.domain.Sort;
@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,7 +43,7 @@ public class UserServiceImpl implements IUserService {
     private final BookingRepository bookingRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
-    private final UserroleRepository userroleRepository;
+    private final UserRoleRepository userRoleRepository;
     private final JwtUtils jwtUtils;
     private final BookingMapper bookingMapper;
 
@@ -60,10 +61,10 @@ public class UserServiceImpl implements IUserService {
         User userToSave = User.builder()
                 .fullName(registrationRequest.getFullName())
                 .email(registrationRequest.getEmail())
-                .password(passwordEncoder.encode(registrationRequest.getPassword()))
+                .passwordHash(passwordEncoder.encode(registrationRequest.getPassword()))
                 .phone(registrationRequest.getPhone())
-                .dob(registrationRequest.getDob())
-                .activate(Boolean.TRUE)
+                .dateOfBirth(registrationRequest.getDob())
+                .emailVerified(Boolean.TRUE)
                 .userRoles(new LinkedHashSet<>())
                 .build();
 
@@ -75,16 +76,16 @@ public class UserServiceImpl implements IUserService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
 
-        UserroleId userroleId = new UserroleId();
-        userroleId.setUserId(savedUser.getId());
-        userroleId.setRoleId(roleEntity.getId());
+          UserRoleId userroleId = new UserRoleId();
+          userroleId.setUserId(savedUser.getId());
+          userroleId.setRoleId(roleEntity.getId());
 
-        Userrole userrole = new Userrole();
-        userrole.setId(userroleId);
-        userrole.setUser(savedUser);
-        userrole.setRole(roleEntity);
+          org.example.hotelbookingservice.entity.UserRole userrole = new org.example.hotelbookingservice.entity.UserRole();
+          userrole.setId(userroleId);
+          userrole.setUser(savedUser);
+          userrole.setRole(roleEntity);
 
-        userroleRepository.save(userrole);
+          userRoleRepository.save(userrole);
 
         return userMapper.toUserResponse(savedUser);
     }
@@ -109,14 +110,14 @@ public class UserServiceImpl implements IUserService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        //Take first role from Set<Userrole>
+        //Take first role from Set<UserRole>
         Role roleEntity = user.getUserRoles().iterator().next().getRole();
 
         // Switch Role (String) to UserRole (Enum)
         UserRole roleEnum = UserRole.valueOf(roleEntity.getName());
 
         return LoginResponse.builder()
-                .token(token)
+                .accessToken(token)
                 .role(roleEnum)
                 .isActive(user.getActivate())
                 .expirationTime("6 months")
@@ -193,7 +194,7 @@ public class UserServiceImpl implements IUserService {
     public List<BookingResponse> getMyBookingHistory() {
         User user = getCurrentLoggedInUser();
 
-        List<Booking> bookingList = bookingRepository.findByUserId(Long.valueOf(user.getId()));
+        List<Booking> bookingList = bookingRepository.findByUserId(user.getId());
 
         return bookingMapper.toBookingResponseList(bookingList);
     }
@@ -222,7 +223,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     @Transactional
     public void lockUser(Integer userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(legacyId(userId))
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         user.setActivate(false);
@@ -232,7 +233,7 @@ public class UserServiceImpl implements IUserService {
     @Override
     @Transactional
     public void unlockUser(Integer userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findById(legacyId(userId))
                 .orElseThrow(()-> new AppException(ErrorCode.USER_NOT_EXISTED));
 
         user.setActivate(true);
@@ -249,6 +250,10 @@ public class UserServiceImpl implements IUserService {
         SecurityContextHolder.clearContext();
     }
 
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
+    }
+
     @Override
     @Transactional
     public UserResponse createStaff(CreateStaffRequest request) {
@@ -257,9 +262,9 @@ public class UserServiceImpl implements IUserService {
             throw new AppException(ErrorCode.USER_EXISTED);
         }
 
-        // Validate: role must be RECEPTIONIST or MANAGER only
+        // Staff creation is intentionally narrower than the complete account-role catalog.
         UserRole roleEnum = request.getRole();
-        if (roleEnum == UserRole.CUSTOMER || roleEnum == UserRole.ADMIN) {
+        if (roleEnum != UserRole.RECEPTIONIST && roleEnum != UserRole.MANAGER) {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
@@ -267,10 +272,10 @@ public class UserServiceImpl implements IUserService {
         User staffUser = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
-                .dob(request.getDob())
-                .activate(Boolean.TRUE)
+                .dateOfBirth(request.getDob())
+                .emailVerified(Boolean.TRUE)
                 .userRoles(new LinkedHashSet<>())
                 .build();
 
@@ -281,16 +286,16 @@ public class UserServiceImpl implements IUserService {
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         // Create user-role assignment
-        UserroleId userroleId = new UserroleId();
-        userroleId.setUserId(savedUser.getId());
-        userroleId.setRoleId(roleEntity.getId());
+          UserRoleId userroleId = new UserRoleId();
+          userroleId.setUserId(savedUser.getId());
+          userroleId.setRoleId(roleEntity.getId());
 
-        Userrole userrole = new Userrole();
-        userrole.setId(userroleId);
-        userrole.setUser(savedUser);
-        userrole.setRole(roleEntity);
+          org.example.hotelbookingservice.entity.UserRole userrole = new org.example.hotelbookingservice.entity.UserRole();
+          userrole.setId(userroleId);
+          userrole.setUser(savedUser);
+          userrole.setRole(roleEntity);
 
-        userroleRepository.save(userrole);
+          userRoleRepository.save(userrole);
 
         log.info("Staff account created: {} with role {}", request.getEmail(), roleEnum.name());
 

@@ -13,16 +13,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/providers/AuthProvider';
 import { loginSchema } from '@/features/auth';
 import type * as z from 'zod';
-import { GoogleIcon } from '@/components/icons/GoogleIcon';
-import { API_BASE_URL, ROUTES } from '@/constants';
+import { ROUTES } from '@/constants';
+import { hasManagementShellRole } from '@/providers/permissionAccess';
 type LoginFormValues = z.infer<typeof loginSchema>;
 export function LoginForm() {
   const { loading, login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = typeof location.state === "object" && location.state && "from" in location.state
+    ? String(location.state.from)
+    : ROUTES.HOME;
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -32,14 +37,20 @@ export function LoginForm() {
   });
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      await login(values.email, values.password);
+      const user = await login(values.email, values.password);
+        const hasAdminShellRole = hasManagementShellRole(
+          user?.roles?.map((role) => role.name) ?? [],
+        );
+
+      if (hasAdminShellRole) {
+        navigate('/admin/', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (error) {
       console.error('Login error:', error);
     }
   };
-  const googleLogin = () => {
-    window.location.href = `${API_BASE_URL}/auth/google`;
-  }
   return (
     <>
       <Form {...form}>
@@ -131,23 +142,6 @@ export function LoginForm() {
           </Button>
         </form>
       </Form>
-      <div className="relative my-4">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-card text-gray-500">Or continue with</span>
-        </div>
-      </div>
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={googleLogin}
-        disabled={loading}
-      >
-        <GoogleIcon />
-        Login with Google
-      </Button>
-    </>
-  );
-}
+      </>
+    );
+  }

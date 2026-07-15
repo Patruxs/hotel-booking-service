@@ -34,6 +34,14 @@ public interface HotelMapper {
     @Mapping(target = "policies", ignore = true)
     @Mapping(target = "reviews", ignore = true)
     @Mapping(target = "rooms", ignore = true)
+    @Mapping(target = "slug", ignore = true)
+    @Mapping(target = "address", ignore = true)
+    @Mapping(target = "country", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "inventories", ignore = true)
     Hotel toHotel(HotelCreateRequest request);
 
 
@@ -46,34 +54,44 @@ public interface HotelMapper {
     @Mapping(target = "reviews", ignore = true)
     @Mapping(target = "rooms", ignore = true)
     @Mapping(target = "starRating", ignore = true)
+    @Mapping(target = "slug", ignore = true)
+    @Mapping(target = "address", ignore = true)
+    @Mapping(target = "country", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "inventories", ignore = true)
     void updateHotelFromRequest(HotelUpdateRequest request, @MappingTarget Hotel hotel);
 
-    // 1. Lấy danh sách URL ảnh từ Set<Image>
+    // 1. Get list of image URLs from Set<Image>
     @Named("mapHotelImages")
     default List<String> mapHotelImages(Set<Image> images) {
         if (images == null || images.isEmpty()) return null;
         return images.stream()
-                .map(Image::getPath) // Lấy đường dẫn ảnh
+                .map(Image::getPath) // Get image path
                 .collect(Collectors.toList());
     }
 
-    // 2. Lấy danh sách tên tiện ích từ Set<Hotelamenity>
+    // 2. Get list of amenity names from Set<Hotelamenity>
     @Named("mapHotelAmenities")
     default List<String> mapHotelAmenities(Set<Hotelamenity> hotelAmenities) {
-        if (hotelAmenities == null || hotelAmenities.isEmpty()) return null;
+        if (hotelAmenities == null || hotelAmenities.isEmpty()) return java.util.Collections.emptyList();
         return hotelAmenities.stream()
-                .map(ha -> ha.getAmenity().getName()) // Truy cập Hotelamenity -> Amenity -> Name
+                .map(Hotelamenity::getAmenity)
+                .filter(a -> a != null)
+                .map(Amenity::getName)
                 .collect(Collectors.toList());
     }
 
-    // Logic lấy ảnh bìa (ảnh đầu tiên)
+    // Logic to get cover image (first image)
     @Named("mapCoverImage")
     default String mapCoverImage(Set<Image> images) {
         if (images == null || images.isEmpty()) return null;
         return images.iterator().next().getPath();
     }
 
-    // Logic tính điểm trung bình
+    // Logic to calculate average rating
     @Named("calcAverageRating")
     default Double calcAverageRating(Set<Review> reviews) {
         if (reviews == null || reviews.isEmpty()) return 0.0;
@@ -83,7 +101,7 @@ public interface HotelMapper {
                 .orElse(0.0);
     }
 
-    // Logic tìm giá thấp nhất
+    // Logic to find minimum price
     @Named("calcMinPrice")
     default BigDecimal calcMinPrice(Set<Room> rooms) {
         if (rooms == null || rooms.isEmpty()) return BigDecimal.ZERO;

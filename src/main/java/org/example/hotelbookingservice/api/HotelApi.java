@@ -22,52 +22,52 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RequestMapping("/api/v1/hotels")
-@Tag(name = "Hotel Management", description = "Quản lý thông tin khách sạn")
+@Tag(name = "Hotel Management", description = "Hotel management information")
 public interface HotelApi {
 
-    @Operation(summary = "Thêm khách sạn mới", description = "Dành cho ADMIN. Yêu cầu upload ảnh.")
+    @Operation(summary = "Add new hotel", description = "For ADMIN. Image upload required.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Tạo khách sạn thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Khách sạn đã tồn tại hoặc dữ liệu không hợp lệ", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền Admin", content = @Content) })
-    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Hotel created successfully"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Hotel already exists or invalid data", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Admin permission required", content = @Content) })
+    @PostMapping(value = {"", "/add"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<HotelResponse> addHotel(@RequestParam(value = "image", required = false) List<MultipartFile> image, @ParameterObject @ModelAttribute @Valid HotelCreateRequest hotelCreateRequest);
 
-    @Operation(summary = "Cập nhật khách sạn", description = "Cập nhật thông tin khách sạn.")
+    @Operation(summary = "Update hotel", description = "Update hotel information.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Cập nhật thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền sở hữu khách sạn này", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content) })
-    @PutMapping(value = "/update/{hotelId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Update successful"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "No ownership permission for this hotel", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Hotel not found", content = @Content) })
+    @PutMapping(value = {"/{hotelId:\\d+}", "/update/{hotelId}"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<HotelResponse> updateHotel(@PathVariable Integer hotelId, @RequestParam(value = "image", required = false) List<MultipartFile> image, @ParameterObject @ModelAttribute @Valid HotelUpdateRequest hotelUpdateRequest);
 
-    @Operation(summary = "Xóa khách sạn", description = "Xóa khách sạn khỏi hệ thống.")
+    @Operation(summary = "Delete hotel", description = "Delete hotel from the system.")
     @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Xóa thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Không có quyền xóa (Không phải chủ sở hữu/Admin)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content) })
-    @DeleteMapping("/delete/{hotelId}")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Deletion successful"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "No delete permission (Not owner/Admin)", content = @Content), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Hotel not found", content = @Content) })
+    @DeleteMapping({"/{hotelId:\\d+}", "/delete/{hotelId}"})
     @PreAuthorize("hasAuthority('ADMIN')")
     ApiResponse<Void> deleteHotel(@PathVariable Integer hotelId);
 
-    @Operation(summary = "Xem chi tiết khách sạn", description = "API Public.")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tìm thấy", content = @Content) })
+    @Operation(summary = "Get hotel details", description = "Public API.")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Hotel not found", content = @Content) })
     @GetMapping("/{hotelId:\\d+}")
     ApiResponse<HotelResponse> getHotelById(@PathVariable Integer hotelId);
 
-    @Operation(summary = "Lấy danh sách khách sạn của tôi", description = "Xem danh sách khách sạn do user đang đăng nhập quản lý.")
+    @Operation(summary = "Get my hotels", description = "Get list of hotels managed by the currently logged-in user.")
     @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/my-hotels")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('CUSTOMER')")
     ApiResponse<List<HotelResponse>> getMyHotels();
 
-    @Operation(summary = "Lấy tất cả khách sạn", description = "API Public.")
+    @Operation(summary = "Get all hotels", description = "Public API.")
     @GetMapping("/all")
     ApiResponse<List<HotelResponse>> getAllHotels();
 
-    @Operation(summary = "Tìm kiếm khách sạn", description = "Tìm theo vị trí, ngày check-in/out, số lượng người.")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Tìm kiếm thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Ngày check-in/out không hợp lệ", content = @Content) })
+    @Operation(summary = "Search hotels", description = "Search by location, check-in/out date, and capacity.")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Search successful"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid check-in/out date", content = @Content) })
     @GetMapping("/search")
     ApiResponse<List<HotelResponse>> searchHotels(@RequestParam String location, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkInDate, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOutDate, @RequestParam(required = false) Integer capacity, @RequestParam(required = false, defaultValue = "1") Integer roomQuantity);
 
-    @Operation(summary = "Lấy danh sách phòng theo Hotel ID", description = "Xem tất cả các phòng thuộc một khách sạn cụ thể.")
-    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Khách sạn không tồn tại", content = @Content) })
+    @Operation(summary = "Get rooms by Hotel ID", description = "Get all rooms belonging to a specific hotel.")
+    @ApiResponses(value = { @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Success"), @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Hotel not found", content = @Content) })
     @GetMapping("/{hotelId:\\d+}/rooms")
     ApiResponse<List<RoomResponse>> getRoomsByHotelId(@PathVariable Integer hotelId);
 }

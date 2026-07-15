@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   useModerationReviewsQuery,
 } from '@/features/reviews/queries';
+import { useManageHotelDetailQuery } from '@/features/hotels/queries';
 import {
   useModerateReviewMutation,
   useDeleteReviewMutation,
@@ -29,6 +30,7 @@ export default function HotelReviewModerationPage() {
   const [reviewIdToDelete, setReviewIdToDelete] = useState<string | null>(null);
   const params = useParams();
   const hotelId = params.hotelId as string;
+  const { isLoading: isLoadingHotel, isError: isHotelError } = useManageHotelDetailQuery(hotelId);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const limit = 10;
@@ -55,6 +57,12 @@ export default function HotelReviewModerationPage() {
       setOpenDeleteDialog(false);
     }
   };
+  if (isLoadingHotel) {
+    return <div className="p-6 text-muted-foreground">Loading hotel review moderation...</div>;
+  }
+  if (isHotelError) {
+    return <div className="p-6 text-destructive">This hotel is not manageable by the current account.</div>;
+  }
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between gap-4">

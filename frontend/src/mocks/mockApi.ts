@@ -16,7 +16,7 @@ import {
 import { hotels, roomTypes } from "@/mocks/data/hotels";
 import { users } from "@/mocks/data/users";
 
-export const useMocks = import.meta.env.VITE_USE_MOCKS !== "false";
+export const useMocks = import.meta.env.VITE_USE_MOCKS === "true";
 
 export const mockApi = {
   hotels: {

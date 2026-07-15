@@ -7,14 +7,15 @@ import lombok.Data;
 
 @Data
 public class ChangePasswordRequest {
-    @Schema(description = "Mật khẩu hiện tại", example = "password123")
+    @Schema(description = "Current password", example = "password123")
     private String oldPassword;
     private String currentPassword;
 
     @NotBlank(message = "New password is required")
-    @Size(min = 6, message = "Password must be at least 6 characters")
-    @Schema(description = "Mật khẩu mới (Khác mật khẩu cũ)", example = "newpassword456")
+    @Size(min = 8, max = 100, message = "Password must be at least 8 characters")
+    @Schema(description = "New password (Minimum 8 characters, different from the old password)", example = "Newpass1!")
     private String newPassword;
+    @Size(min = 8, max = 100, message = "Password must be at least 8 characters")
     private String confirmPassword;
 
     public String resolvedCurrentPassword() {

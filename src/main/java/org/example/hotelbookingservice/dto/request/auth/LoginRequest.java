@@ -14,10 +14,10 @@ public class LoginRequest {
 
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
-    @Schema(description = "Email của người dùng", example = "admin@gmail.com")
+    @Schema(description = "User's email", example = "admin@gmail.com")
     private String email;
 
     @NotBlank(message = "Password is required")
-    @Schema(description = "Mật khẩu", example = "admin123")
+    @Schema(description = "Password", example = "admin123")
     private String password;
 }

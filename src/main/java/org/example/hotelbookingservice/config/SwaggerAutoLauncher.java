@@ -37,35 +37,35 @@ public class SwaggerAutoLauncher implements ApplicationListener<ApplicationReady
                 desktop.browse(new URI(url));
             } catch (IOException | URISyntaxException e) {
                 log.error("Failed to open browser via AWT", e);
-                openBrowserRuntime(url);
+                openBrowserFallback(url);
             }
         } else {
-            openBrowserRuntime(url);
+            openBrowserFallback(url);
         }
     }
 
-    private void openBrowserRuntime(String url) {
+    private void openBrowserFallback(String url) {
         String os = System.getProperty("os.name").toLowerCase();
-        Runtime rt = Runtime.getRuntime();
         try {
             if (os.contains("win")) {
-                rt.exec("rundll32 url.dll,FileProtocolHandler " + url);
+                new ProcessBuilder("rundll32", "url.dll,FileProtocolHandler", url).start();
             } else if (os.contains("mac")) {
-                rt.exec("open " + url);
+                new ProcessBuilder("open", url).start();
             } else if (os.contains("nix") || os.contains("nux")) {
                 String[] browsers = {"google-chrome", "firefox", "mozilla", "epiphany", "konqueror",
                         "netscape", "opera", "links", "lynx"};
 
-                StringBuffer cmd = new StringBuffer();
-                for (int i = 0; i < browsers.length; i++)
+                StringBuilder cmd = new StringBuilder();
+                for (int i = 0; i < browsers.length; i++) {
                     if (i == 0)
                         cmd.append(String.format("%s \"%s\"", browsers[i], url));
                     else
                         cmd.append(String.format(" || %s \"%s\"", browsers[i], url));
-                rt.exec(new String[]{"sh", "-c", "xdg-open " + url + " || " + cmd.toString()});
+                }
+                new ProcessBuilder("sh", "-c", "xdg-open \"" + url + "\" || " + cmd).start();
             }
         } catch (IOException e) {
-            log.error("Failed to open browser via Runtime", e);
+            log.error("Failed to open browser via fallback launcher", e);
         }
     }
 }

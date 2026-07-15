@@ -1,96 +1,232 @@
-# Hotel Booking Service: Comprehensive Demo Plan
+# Thesis Demo Plan: Stable Core Hotel Booking
 
-## Phase 2: Project Summary
+This runbook intentionally demonstrates only the verified core booking and hotel-management surface. Optional modules are hidden and must not be opened during the presentation.
 
-### Architecture & Tech Stack
-The **Hotel Booking Service** is built using a modern, layered architecture:
-*   **Backend:** Spring Boot (Java 21) adhering to hexagonal/layered architecture principles.
-*   **Database:** PostgreSQL (with Flyway for migrations) and Redis for caching/session management.
-*   **Frontend:** React 19 (Vite) using TypeScript, styled with Tailwind CSS v4, and utilizing Shadcn UI (Radix UI) for accessible, premium components. Form handling is powered by React Hook Form & Zod.
-*   **Security:** JWT-based authentication with a robust Role-Based Access Control (RBAC) model mapping `accounts` to granular `api_actions`.
+## 1. Demo prerequisites
 
-### Identified User Roles
-1.  **Guest (Unauthenticated User):** Can browse the platform, view hotels and rooms, and register for a new account.
-2.  **Customer (Authenticated User):** Can book rooms, manage their profile, view booking history, and submit reviews.
-3.  **Receptionist:** Can view all bookings, create new bookings, update booking statuses (check-in/check-out), and cancel bookings.
-4.  **Manager:** Can moderate (approve/hide/delete) hotel reviews.
-5.  **Admin:** Full system access to manage RBAC, Hotels, Rooms, Promotions, Revenue, and oversee User activities.
+- Java 21 at `/home/pat/.local/jdks/jdk-21.0.11+10` or another Java 21 JDK
+- Node.js 20 or newer and npm
+- Docker with Compose
+- Ports 5173, 5432, and 8080 available
+- A clean browser profile or private window
 
-*   **Guest:** Hotel Search, Room Availability view, User Registration.
-*   **Customer:** Authentication (Login/Token refresh), Room Booking, Booking Management, Profile Updates, Review Submission.
-*   **Receptionist & Manager:** Booking Status Management (`PUT /api/v1/bookings/{bookingId}`), Review Moderation (`PATCH /admin/hotels/{hotelId}/reviews/{reviewId}/moderation`).
-*   **Admin:** RBAC Administration (Roles/Permissions), Hotel & Room CRUD, Revenue Dashboard, Content & Promotion Management.
+## 2. Environment and database setup
 
----
+From the repository root:
 
-## Phase 3: The Detailed Demo Plan
+```bash
+docker compose up -d postgres
+docker compose ps
+```
 
-This chronological demo script is designed to take stakeholders through the complete lifecycle of the platform, building up from basic access to complex administrative controls.
+The PostgreSQL service must report healthy. The local Spring profile uses Flyway and applies every migration automatically, including the forward migration that restores the hotel-scoped Owner role after the historical retirement migration.
 
-### Part 1: The Guest Experience (Onboarding & Discovery)
+Set frontend live-mode values in `frontend/.env.local` or the shell:
 
-**Step 1.1: Platform Discovery**
-*   **What to say:** "Welcome to our Hotel Booking Service. We'll start from the perspective of a brand new visitor who wants to find a place to stay."
-*   **What to click/do:** Navigate to the homepage (`/`). Use the search bar to filter hotels by location, date, and amenities.
-*   **What to expect:** The UI populates a list of available hotels matching the criteria, complete with high-quality images (via Cloudinary integration) and base pricing.
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1
+VITE_USE_MOCKS=false
+VITE_BYPASS_AUTH=false
+VITE_VNPAY_ENABLED=false
+```
 
-**Step 1.2: Exploring Hotel Details**
-*   **What to say:** "Let's dive into a specific property to see what rooms are available."
-*   **What to click/do:** Click on a specific Hotel card to view its details (`/hotels/{hotelId}`). Scroll down to the available rooms section.
-*   **What to expect:** The detailed hotel page loads, displaying descriptions, amenities, verified reviews, and a list of bookable physical rooms.
+Never enable mock data, authentication bypass, or VNPay for the thesis demo.
 
-**Step 1.3: User Registration**
-*   **What to say:** "To proceed with a booking, our guest needs to create an account."
-*   **What to click/do:** Click the "Sign Up" button. Fill out the registration form with a new user's details (Email, Password, Name) and submit (`POST /api/v1/auth/register`).
-*   **What to expect:** A success notification appears, and the user is either automatically logged in or prompted to log in with their new credentials.
+## 3. Build and run commands
 
-### Part 2: The User Experience (Booking & Management)
+Terminal 1, backend:
 
-**Step 2.1: Authentication & Profile**
-*   **What to say:** "Now that we have an account, let's log in and ensure our profile is set up correctly."
-*   **What to click/do:** Enter credentials in the Login modal (`POST /api/v1/auth/login`). Navigate to the "My Profile" section.
-*   **What to expect:** The system authenticates the user, returning a JWT token. The UI updates to show the user's logged-in state. The profile page displays their details.
+```bash
+JAVA_HOME=/home/pat/.local/jdks/jdk-21.0.11+10 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+```
 
-**Step 2.2: Completing a Booking**
-*   **What to say:** "Here is the core value proposition: seamlessly booking a room."
-*   **What to click/do:** Navigate back to a hotel's room list. Select a room, choose dates, and click "Book Now" (`POST /api/v1/bookings`). Complete the mock payment/checkout flow.
-*   **What to expect:** The booking is confirmed. The room's availability state changes (preventing double-booking), and a booking reference is generated.
+Wait for `Started HotelBookingServiceApplication`, then verify:
 
-**Step 2.3: Managing Bookings & Submitting Reviews**
-*   **What to say:** "Users can easily track their upcoming stays and leave feedback for past ones."
-*   **What to click/do:** Go to "My Bookings" (`GET /api/v1/bookings/me` or search via `GET /api/v1/bookings/confirmation-codes/{confirmationCode}`). Select a previously completed booking and submit a 5-star review (`POST /api/v1/hotels/{hotelId}/reviews`).
-*   **What to expect:** The bookings list populates correctly. The review submission succeeds and becomes pending or public depending on hotel policies.
+```bash
+curl http://127.0.0.1:8080/actuator/health
+```
 
-### Part 3: The Receptionist & Manager Experience (Operations)
+Expected result: `{"status":"UP"}`.
 
-**Step 3.1: Booking Management & Check-in**
-*   **What to say:** "Let's log in as a Receptionist, the staff member who handles day-to-day guest operations."
-*   **What to click/do:** Log in with Receptionist credentials. Navigate to the bookings list (`GET /api/v1/bookings`). Update the status of the booking we just made to 'Checked In' (`PUT /api/v1/bookings/{bookingId}`).
-*   **What to expect:** The booking status updates. 
+Terminal 2, frontend:
 
-**Step 3.2: Review Moderation**
-*   **What to say:** "For quality control, a Hotel Manager can moderate reviews left by guests."
-*   **What to click/do:** Log in with Manager credentials. Navigate to Review Moderation (`GET /api/v1/admin/hotels/{hotelId}/reviews`). Select a review and moderate it (`PATCH /api/v1/hotels/{hotelId}/reviews/{reviewId}/moderation`).
-*   **What to expect:** The review status is updated (e.g., hidden or featured).
+```bash
+cd frontend
+VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1 \
+VITE_USE_MOCKS=false \
+VITE_BYPASS_AUTH=false \
+VITE_VNPAY_ENABLED=false \
+npm run dev -- --host 127.0.0.1
+```
 
-### Part 4: The Admin Experience (Management & Oversight)
+Open `http://127.0.0.1:5173`.
 
-**Step 3.1: Admin Dashboard & Revenue**
-*   **What to say:** "Let's switch hats and log in as an Administrator to see the backend controls."
-*   **What to click/do:** Log out, then log in with Admin credentials. Navigate to the Admin Dashboard (`GET /api/v1/dashboard/revenue` etc.).
-*   **What to expect:** The UI transitions to the Admin layout. A dashboard loads showing high-level metrics: total revenue, occupancy rates, and recent bookings.
+## 4. Demo accounts
 
-**Step 3.2: Hotel & Room Management (CRUD)**
-*   **What to say:** "Admins have full control over the inventory. Let's add a new room to an existing hotel."
-*   **What to click/do:** Navigate to the "Manage Hotels" section. Select a hotel, navigate to its rooms, and click "Add Room" (`POST /api/v1/rooms`). Fill in the room details (type, price, capacity) and save.
-*   **What to expect:** The room is instantly added to the database and becomes immediately available for guests to book on the frontend.
+| Purpose | Email | Password | Role |
+|---|---|---|---|
+| Main management demo | `admin@gmail.com` | `admin123` | Admin |
+| Hotel owner demo | `owner@demo.local` | `owner123` | Owner |
+| Hotel-scoped management backup | `manager@demo.local` | `staff123` | Manager |
+| Front desk backup | `receptionist@demo.local` | `staff123` | Receptionist |
+| Customer demo | `customer@gmail.com` | `customer123` | Customer |
 
-**Step 3.3: Promotions & Content**
-*   **What to say:** "To drive sales, Admins can manage active promotions and site content."
-*   **What to click/do:** Navigate to "Promotions". Create a new discount code (e.g., "SUMMER20") (`POST /api/v1/admin/promotions`).
-*   **What to expect:** The promotion is saved and is now applicable during a user's checkout flow.
+The Owner account is scoped to the three `owner@demo.local` hotels seeded by `DataSeeder`. It is intentionally separate from the Manager account. Existing deployments must explicitly assign `OWNER` to a reviewed account and link that account to the intended hotel through `account_roles` and `hotels.owner_id`; the restoration migration does not infer former owners from old Manager assignments.
 
-**Step 3.4: RBAC & Security Administration**
-*   **What to say:** "Finally, our robust RBAC system ensures we can granularly control who has access to what."
-*   **What to click/do:** Navigate to "Settings > Roles & Permissions" (`GET /api/v1/roles`). Show the list of actions and demonstrate assigning a new permission to a role.
-*   **What to expect:** The system reflects the new access control policies dynamically, showcasing the enterprise-grade security of the platform.
+## 5. Included demo features
+
+- Login, logout, JWT session restoration, and role-based route protection
+- Public hotel browsing and hotel details
+- Room-type details and date-based availability
+- Booking creation without external payment
+- Booking confirmation/reference and customer booking history/detail
+- Customer cancellation for an eligible booking
+- Basic management dashboard
+- Hotel list/detail and supported hotel status/edit actions
+- Room-type, physical-room, and inventory management
+- Hotel booking list/detail and supported booking status actions
+
+## 6. Intentionally hidden or disabled
+
+- VNPay and every external payment action
+- Reviews and review moderation
+- News and content management
+- Promotions
+- Commissions and revenue administration beyond the basic dashboard
+- Contacts
+- Hotel policies
+- Amenities administration
+- User, role, permission, and API-action administration
+- Partner onboarding
+- Settings
+- Rich-text editor routes
+
+Direct navigation to these frontend pages redirects to a stable hotel page. Backend code is preserved for future work but is outside the demo contract.
+
+## 7. Customer demo flow
+
+### Step 1: Open and browse
+
+Action: Open `/`, then choose `HOTELS` and open a seeded hotel.
+
+Expected: Hotel cards load from the live Spring API. The detail page shows hotel information, images, and bookable room types. These are room types, not individual physical room numbers.
+
+Backup: If a search filter has stale values, use Clear Filters or reload `/hotels`.
+
+### Step 2: Log in
+
+Action: Open `/login` and use `customer@gmail.com` / `customer123`.
+
+Expected: Login succeeds, the header shows the customer account, and `/me` remains authenticated after refresh.
+
+Backup: Use a private window and log in again. Do not enable `VITE_BYPASS_AUTH`.
+
+### Step 3: Check availability and create a booking
+
+Action: Return to a hotel, select dates at least three days in the future, choose an available room type, enter valid guest details, and confirm.
+
+Expected: One booking is created through `POST /api/v1/hotels/{hotelId}/bookings`. A booking reference and status are displayed. No VNPay option or redirect appears.
+
+Backup: Use dates three to five days from today and quantity 1. If inventory was consumed by rehearsal, restart with a fresh database or choose another seeded room type.
+
+### Step 4: View confirmation and history
+
+Action: Open Account, then My Bookings, and select the new record.
+
+Expected: `/api/v1/bookings/me` returns the customer's records and the detail page matches the created booking.
+
+Backup: Show an existing seeded booking if the newly created record is not needed.
+
+### Step 5: Cancel an eligible booking
+
+Action: Cancel the newly created pending booking.
+
+Expected: Status becomes `CANCELLED`; the action cannot be repeated and reserved inventory is restored once.
+
+Backup: Skip cancellation if the record has already advanced to a non-cancellable state. State that cancellation is status-guarded.
+
+## 8. Hotel-management demo flow
+
+### Step 1: Log in as Owner
+
+Action: Log out, then use `owner@demo.local` / `owner123` and open `/admin`.
+
+Expected: The owner shell renders Dashboard, Hotel, Room types, Bookings, and Inventory navigation. The hotel list contains only the hotels assigned to the owner; News, Reviews, Contacts, Amenities, Settings, and RBAC administration remain hidden.
+
+Backup: Open `/admin/hotels` directly after login and use the Admin account for platform-only demonstrations.
+
+### Step 2: Log in as Admin
+
+Action: Log out, then use `admin@gmail.com` / `admin123` and open `/admin`.
+
+Expected: The admin shell renders only Dashboard, Hotel, Room types, Bookings, and Inventory navigation.
+
+Backup: Open `/admin/hotels` directly after login.
+
+### Step 3: Dashboard
+
+Action: Open Dashboard and select a seeded hotel if requested.
+
+Expected: Basic live statistics and recent booking data render. Do not claim advanced financial reporting.
+
+Backup: Continue to Hotels if a non-critical chart is empty.
+
+### Step 4: Hotel management
+
+Action: Open Hotels, select a seeded hotel, and demonstrate the supported detail/edit or status action.
+
+Expected: The list and detail are live. Saved changes remain after refresh and authorization is enforced.
+
+Backup: Demonstrate read-only detail and status if image upload or an optional field depends on an external provider.
+
+### Step 5: Room and inventory management
+
+Action: Open Room types, choose the hotel and a room type, inspect physical rooms, then open Inventory and update a future date.
+
+Expected: Room-type, physical-room, and inventory data load from hotel-scoped APIs. A valid update persists and appears after refresh.
+
+Backup: Use an existing seeded room and demonstrate an inventory update only. Avoid deleting seeded data.
+
+### Step 6: Booking management
+
+Action: Open Bookings, choose the seeded hotel, and open a booking.
+
+Expected: Hotel-scoped booking data loads. Only valid status actions are enabled. A customer account cannot open this management surface.
+
+Backup: Use the seeded completed booking for read-only detail. Do not force an invalid status transition.
+
+## 9. Known limitations
+
+- Registration requires email verification, so live registration is not part of the timed core flow. Explain it briefly or use the seeded customer.
+- External VNPay payment is disabled intentionally. Booking creation and confirmation are demonstrated without payment initiation.
+- Optional content, commercial, review, RBAC-administration, and editor modules are preserved in source but hidden.
+- Hotel pages expose room types to customers; physical room numbers are management data.
+- Some dashboard values can be empty when the selected date range has no seeded activity.
+- Cloudinary-dependent upload actions are not required for the core demo.
+
+## 10. Troubleshooting
+
+- Backend does not start: run `docker compose ps`, wait for PostgreSQL health, then inspect Flyway errors before restarting.
+- HTTP 401 after a previous rehearsal: log out, clear site storage, and log in again.
+- HTTP 403 in management: confirm the Owner account owns or is a member of the selected hotel, or use the Manager account with an explicit hotel membership. Platform security routes require Admin.
+- Empty availability: choose future dates within the seeded inventory window and quantity 1.
+- Frontend shows fixture data: stop immediately and confirm `VITE_USE_MOCKS=false` and `VITE_BYPASS_AUTH=false`.
+- Port conflict: stop the old process instead of changing URLs during the presentation.
+- Broken non-core action: return to `/hotels` or `/admin/hotels` and continue with the documented backup step.
+
+## 11. Final pre-demo checklist
+
+- [ ] PostgreSQL container is healthy
+- [ ] Backend health endpoint returns `UP`
+- [ ] Frontend opens with no console errors
+- [ ] Mocks, auth bypass, and VNPay are disabled
+- [ ] Admin, Owner, Manager, and customer credentials work
+- [ ] Hotels and one hotel detail load
+- [ ] Future room availability is non-empty
+- [ ] A rehearsal booking can be created and appears in My Bookings
+- [ ] Admin sidebar shows only the core management surface
+- [ ] Owner sees only assigned hotels and receives 403 for a foreign hotel
+- [ ] Dashboard, hotels, room types, inventory, and bookings load
+- [ ] Optional direct routes redirect safely
+- [ ] Browser zoom is 100 percent and no stale tabs are visible
+- [ ] Backup seeded booking and hotel are known

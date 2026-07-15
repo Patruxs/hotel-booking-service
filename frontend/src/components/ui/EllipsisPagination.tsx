@@ -34,7 +34,7 @@ export default function EllipsisPagination({
     for (const page of range) {
       if (page === '...') {
         pages.push(
-          <span key={Math.random()} className="px-2 text-gray-500">
+          <span key={`ellipsis-${pages.length}`} className="px-2 text-gray-500">
             ...
           </span>
         );

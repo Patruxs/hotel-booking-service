@@ -21,8 +21,18 @@
 - Added Kinyias-compatible named API wrapper exports on each feature adapter so active migrated pages call feature APIs instead of reading `mockApi` directly.
 - Updated migrated route pages to read React Router camelCase params such as `hotelId`, `bookingId`, `newsId`, `contactId`, `commissionId`, `policyId`, `typeId`, and `roomId`.
 - Removed the temporary snake_case compatibility aliases from `src/hooks/navigation.ts`.
-- Set local inspection defaults in `.env` to `VITE_USE_MOCKS=true` and `VITE_BYPASS_AUTH=true`.
-- Unsupported Spring modules now use `mockOnly`/TODO-safe feature adapters, so they do not call missing backend endpoints even when `VITE_USE_MOCKS=false`.
+- Live Spring API mode is now the default when env flags are absent.
+  Explicit local inspection requires `VITE_USE_MOCKS=true` and auth bypass
+  requires `VITE_BYPASS_AUTH=true`.
+- Unsupported Spring modules use `mockOnly`/TODO-safe feature adapters only in
+  explicit mock mode. In live mode, `mockOnly` throws so missing contracts are
+  visible instead of silently returning fixtures.
+- Removed the broken `/me/sale` account dropdown link and the mobile "My
+  Offers" entry because no product route or Spring contract exists.
+- Hid Google OAuth buttons from login/register until Spring exposes a completed
+  OAuth contract.
+- Added task group 1 route inventory and guardrail evidence at
+  `docs/stories/FRONTEND-API-001-live-spring-api-integration/route-inventory.md`.
 - Removed `// @ts-nocheck` from active routed Kinyias pages, shared API adapter utilities, and feature `api.ts` adapter files. The feature API objects are still compatibility-typed at the adapter boundary while the copied Kinyias DTO contracts are reconciled with Spring DTOs.
 - Reduced remaining suppressions from 324 to 254 by also checking active auth, booking, review, user, hotel, room, room-type, banner, contact, news, policy, promotion, inventory, commission feature components plus active layout, section, dashboard, booking-filter, and icon components.
 - Copied available text SVG assets from `apps/web/public`.
@@ -42,20 +52,53 @@ Required routes implemented with React Router and migrated Kinyias page bodies:
 
 `/`, `/login`, `/register`, `/forgot-password`, `/auth/callback`, `/auth/reset`, `/auth/verify-email`, `/hotels`, `/hotels/:hotelId`, `/booking`, `/payment-result`, `/contact`, `/news`, `/news/:newsId`, `/partner`, `/me`, `/me/my-bookings`, `/me/my-bookings/:bookingId`, `/me/my-reviews`, `/admin`, `/admin/dashboard/:hotelId`, `/admin/hotels`, `/admin/hotels/:id`, `/admin/member-hotels`, `/admin/bookings`, `/admin/bookings/:hotelId`, `/admin/bookings/:hotelId/booking/:bookingId`, `/admin/amenities`, `/admin/amenities/:id`, `/admin/users`, `/admin/users/roles`, `/admin/users/permissions`, `/admin/users/actions`, `/admin/room-types/:hotelId`, `/admin/room-types/:hotelId/manage/:typeId`, `/admin/room-types/:hotelId/manage/:typeId/room/:roomId`, `/admin/inventory`, `/admin/news`, `/admin/news/:newsId`, `/admin/policies/:hotelId`, `/admin/policies/:hotelId/policy/:policyId`, `/admin/promotions`, `/admin/promotions/:id`, `/admin/reviews/:hotelId`, `/admin/contacts`, `/admin/contacts/:contactId`, `/admin/commissions`, `/admin/commissions/:commissionId`, `/admin/commissions/hotels`, `/admin/settings`, `/editor`, `/simple`, `/403`, `/forbidden`, `*`.
 
-## Mocked and real-backed modules
+## Live and mock-mode modules
 
 Mock data exists for users, hotels, bookings, rooms, amenities, banners, promotions, policies, news, reviews, inventory, commissions, contacts, permissions, roles, and actions.
 
-When `VITE_USE_MOCKS=false`, supported feature API functions call the current Spring Boot endpoints directly through `src/features/*/api.ts`. Some Kinyias-era modules still have no backend equivalent in this Spring Boot app and remain visible behind mock/TODO-safe adapters.
+When `VITE_USE_MOCKS=false`, reachable public, account, and admin product flows
+call Spring Boot endpoints directly through `src/features/*/api.ts`. Feature
+adapters unwrap Spring `{ status, message, data }` responses and map Spring DTOs
+to the view models expected by migrated Kinyias pages.
 
-Currently connected Spring Boot modules:
+When `VITE_USE_MOCKS=true`, fixture data may be used for local UI inspection.
+Mock mode is not live proof and is not the default for production-like runs.
+`mockOnly` remains development-only and throws outside explicit mock mode.
 
-- auth: `/auth/login`, `/auth/register`, `/auth/logout`
-- hotels: `/hotels/all`, `/hotels/:id`, `/hotels/search`, `/hotels/:hotelId/rooms`
-- rooms: `/rooms/all`, `/rooms/:roomId`, `/rooms/types`, `/rooms/all-available-rooms`
-- bookings: `/bookings/all`, `/bookings/create`, `/bookings/update/:bookingId`, `/bookings/cancel/:bookingId`
-- users: `/users/all`, `/users/get-logged-in-profile-info`, `/users/get-user-bookings`
-- amenities: `/amenities/all`, `/amenities/:id`
+Currently connected Spring Boot modules include:
+
+- auth and session: `/auth/login`, `/auth/register`, `/auth/logout`,
+  `/auth/refresh`, `/auth/forgot-password`, `/auth/reset-password`,
+  `/auth/verify-email`, `/auth/resend`, `/users/me`
+- hotels, room types, rooms, members, and inventory: `/hotels`,
+  `/hotels/:hotelId`, `/hotels/:hotelId/manage`,
+  `/hotels/:hotelId/members`, `/hotels/:hotelId/room-types`,
+  `/hotels/:hotelId/rooms`,
+  `/hotels/:hotelId/room-types/:roomTypeId/inventory`
+- bookings and payments: `/hotels/:hotelId/bookings`,
+  `/hotels/:hotelId/bookings/:bookingId`, `/bookings/me`,
+  `/bookings/me/:bookingId`, `/bookings/:bookingId/payments/vnpay`
+- account profile, avatar, bookings, and reviews: `/users/me`,
+  `/users/me/change-password`, `/uploads/avatar`, `/bookings/me`,
+  `/reviews/mine`
+- content and communication: `/banners`, `/admin/banners`, `/news`,
+  `/admin/news`, `/contacts`, `/admin/contacts`, `/notifications`
+- policies, promotions, commissions, and dashboard:
+  `/hotels/:hotelId/policies`, `/admin/hotels/:hotelId/policies`,
+  `/admin/promotions`, `/promotions/public`, `/admin/commission-packages`,
+  `/hotels/:hotelId/commission-package/:packageId`, `/dashboard/*`
+- RBAC and users: `/users`, `/users/:userId`, `/roles`,
+  `/roles/assign-to-user`, `/permissions`, `/actions`
+
+Hidden or excluded routes after live integration:
+
+- `/me/sale` and the mobile "My Offers" entry are removed from normal account
+  navigation because the product has no live route or Spring contract for them.
+- Google OAuth entry points are hidden until a completed Spring OAuth flow and
+  E2E proof exist. `/auth/callback` remains mounted for direct compatibility but
+  is not linked from normal navigation.
+- `/editor` and `/simple` are development/editor routes. They are not part of
+  the product surface unless product navigation intentionally links to them.
 
 ## Binary assets
 

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,32 +29,35 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
     @Override
     @Transactional
     public void addAmenitiesToRoom(Integer roomId, List<Integer> amenityIds) {
-        Room room = roomRepository.findById(roomId)
+        Room room = roomRepository.findById(new UUID(0L, roomId.longValue()))
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
-        // 1. Tìm tất cả các Amenity có trong danh sách ID gửi lên
-        List<Amenity> foundAmenities = amenityRepository.findAllById(amenityIds);
+        // 1. Find all amenities present in the list of sent IDs
+        List<UUID> uuids = amenityIds.stream()
+                .map(id -> new UUID(0L, id.longValue()))
+                .collect(Collectors.toList());
+        List<Amenity> foundAmenities = amenityRepository.findAllById(uuids);
 
-        // 2. Lấy ra danh sách các ID thực sự tồn tại trong DB
+        // 2. Get the list of IDs that actually exist in the DB
         List<Integer> foundIds = foundAmenities.stream()
                 .map(Amenity::getId)
                 .collect(Collectors.toList());
 
-        // 3. Tìm các ID bị thiếu (Có trong request nhưng không có trong DB)
+        // 3. Find the missing IDs (present in the request but not in the DB)
         List<Integer> missingIds = amenityIds.stream()
                 .filter(id -> !foundIds.contains(id))
                 .collect(Collectors.toList());
 
-        // 4. Nếu có ID thiếu -> Báo lỗi ngay lập tức
+        // 4. If there are missing IDs -> Throw an error immediately
         if (!missingIds.isEmpty()) {
             throw new NotFoundException("Could not add successfully. The following Amenity IDs do not exist: " + missingIds);
         }
 
-        // 5. Nếu tất cả đều hợp lệ, tiến hành lưu
+        // 5. If all are valid, proceed to save
         for (Amenity amenity : foundAmenities) {
             RoomamenityId id = new RoomamenityId();
-            id.setRoomId(roomId);
-            id.setAmenityId(amenity.getId());
+            id.setRoomId(room.getUuid());
+            id.setAmenityId(amenity.getUuid());
 
             if (!roomAmenityRepository.existsById(id)) {
                 Roomamenity roomAmenity = new Roomamenity();
@@ -64,15 +68,14 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
                 roomAmenityRepository.save(roomAmenity);
             }
         }
-
     }
 
     @Override
     @Transactional
     public void removeAmenityFromRoom(Integer roomId, Integer amenityId) {
         RoomamenityId id = new RoomamenityId();
-        id.setRoomId(roomId);
-        id.setAmenityId(amenityId);
+        id.setRoomId(new UUID(0L, roomId.longValue()));
+        id.setAmenityId(new UUID(0L, amenityId.longValue()));
 
         if (roomAmenityRepository.existsById(id)) {
             roomAmenityRepository.deleteById(id);
@@ -84,6 +87,6 @@ public class RoomAmenityServiceImpl implements IRoomAmenityService {
     @Override
     @Transactional(readOnly = true)
     public List<Roomamenity> getAmenitiesByRoomId(Integer roomId) {
-        return roomAmenityRepository.findByIdRoomId(roomId);
+        return roomAmenityRepository.findByIdRoomId(new UUID(0L, roomId.longValue()));
     }
 }

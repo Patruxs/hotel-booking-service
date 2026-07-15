@@ -68,7 +68,10 @@ function normalizeList(payload: any): NewsListResponse {
   if (Array.isArray(payload?.items)) {
     return { ...payload, items: payload.items.map(toNews) };
   }
-  return listMockNews();
+  if (Array.isArray(payload)) {
+    return { page: 1, limit: payload.length, total: payload.length, items: payload.map(toNews) };
+  }
+  throw new Error("Unexpected news list response from Spring API");
 }
 
 export const newsApi: any = {

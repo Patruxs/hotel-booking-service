@@ -26,6 +26,7 @@ import { Eye, Search } from 'lucide-react';
 import EllipsisPagination from '@/components/ui/EllipsisPagination';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/providers/AuthProvider';
+import { normalizeRoleName } from '@/providers/permissionAccess';
 function DashboardPage() {
   const {user} = useAuth();
   const [page, setPage] = useState(1);
@@ -40,7 +41,7 @@ function DashboardPage() {
     const total = hotelsResponse?.meta.total || 0;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const isAdmin = (user: any): boolean => {
-      return user?.roles.some((role: any) => role.name === 'ADMIN') || false;
+        return user?.roles.some((role: any) => normalizeRoleName(role.name) === 'ADMIN') || false;
     };
   return (
     <div className='m-4 md:m-6'>

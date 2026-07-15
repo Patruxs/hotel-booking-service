@@ -26,5 +26,8 @@ export async function mockOrRequest<T>(mockValue: T, request: () => Promise<{ da
 }
 
 export async function mockOnly<T>(mockValue: T): Promise<T> {
+  if (!useMocks) {
+    throw new Error("mockOnly adapter called while VITE_USE_MOCKS is not true");
+  }
   return Promise.resolve(mockValue);
 }

@@ -14,6 +14,7 @@ import org.example.hotelbookingservice.services.IHotelAmenityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,17 +27,21 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
     @Override
     @Transactional
     public void addAmenitiesToHotel(Integer hotelId, List<Integer> amenityIds) {
-        Hotel hotel = hotelRepository.findById(hotelId)
+        Hotel hotel = hotelRepository.findAll().stream()
+                .filter(h -> hotelId.equals(h.getId()))
+                .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
         for (Integer amenityId : amenityIds) {
-            Amenity amenity = amenityRepository.findById(amenityId)
+            Amenity amenity = amenityRepository.findAll().stream()
+                    .filter(a -> amenityId.equals(a.getId()))
+                    .findFirst()
                     .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
 
             // Create a complex primary key
             HotelamenityId id = new HotelamenityId();
-            id.setHotelId(hotelId);
-            id.setAmenityId(amenityId);
+            id.setHotelId(hotel.getUuid());
+            id.setAmenityId(amenity.getUuid());
 
             // Check if this relationship already exists to avoid duplicate key errors
             if (!hotelamenityRepository.existsById(id)) {
@@ -47,20 +52,29 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
 
                 hotelamenityRepository.save(hotelamenity);
             }
-
         }
     }
 
     @Override
     @Transactional
     public void removeAmenityFromHotel(Integer hotelId, Integer amenityId) {
+        Hotel hotel = hotelRepository.findAll().stream()
+                .filter(h -> hotelId.equals(h.getId()))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+
+        Amenity amenity = amenityRepository.findAll().stream()
+                .filter(a -> amenityId.equals(a.getId()))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+
         HotelamenityId id = new HotelamenityId();
-        id.setAmenityId(hotelId);
-        id.setHotelId(hotelId);
+        id.setHotelId(hotel.getUuid());
+        id.setAmenityId(amenity.getUuid());
 
         if (hotelamenityRepository.existsById(id)) {
             hotelamenityRepository.deleteById(id);
-        }else{
+        } else {
             throw new AppException(ErrorCode.NOT_FOUND_EXCEPTION);
         }
     }
@@ -68,6 +82,10 @@ public class HotelAmenityServiceImpl implements IHotelAmenityService {
     @Override
     @Transactional(readOnly = true)
     public List<Hotelamenity> getAmenitiesByHotelId(Integer hotelId) {
-        return hotelamenityRepository.findByIdHotelId(hotelId);
+        Hotel hotel = hotelRepository.findAll().stream()
+                .filter(h -> hotelId.equals(h.getId()))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.NOT_FOUND_EXCEPTION));
+        return new ArrayList<>(hotel.getHotelAmenities());
     }
 }

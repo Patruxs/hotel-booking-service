@@ -32,7 +32,9 @@ export default function InventoryPage() {
     from: new Date(),
     to: addDays(new Date(), 30),
   })
-  const [selectedHotelId, setSelectedHotelId] = React.useState<string>("")
+  const [selectedHotelId, setSelectedHotelId] = React.useState<string>(() =>
+    typeof window === "undefined" ? "" : window.localStorage.getItem("owner.selectedHotelId") ?? "",
+  )
   const [selectedRoomTypeId, setSelectedRoomTypeId] = React.useState<string>("")
   const [includeStopped, setIncludeStopped] = React.useState<boolean>(false)
   // Fetch Hotels
@@ -55,17 +57,26 @@ export default function InventoryPage() {
       includeStopped,
     }
   )
-  // Effect to auto-select first hotel if none selected
-  // React.useEffect(() => {
-  //   if (hotels && hotels.length > 0 && !selectedHotelId) {
-  //     setSelectedHotelId(hotels[0].id)
-  //   }
-  // }, [hotels, selectedHotelId])
+  React.useEffect(() => {
+    if (!hotels || hotels.length === 0) {
+      setSelectedHotelId("")
+      setSelectedRoomTypeId("")
+      return
+    }
+    if (!selectedHotelId || !hotels.some((hotel: any) => String(hotel.id) === selectedHotelId)) {
+      setSelectedHotelId(String(hotels[0].id))
+    }
+  }, [hotels, selectedHotelId])
+  React.useEffect(() => {
+    if (selectedHotelId) {
+      window.localStorage.setItem("owner.selectedHotelId", selectedHotelId)
+    }
+  }, [selectedHotelId])
   // Effect to auto-select first room type if none selected
   React.useEffect(() => {
     if (roomTypes && roomTypes.length > 0) {
-       if (!selectedRoomTypeId || !roomTypes.find((rt: any) => rt.id === selectedRoomTypeId)) {
-          setSelectedRoomTypeId(roomTypes[0].id)
+       if (!selectedRoomTypeId || !roomTypes.find((rt: any) => String(rt.id) === String(selectedRoomTypeId))) {
+          setSelectedRoomTypeId(String(roomTypes[0].id))
        }
     } else {
         if (roomTypes && roomTypes.length === 0) {
@@ -147,7 +158,7 @@ export default function InventoryPage() {
                     <div className="p-2 text-sm text-muted-foreground">No hotels found</div>
                   ) : (
                     hotels?.map((hotel: any) => (
-                      <SelectItem key={hotel.id} value={hotel.id}>
+                      <SelectItem key={hotel.id} value={String(hotel.id)}>
                         {hotel.name}
                       </SelectItem>
                     ))
@@ -173,7 +184,7 @@ export default function InventoryPage() {
                      <div className="p-2 text-sm text-muted-foreground">No room types found</div>
                  ) : (
                     roomTypes?.map((rt: any) => (
-                      <SelectItem key={rt.id} value={rt.id}>
+                      <SelectItem key={rt.id} value={String(rt.id)}>
                         {rt.name}
                       </SelectItem>
                     ))

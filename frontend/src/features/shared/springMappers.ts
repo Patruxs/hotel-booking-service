@@ -3,7 +3,7 @@ import type { Booking, Hotel, RoomType, User } from "@/lib/types";
 type AnyRecord = Record<string, any>;
 
 export function toHotel(raw: AnyRecord): Hotel {
-  const id = String(raw.id ?? raw.hotelId ?? "");
+  const id = String(raw.uuid ?? raw.id ?? raw.hotelId ?? "");
   const rawImages = Array.isArray(raw.images) ? raw.images : [];
   const imageUrl = raw.coverImage ?? raw.imageUrl ?? rawImages[0]?.url ?? rawImages[0] ?? "/globe.svg";
   const images = rawImages.length > 0
@@ -12,7 +12,7 @@ export function toHotel(raw: AnyRecord): Hotel {
           ? { id: `${id}-image-${index + 1}`, hotelId: id, url: image }
           : { id: image.id ?? `${id}-image-${index + 1}`, hotelId: id, ...image, url: image.url ?? imageUrl },
       )
-    : [{ id: `${id}-image-1`, hotelId: id, url: imageUrl }];
+    : [{ id: `${id}-image-1`, hotelId: id, url: imageUrl, isPlaceholder: true }];
   const priceFrom = Number(raw.minPrice ?? raw.priceFrom ?? 0);
 
   return {
@@ -20,6 +20,7 @@ export function toHotel(raw: AnyRecord): Hotel {
     name: raw.name ?? "Unnamed hotel",
     city: raw.location ?? raw.city ?? "",
     address: raw.location ?? raw.address ?? "",
+    country: raw.country ?? "",
     rating: Number(raw.averageRating ?? raw.starRating ?? 0),
     priceFrom,
     minPrice: priceFrom,
@@ -27,9 +28,9 @@ export function toHotel(raw: AnyRecord): Hotel {
     images,
     description: raw.description ?? "",
     owner: raw.owner ?? {
-      id: raw.ownerId ?? "mock-owner",
+      id: raw.ownerId ?? raw.owner_id ?? "mock-owner",
       name: raw.ownerName ?? "Hotel Owner",
-      email: raw.ownerEmail ?? "owner@example.com",
+      email: raw.ownerEmail ?? raw.email ?? "owner@example.com",
     },
     status: raw.status ?? "ACTIVE",
     commissionPackage: raw.commissionPackage,
@@ -78,8 +79,11 @@ export function toBooking(raw: AnyRecord): Booking {
   return {
     id,
     hotelId,
+    userId: String(raw.userId ?? raw.user?.id ?? raw.accountId ?? ""),
     hotelName,
     guestName: raw.customerName ?? raw.guestName ?? raw.user?.fullName ?? "Guest",
+    guestEmail: raw.guestEmail ?? raw.customerEmail ?? raw.user?.email ?? "",
+    guestPhone: raw.guestPhone ?? raw.customerPhone ?? "",
     checkIn,
     checkOut,
     checkinDate: checkIn,
@@ -96,18 +100,45 @@ export function toBooking(raw: AnyRecord): Booking {
     },
     items,
     payments: Array.isArray(raw.payments) ? raw.payments : [],
+    promotion: raw.promotion ?? null,
+    note: raw.note ?? "",
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    pendingExpiresAt: raw.pendingExpiresAt,
+    cancelledAt: raw.cancelledAt,
+    completedAt: raw.completedAt,
   };
 }
 
 export function toUser(raw: AnyRecord, roleName?: string): User {
-  const role = roleName ?? raw.role ?? raw.roles?.[0]?.name ?? "USER";
+  const roles = Array.isArray(raw.roles) && raw.roles.length > 0
+    ? raw.roles.map((role: AnyRecord) => ({
+        id: String(role.id ?? role.name ?? ""),
+        name: String(role.name ?? role.displayName ?? role.id ?? "USER"),
+        permissions: Array.isArray(role.permissions)
+          ? role.permissions.map((permission: AnyRecord) => permission.key ?? permission.name ?? permission)
+          : [],
+      }))
+    : [{ id: roleName ?? raw.role ?? "USER", name: roleName ?? raw.role ?? "USER", permissions: [] }];
+  const fullName = [raw.firstName, raw.lastName].filter(Boolean).join(" ");
+  const name = raw.fullName ?? raw.name ?? (fullName || raw.email) ?? "User";
+  const avatarUrl = raw.avatar?.url ?? raw.avatar?.secureUrl ?? raw.avatarUrl;
+
   return {
     id: String(raw.id ?? ""),
-    name: raw.fullName ?? raw.name ?? raw.email ?? "User",
+    name,
     email: raw.email ?? "",
     phone: raw.phone,
-    roles: [{ id: role, name: role, permissions: role === "ADMIN" ? ["*"] : [] }],
-    allowedActions: role === "ADMIN" ? ["*"] : [],
+    dob: raw.dob ?? raw.dateOfBirth,
+    dateOfBirth: raw.dateOfBirth ?? raw.dob,
+    firstName: raw.firstName,
+    lastName: raw.lastName,
+    avatar: raw.avatar,
+    avatarUrl,
+    roles,
+    allowedActions: Array.isArray(raw.allowedActions) ? raw.allowedActions.map(String) : [],
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
   };
 }
 

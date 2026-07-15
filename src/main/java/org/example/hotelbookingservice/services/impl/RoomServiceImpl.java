@@ -32,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -116,7 +117,7 @@ public class RoomServiceImpl implements IRoomService {
     }
 
     private RoomResponse updateRoomInTransaction(RoomCreateRequest roomCreateRequest, String imagePath) {
-        Room existingRoom = roomRepository.findById(roomCreateRequest.getId())
+        Room existingRoom = roomRepository.findById(legacyId(roomCreateRequest.getId()))
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
         if (imagePath != null){
@@ -156,7 +157,7 @@ public class RoomServiceImpl implements IRoomService {
     @Override
     @Transactional(readOnly = true)
     public RoomResponse getRoomById(Integer id) {
-        Room room = roomRepository.findById(id)
+        Room room = roomRepository.findById(legacyId(id))
                 .orElseThrow(()-> new AppException(ErrorCode.NOT_FOUND_ROOM));
 
         return roomMapper.toRoomResponse(room);
@@ -168,10 +169,10 @@ public class RoomServiceImpl implements IRoomService {
     @Override
     @Transactional
     public void deleteRoom(Integer id) {
-        if (!roomRepository.existsById(id)){
+        if (!roomRepository.existsById(legacyId(id))){
             throw new AppException(ErrorCode.NOT_FOUND_ROOM);
         }
-        roomRepository.deleteById(id);
+        roomRepository.deleteById(legacyId(id));
     }
 
     @Override
@@ -231,5 +232,9 @@ public class RoomServiceImpl implements IRoomService {
         List<Room> availableRooms = roomRepository.findAvailableRoomsByHotelId(hotelId, checkInDate, checkOutDate);
 
         return roomMapper.toRoomResponseList(availableRooms);
+    }
+
+    private UUID legacyId(Integer id) {
+        return id == null ? null : new UUID(0L, id.longValue());
     }
 }

@@ -1,25 +1,22 @@
 package org.example.hotelbookingservice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.example.hotelbookingservice.dto.common.ApiResponse;
 import org.example.hotelbookingservice.dto.request.booking.BookingCreateRequest;
 import org.example.hotelbookingservice.dto.request.booking.BookingUpdateRequest;
 import org.example.hotelbookingservice.dto.response.BookingResponse;
 import org.example.hotelbookingservice.enums.BookingStatus;
-import org.example.hotelbookingservice.exception.GlobalExceptionHandler;
 import org.example.hotelbookingservice.services.IBookingService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,33 +27,35 @@ import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith(MockitoExtension.class)
-@Disabled("Legacy booking controller tests target the pre-migration integer-ID booking lifecycle.")
-public class BookingControllerTest {
+@WebMvcTest(BookingController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
+class BookingControllerTest {
 
+    @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
     private ObjectMapper objectMapper;
 
-    @Mock
+    @MockitoBean
     private IBookingService bookingService;
 
-    @InjectMocks
-    private BookingController bookingController;
+    @MockitoBean
+    private org.example.hotelbookingservice.security.JwtUtils jwtUtils;
 
-    @BeforeEach
-    void setUp() {
-        objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
+    @MockitoBean
+    private org.example.hotelbookingservice.security.CustomUserDetailsService customUserDetailsService;
 
-        mockMvc = MockMvcBuilders.standaloneSetup(bookingController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
-    }
+    @MockitoBean
+    private org.example.hotelbookingservice.exception.CustomAccessDenialHandler customAccessDenialHandler;
+
+    @MockitoBean
+    private org.example.hotelbookingservice.exception.CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 
     @Test
-    void getAllBookings_WhenAdmin_ShouldReturn200AndList() throws Exception {
-        // Arrange
+    @WithMockUser(authorities = "ADMIN")
+    void getAllBookings_whenAdmin_shouldReturn200AndList() throws Exception {
         BookingResponse booking1 = new BookingResponse();
         booking1.setId(1);
         booking1.setBookingReference("CONFIRM1");
@@ -68,7 +67,6 @@ public class BookingControllerTest {
         List<BookingResponse> mockResponse = List.of(booking1, booking2);
         when(bookingService.getAllBookings()).thenReturn(mockResponse);
 
-        // Act & Assert
         mockMvc.perform(get("/api/v1/bookings/all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -81,22 +79,21 @@ public class BookingControllerTest {
     }
 
     @Test
-    void getAllBookings_WhenCustomer_ShouldReturn403() throws Exception {
-        // Mock the service to throw AccessDeniedException
+    @WithMockUser(authorities = "CUSTOMER")
+    void getAllBookings_whenServiceDeniesAccess_shouldReturn403() throws Exception {
         doThrow(new AccessDeniedException("Access Denied"))
             .when(bookingService).getAllBookings();
 
-        // Act & Assert
         mockMvc.perform(get("/api/v1/bookings/all")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.status").value(1007))
-                .andExpect(jsonPath("$.message").value("You do not have permission"));
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("You do not have permission"));
     }
 
     @Test
-    void updateBooking_WhenCustomer_ShouldReturn403() throws Exception {
-        // Arrange
+    @WithMockUser(authorities = "CUSTOMER")
+    void updateBooking_whenServiceDeniesAccess_shouldReturn403() throws Exception {
         BookingUpdateRequest request = new BookingUpdateRequest();
         request.setStatus(BookingStatus.CHECKED_IN);
         request.setRoomNumber("205");
@@ -104,18 +101,17 @@ public class BookingControllerTest {
         doThrow(new AccessDeniedException("Access Denied"))
             .when(bookingService).updateBooking(eq(1), any(BookingUpdateRequest.class));
 
-        // Act & Assert
         mockMvc.perform(put("/api/v1/bookings/update/{bookingId}", 1)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.status").value(1007))
-                .andExpect(jsonPath("$.message").value("You do not have permission"));
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("You do not have permission"));
     }
 
     @Test
-    void createBooking_WhenValidRequest_ShouldReturn201() throws Exception {
-        // Arrange
+    @WithMockUser(authorities = "CUSTOMER")
+    void createBooking_whenValidRequest_shouldReturn201Payload() throws Exception {
         BookingCreateRequest request = new BookingCreateRequest();
         request.setCheckinDate(LocalDate.now().plusDays(1));
         request.setCheckoutDate(LocalDate.now().plusDays(3));
@@ -132,8 +128,6 @@ public class BookingControllerTest {
 
         when(bookingService.createBooking(any(BookingCreateRequest.class))).thenReturn(response);
 
-        // Act & Assert
-        // Dựa vào controller trả về new ResponseEntity và status 200, nhưng `ApiResponse` code = 201.
         mockMvc.perform(post("/api/v1/bookings/create")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -145,35 +139,31 @@ public class BookingControllerTest {
     }
 
     @Test
-    void createBooking_WhenInvalidRequest_ShouldReturn400() throws Exception {
-        // Arrange
+    @WithMockUser(authorities = "CUSTOMER")
+    void createBooking_whenInvalidRequest_shouldReturn400() throws Exception {
         BookingCreateRequest request = new BookingCreateRequest();
-        // Missing required fields like hotelId, roomId, etc.
-        // Setting invalid dates
-        request.setCheckinDate(LocalDate.now().minusDays(1)); // Past date
-        request.setCheckoutDate(LocalDate.now().minusDays(2)); // Past date
-        request.setAdultAmount(0); // Invalid, min is 1
+        request.setCheckinDate(LocalDate.now().minusDays(1));
+        request.setCheckoutDate(LocalDate.now().minusDays(2));
+        request.setAdultAmount(0);
 
-        // Act & Assert
         mockMvc.perform(post("/api/v1/bookings/create")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.message").value("Validation Error"))
-                .andExpect(jsonPath("$.data").exists());
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.violations").exists());
     }
 
     @Test
-    void getBookingByConfirmationCode_ShouldReturn200() throws Exception {
-        // Arrange
+    void getBookingByConfirmationCode_whenFound_shouldReturn200() throws Exception {
         BookingResponse response = new BookingResponse();
         response.setId(1);
         response.setBookingReference("CONFIRM123");
 
         when(bookingService.findBookingByReferenceNo("CONFIRM123")).thenReturn(response);
 
-        // Act & Assert
         mockMvc.perform(get("/api/v1/bookings/get-by-confirmation-code/{confirmationCode}", "CONFIRM123")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -184,8 +174,8 @@ public class BookingControllerTest {
     }
 
     @Test
-    void updateBooking_ShouldReturn200() throws Exception {
-        // Arrange
+    @WithMockUser(authorities = "RECEPTIONIST")
+    void updateBooking_whenValidRequest_shouldReturn200() throws Exception {
         BookingUpdateRequest request = new BookingUpdateRequest();
         request.setStatus(BookingStatus.CHECKED_IN);
         request.setRoomNumber("205");
@@ -197,7 +187,6 @@ public class BookingControllerTest {
 
         when(bookingService.updateBooking(eq(1), any(BookingUpdateRequest.class))).thenReturn(response);
 
-        // Act & Assert
         mockMvc.perform(put("/api/v1/bookings/update/{bookingId}", 1)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -210,8 +199,8 @@ public class BookingControllerTest {
     }
 
     @Test
-    void cancelBooking_ShouldReturn200() throws Exception {
-        // Act & Assert
+    @WithMockUser(authorities = "CUSTOMER")
+    void cancelBooking_whenRequestHasReason_shouldReturn200() throws Exception {
         mockMvc.perform(delete("/api/v1/bookings/cancel/{bookingId}", 1)
                 .param("reason", "Changed mind")
                 .contentType(MediaType.APPLICATION_JSON))

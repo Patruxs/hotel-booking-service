@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AccountLayout, AdminLayout, PublicLayout } from "@/components/RouteShell";
 import { AdminRoute } from "@/components/layouts/AdminRoute";
 import {
@@ -38,7 +38,9 @@ import {
   AdminPromotionsPage,
   AdminReviewsPage,
   AdminRolesPage,
-  AdminRoomManagePage,
+    AdminRoomManagePage,
+    AdminRoomsPage,
+    AdminHotelRoomsPage,
   AdminRoomTypeManagePage,
   AdminRoomTypesPage,
   AdminSettingsPage,
@@ -64,17 +66,67 @@ import {
 import { ForbiddenPage, NotFoundPage } from "@/pages/ErrorPages";
 import { bypassAuth } from "@/mocks/mockAuth";
 import { useAuth } from "@/providers/AuthProvider";
+import { usePermission } from "@/providers/PermissionProvider";
+import { OWNER_ONLY_REQUIREMENT, type PermissionRequirement } from "@/providers/permissionAccess";
 
 const EditorPage = lazy(() => import("@/pages/EditorPages").then((module) => ({ default: module.EditorPage })));
 const SimpleEditorPage = lazy(() => import("@/pages/EditorPages").then((module) => ({ default: module.SimpleEditorPage })));
 
 function Protected({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
   if (!bypassAuth && !isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   return <>{children}</>;
 }
+
+export function AccessRoute({
+  children,
+  requirement,
+}: {
+  children: React.ReactNode;
+  requirement: PermissionRequirement;
+}) {
+  const { canAccess } = usePermission();
+  return canAccess(requirement) ? <>{children}</> : <Navigate to="/forbidden" replace />;
+}
+
+const managementHomeRequirement = {
+  requiredActions: [
+    "reports.hotel.view",
+    "hotels.manage",
+      "hotel.members.manage",
+      "inventory.manage",
+        "room_types.manage",
+        "rooms.view",
+      "bookings.list.hotel",
+      "content.manage",
+      "reviews.manage",
+  ],
+  requiredRoles: ["ADMIN"],
+} as const;
+
+const AMENITY_MANAGEMENT_REQUIREMENT = {
+  requiredRoles: ["ADMIN", "OWNER", "MANAGER"],
+} as const;
+
+const REVIEW_MANAGEMENT_REQUIREMENT = {
+  requiredActions: ["reviews.manage"],
+} as const;
+
+const ADMIN_ONLY_REQUIREMENT = { requiredRoles: ["ADMIN"] } as const;
+
+const requireAccess = (element: React.ReactNode, requirement: PermissionRequirement) => (
+  <AccessRoute requirement={requirement}>{element}</AccessRoute>
+);
 
 export function AppRoutes() {
   return (
@@ -91,10 +143,10 @@ export function AppRoutes() {
         <Route path="hotels/:hotelId" element={<HotelDetailPage />} />
         <Route path="booking" element={<BookingPage />} />
         <Route path="payment-result" element={<PaymentResultPage />} />
-        <Route path="contact" element={<ContactPage />} />
-        <Route path="news" element={<NewsPage />} />
-        <Route path="news/:newsId" element={<NewsDetailPage />} />
-        <Route path="partner" element={<PartnerPage />} />
+          <Route path="contact" element={<ContactPage />} />
+          <Route path="news" element={<NewsPage />} />
+          <Route path="news/:newsId" element={<NewsDetailPage />} />
+          <Route path="partner" element={<PartnerPage />} />
         <Route path="forbidden" element={<ForbiddenPage />} />
         <Route path="403" element={<ForbiddenPage />} />
         <Route
@@ -108,7 +160,7 @@ export function AppRoutes() {
           <Route index element={<ProfilePage />} />
           <Route path="my-bookings" element={<MyBookingsPage />} />
           <Route path="my-bookings/:bookingId" element={<MyBookingDetailPage />} />
-          <Route path="my-reviews" element={<MyReviewsPage />} />
+            <Route path="my-reviews" element={<MyReviewsPage />} />
         </Route>
       </Route>
 
@@ -120,56 +172,50 @@ export function AppRoutes() {
           </AdminRoute>
         }
       >
-        <Route index element={<AdminHomePage />} />
-        <Route path="dashboard/:hotelId" element={<AdminDashboardPage />} />
-        <Route path="hotels" element={<AdminHotelsPage />} />
-        <Route path="hotels/:id" element={<AdminHotelDetailPage />} />
-        <Route path="member-hotels" element={<AdminMemberHotelsPage />} />
-        <Route path="bookings" element={<AdminBookingsPage />} />
-        <Route path="bookings/:hotelId" element={<AdminHotelBookingsPage />} />
-        <Route path="bookings/:hotelId/booking/:bookingId" element={<AdminBookingDetailPage />} />
-        <Route path="amenities" element={<AdminAmenitiesPage />} />
-        <Route path="amenities/:id" element={<AdminAmenityDetailPage />} />
-        <Route path="users" element={<AdminUsersPage />} />
-        <Route path="users/roles" element={<AdminRolesPage />} />
-        <Route path="users/permissions" element={<AdminPermissionsPage />} />
-        <Route path="users/actions" element={<AdminActionsPage />} />
-        <Route path="room-types" element={<AdminRoomTypesPage />} />
-        <Route path="room-types/:hotelId" element={<AdminHotelRoomTypesPage />} />
-        <Route path="room-types/:hotelId/manage/:typeId" element={<AdminRoomTypeManagePage />} />
-        <Route path="room-types/:hotelId/manage/:typeId/room/:roomId" element={<AdminRoomManagePage />} />
-        <Route path="inventory" element={<AdminInventoryPage />} />
-        <Route path="news" element={<AdminNewsPage />} />
-        <Route path="news/:newsId" element={<AdminNewsDetailPage />} />
-        <Route path="policies" element={<AdminPoliciesPage />} />
-        <Route path="policies/:hotelId" element={<AdminHotelPoliciesPage />} />
-        <Route path="policies/:hotelId/policy/:policyId" element={<AdminPolicyDetailPage />} />
-        <Route path="promotions" element={<AdminPromotionsPage />} />
-        <Route path="promotions/:id" element={<AdminPromotionDetailPage />} />
-        <Route path="reviews" element={<AdminReviewsPage />} />
-        <Route path="reviews/:hotelId" element={<AdminHotelReviewsPage />} />
-        <Route path="contacts" element={<AdminContactsPage />} />
-        <Route path="contacts/:contactId" element={<AdminContactDetailPage />} />
-        <Route path="commissions" element={<AdminCommissionsPage />} />
-        <Route path="commissions/hotels" element={<AdminCommissionHotelsPage />} />
-        <Route path="commissions/:commissionId" element={<AdminCommissionDetailPage />} />
-        <Route path="settings" element={<AdminSettingsPage />} />
+          <Route index element={requireAccess(<AdminHomePage />, managementHomeRequirement)} />
+            <Route path="dashboard/:hotelId" element={requireAccess(<AdminDashboardPage />, { requiredActions: ["reports.hotel.view"] })} />
+            <Route path="hotels" element={requireAccess(<AdminHotelsPage />, { requiredActions: ["hotels.manage"] })} />
+            <Route path="hotels/new" element={requireAccess(<AdminHotelDetailPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="hotels/:id" element={requireAccess(<AdminHotelDetailPage />, { requiredActions: ["hotels.manage"] })} />
+            <Route path="member-hotels" element={requireAccess(<AdminMemberHotelsPage />, OWNER_ONLY_REQUIREMENT)} />
+          <Route path="bookings" element={requireAccess(<AdminBookingsPage />, { requiredActions: ["bookings.list.hotel"] })} />
+          <Route path="bookings/:hotelId" element={requireAccess(<AdminHotelBookingsPage />, { requiredActions: ["bookings.list.hotel"] })} />
+          <Route path="bookings/:hotelId/booking/:bookingId" element={requireAccess(<AdminBookingDetailPage />, { requiredActions: ["bookings.list.hotel"] })} />
+            <Route path="amenities" element={requireAccess(<AdminAmenitiesPage />, AMENITY_MANAGEMENT_REQUIREMENT)} />
+            <Route path="amenities/:id" element={requireAccess(<AdminAmenityDetailPage />, AMENITY_MANAGEMENT_REQUIREMENT)} />
+            <Route path="users" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="users/roles" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="users/permissions" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="users/actions" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="room-types" element={requireAccess(<AdminRoomTypesPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="room-types/:hotelId" element={requireAccess(<AdminHotelRoomTypesPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="room-types/:hotelId/manage/:typeId" element={requireAccess(<AdminRoomTypeManagePage />, OWNER_ONLY_REQUIREMENT)} />
+              <Route path="room-types/:hotelId/manage/:typeId/room/:roomId" element={requireAccess(<AdminRoomManagePage />, OWNER_ONLY_REQUIREMENT)} />
+              <Route path="rooms" element={requireAccess(<AdminRoomsPage />, { requiredActions: ["rooms.view"] })} />
+              <Route path="rooms/:hotelId" element={requireAccess(<AdminHotelRoomsPage />, { requiredActions: ["rooms.view"] })} />
+            <Route path="inventory" element={requireAccess(<AdminInventoryPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="news" element={requireAccess(<AdminNewsPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="news/:newsId" element={requireAccess(<AdminNewsDetailPage />, OWNER_ONLY_REQUIREMENT)} />
+            <Route path="policies/*" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="promotions/*" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+          <Route path="reviews" element={requireAccess(<AdminReviewsPage />, REVIEW_MANAGEMENT_REQUIREMENT)} />
+          <Route path="reviews/:hotelId" element={requireAccess(<AdminHotelReviewsPage />, REVIEW_MANAGEMENT_REQUIREMENT)} />
+            <Route path="contacts" element={requireAccess(<AdminContactsPage />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="contacts/:contactId" element={requireAccess(<AdminContactDetailPage />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="commissions/*" element={requireAccess(<Navigate to="/admin/hotels" replace />, ADMIN_ONLY_REQUIREMENT)} />
+            <Route path="settings" element={requireAccess(<AdminSettingsPage />, ADMIN_ONLY_REQUIREMENT)} />
       </Route>
 
       <Route
         path="editor"
         element={
-          <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading editor...</div>}>
-            <EditorPage />
-          </Suspense>
+            <Navigate to="/hotels" replace />
         }
       />
       <Route
         path="simple"
         element={
-          <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading editor...</div>}>
-            <SimpleEditorPage />
-          </Suspense>
+            <Navigate to="/hotels" replace />
         }
       />
       <Route path="*" element={<NotFoundPage />} />
